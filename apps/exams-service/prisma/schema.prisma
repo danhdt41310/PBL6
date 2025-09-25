@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/exams-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("EXAMS_DATABASE_URL")
+}
+
+enum ExamStatus {
+  draft
+  published
+  in_progress
+  completed
+  cancelled
+}
+
+model Exam {
+  exam_id     Int           @id @default(autoincrement())
+  class_id    Int
+  title       String        @db.VarChar
+  start_time  DateTime      @db.Timestamp(6)
+  end_time    DateTime      @db.Timestamp(6)
+  status      ExamStatus    @default(draft)
+  created_by  Int
+  created_at  DateTime      @default(now()) @db.Timestamp(6)
+  
+  submissions    Submission[]
+  question_exams QuestionExam[]
+
+  @@map("exams")
+}
+
+model Question {
+  question_id        Int                @id @default(autoincrement())
+  content            String             @db.Text
+  type               String             @db.VarChar // MCQ, essay, true/false
+  options            Json?              // JSON array for MCQ options
+  correct_answer     String?            @db.Text
+  created_at         DateTime           @default(now()) @db.Timestamp(6)
+  
+  submission_answers SubmissionAnswer[]
+  question_exams     QuestionExam[]
+
+  @@map("questions")
+}
+
+model QuestionExam {
+  question_id Int
+  exam_id     Int
+  points      Int @default(1)
+  
+  question Question @relation(fields: [question_id], references: [question_id], onDelete: Cascade)
+  exam     Exam     @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
+
+  @@id([question_id, exam_id])
+  @@map("question_exams")
+}
+
+model Submission {
+  submission_id     Int                @id @default(autoincrement())
+  exam_id           Int
+  student_id        Int
+  submitted_at      DateTime           @default(now()) @db.Timestamp(6)
+  score             Decimal?           @db.Decimal(5, 2) // Score out of total points
+  teacher_feedback  String?            @db.Text
+  graded_at         DateTime?          @db.Timestamp(6)
+  graded_by         Int?
+  
+  exam    Exam               @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
+  answers SubmissionAnswer[]
+
+  @@unique([exam_id, student_id])
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  answer_id      Int      @id @default(autoincrement())
+  submission_id  Int
+  question_id    Int
+  answer_content String   @db.Text
+  is_correct     Boolean  @default(false)
+  points_earned  Decimal  @default(0) @db.Decimal(5, 2)
+  comment        String?  @db.Text
+  comment_by     Int?
+  
+  submission Submission @relation(fields: [submission_id], references: [submission_id], onDelete: Cascade)
+  question   Question   @relation(fields: [question_id], references: [question_id], onDelete: Cascade)
+
+  @@map("submission_answers")
+}

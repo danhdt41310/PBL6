@@ -1,0 +1,48 @@
+# Development Dockerfile with hot reload
+FROM node:18-slim
+
+# Install required packages for Prisma
+RUN apt-get update && apt-get install -y openssl procps && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Increase npm timeout and add more memory
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_AUDIT=false
+
+# Install nodemon globally for hot reloading
+RUN npm install -g nodemon
+
+# Copy package files for dependency installation
+COPY package*.json ./
+COPY turbo.json ./
+
+# Copy packages first
+COPY packages/ ./packages/
+
+# Copy meetings-service package.json
+COPY apps/meetings-service/package*.json ./apps/meetings-service/
+COPY apps/meetings-service/prisma ./apps/meetings-service/prisma
+
+# Clear npm cache and install dependencies with retry
+RUN npm cache clean --force && npm ci
+
+# Generate Prisma Client for meetings-service
+WORKDIR /app/apps/meetings-service
+RUN npx prisma generate
+
+# Go back to root
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r nodejs && useradd -r -g nodejs nestjs
+
+# Change ownership of the app directory to the nestjs user
+RUN chown -R nestjs:nodejs /app
+
+USER nestjs
+
+EXPOSE 3004
+
+# Use start:dev for hot reload - source code will be mounted as volume
+CMD ["sh", "-c", "cd apps/meetings-service && npx prisma db push && cd ../.. && npm run start:dev --workspace=meetings-service"]

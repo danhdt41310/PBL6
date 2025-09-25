@@ -1,0 +1,40 @@
+# Development Dockerfile with hot reload
+FROM node:18-slim
+
+# Install required packages for Prisma
+RUN apt-get update && apt-get install -y openssl procps && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install nodemon globally for hot reloading
+RUN npm install -g nodemon
+
+# Copy package files
+COPY package*.json ./
+COPY turbo.json ./
+COPY apps/classes-service/package*.json ./apps/classes-service/
+COPY apps/classes-service/prisma ./apps/classes-service/prisma
+COPY packages/ ./packages/
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+
+# Generate Prisma Client for classes-service
+WORKDIR /app/apps/classes-service
+RUN npx prisma generate
+
+# Go back to root
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r nodejs && useradd -r -g nodejs nestjs
+
+# Change ownership of the app directory to the nestjs user
+RUN chown -R nestjs:nodejs /app
+
+USER nestjs
+
+EXPOSE 3007
+
+# Use start:dev for hot reload - source code will be mounted as volume
+CMD ["sh", "-c", "cd apps/classes-service && npx prisma db push && cd ../.. && npm run start:dev --workspace=classes-service"]

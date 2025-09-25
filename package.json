@@ -1,0 +1,42 @@
+{
+  "name": "microservices",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "start:dev": "turbo run start:dev",
+    "start:all": "./start-services.sh",
+    "docker:up": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "docker:build": "docker compose -f docker-compose.dev.yml build --no-cache",
+    "db:setup": "docker compose -f docker-compose.dev.yml up -d postgres-users postgres-chats postgres-classes postgres-exams postgres-meetings redis",
+    "prisma:generate:all": "npm run prisma:generate --workspace=users-service && npm run prisma:generate --workspace=chats-service && npm run prisma:generate --workspace=classes-service && npm run prisma:generate --workspace=exams-service && npm run prisma:generate --workspace=meetings-service",
+    "prisma:push:all": "npm run prisma:push --workspace=users-service && npm run prisma:push --workspace=chats-service && npm run prisma:push --workspace=classes-service && npm run prisma:push --workspace=exams-service && npm run prisma:push --workspace=meetings-service",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "clean": "docker-compose down -v --remove-orphans && docker system prune -f"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.8.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@nestjs/microservices": "^10.4.15",
+    "@nestjs/typeorm": "^10.0.0",
+    "typeorm": "^0.3.17",
+    "pg": "^8.11.0",
+    "ioredis": "^5.6.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.0",
+    "prettier": "^3.5.0",
+    "turbo": "^2.4.4",
+    "typescript": "5.7.3"
+  }
+}

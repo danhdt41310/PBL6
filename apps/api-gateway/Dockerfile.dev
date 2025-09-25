@@ -1,0 +1,31 @@
+# Development Dockerfile with hot reload
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install nodemon globally for hot reloading
+RUN npm install -g nodemon
+
+# Copy package files
+COPY package*.json ./
+COPY turbo.json ./
+COPY apps/api-gateway/package*.json ./apps/api-gateway/
+COPY packages/ ./packages/
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+RUN cd apps/api-gateway && npm install
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nestjs -u 1001
+
+# Change ownership of the app directory to the nestjs user
+RUN chown -R nestjs:nodejs /app
+
+USER nestjs
+
+EXPOSE 3000
+
+# Use start:dev for hot reload - source code will be mounted as volume
+CMD ["npm", "run", "start:dev", "--workspace=api-gateway"]

@@ -1,0 +1,331 @@
+services:
+  # PostgreSQL Databases
+  postgres-users:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-products:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: products_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_products_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-orders:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_orders_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-meetings:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: meetings_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_meetings_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-chats:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chats_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_chats_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-exams:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: exams_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_exams_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-classes:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: classes_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_classes_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  # Redis for microservices communication
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices-network
+
+  # Users Service
+  users-service:
+    build:
+      context: .
+      dockerfile: apps/users-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-users
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=users_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres-users
+      - redis
+    networks:
+      - microservices-network
+
+  # Products Service
+  products-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-products
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=products_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres-products
+      - redis
+    networks:
+      - microservices-network
+
+  # Orders Service
+  orders-service:
+    build:
+      context: .
+      dockerfile: apps/orders-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-orders
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=orders_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres-orders
+      - redis
+    networks:
+      - microservices-network
+
+  # Meetings Service
+  meetings-service:
+    build:
+      context: .
+      dockerfile: apps/meetings-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-meetings
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=meetings_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3004
+    ports:
+      - "3004:3004"
+    depends_on:
+      - postgres-meetings
+      - redis
+    networks:
+      - microservices-network
+
+  # Chats Service
+  chats-service:
+    build:
+      context: .
+      dockerfile: apps/chats-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-chats
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=chats_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3005
+    ports:
+      - "3005:3005"
+    depends_on:
+      - postgres-chats
+      - redis
+    networks:
+      - microservices-network
+
+  # Exams Service
+  exams-service:
+    build:
+      context: .
+      dockerfile: apps/exams-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-exams
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=exams_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3006
+    ports:
+      - "3006:3006"
+    depends_on:
+      - postgres-exams
+      - redis
+    networks:
+      - microservices-network
+
+  # Classes Service
+  classes-service:
+    build:
+      context: .
+      dockerfile: apps/classes-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres-classes
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=classes_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3007
+    ports:
+      - "3007:3007"
+    depends_on:
+      - postgres-classes
+      - redis
+    networks:
+      - microservices-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - USERS_SERVICE_HOST=users-service
+      - USERS_SERVICE_PORT=3001
+      - PRODUCTS_SERVICE_HOST=products-service
+      - PRODUCTS_SERVICE_PORT=3002
+      - ORDERS_SERVICE_HOST=orders-service
+      - ORDERS_SERVICE_PORT=3003
+      - MEETINGS_SERVICE_HOST=meetings-service
+      - MEETINGS_SERVICE_PORT=3004
+      - CHATS_SERVICE_HOST=chats-service
+      - CHATS_SERVICE_PORT=3005
+      - EXAMS_SERVICE_HOST=exams-service
+      - EXAMS_SERVICE_PORT=3006
+      - CLASSES_SERVICE_HOST=classes-service
+      - CLASSES_SERVICE_PORT=3007
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - users-service
+      - products-service
+      - orders-service
+      - meetings-service
+      - chats-service
+      - exams-service
+      - classes-service
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_users_data:
+  postgres_products_data:
+  postgres_orders_data:
+  postgres_meetings_data:
+  postgres_chats_data:
+  postgres_exams_data:
+  postgres_classes_data:
+  redis_data:
+
+networks:
+  microservices-network:
+    driver: bridge

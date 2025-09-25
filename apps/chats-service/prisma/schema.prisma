@@ -1,0 +1,42 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/chats-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CHATS_DATABASE_URL")
+}
+
+enum MessageType {
+  text
+  file
+  image
+}
+
+model Conversation {
+  id          Int      @id @default(autoincrement())
+  sender_id   Int
+  receiver_id Int
+
+  messages    Message[]
+
+  @@unique([sender_id, receiver_id])
+  @@map("conversations")
+}
+
+model Message {
+  id              Int         @id @default(autoincrement())
+  sender_id       Int
+  conversation_id Int
+  timestamp       DateTime    @default(now()) @db.Timestamp(6)
+  message_type    MessageType @default(text)
+  content         String?     @db.Text
+  
+  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}

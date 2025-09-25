@@ -1,0 +1,345 @@
+services:
+  # PostgreSQL Databases
+  postgres-users:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-meetings:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: meetings_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_meetings_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-chats:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chats_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_chats_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-exams:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: exams_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_exams_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  postgres-classes:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: classes_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_classes_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  # Redis for microservices communication
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices-network
+
+  # Users Service - Development with Hot Reload
+  users-service:
+    build:
+      context: .
+      dockerfile: apps/users-service/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-users
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=users_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3001
+      - USERS_DATABASE_URL=postgresql://postgres:postgres123@postgres-users:5432/users_db
+    ports:
+      - "3001:3001"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/users-service/src:/app/apps/users-service/src
+      - ./apps/users-service/tsconfig.json:/app/apps/users-service/tsconfig.json
+      - ./apps/users-service/tsconfig.build.json:/app/apps/users-service/tsconfig.build.json
+      - ./apps/users-service/nest-cli.json:/app/apps/users-service/nest-cli.json
+      - ./apps/users-service/nodemon.json:/app/apps/users-service/nodemon.json
+      - ./apps/users-service/package.json:/app/apps/users-service/package.json
+      - ./apps/users-service/prisma:/app/apps/users-service/prisma
+      - ./apps/users-service/.env:/app/apps/users-service/.env
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - users_service_node_modules:/app/apps/users-service/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - postgres-users
+      - redis
+    networks:
+      - microservices-network
+
+
+
+  # Meetings Service - Development with Hot Reload
+  meetings-service:
+    build:
+      context: .
+      dockerfile: apps/meetings-service/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-meetings
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=meetings_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3004
+      - MEETINGS_DATABASE_URL=postgresql://postgres:postgres123@postgres-meetings:5432/meetings_db
+    ports:
+      - "3004:3004"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/meetings-service/src:/app/apps/meetings-service/src
+      - ./apps/meetings-service/tsconfig.json:/app/apps/meetings-service/tsconfig.json
+      - ./apps/meetings-service/tsconfig.build.json:/app/apps/meetings-service/tsconfig.build.json
+      - ./apps/meetings-service/nest-cli.json:/app/apps/meetings-service/nest-cli.json
+      - ./apps/meetings-service/package.json:/app/apps/meetings-service/package.json
+      - ./apps/meetings-service/prisma:/app/apps/meetings-service/prisma
+      - ./apps/meetings-service/.env:/app/apps/meetings-service/.env
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - meetings_service_node_modules:/app/apps/meetings-service/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - postgres-meetings
+      - redis
+    networks:
+      - microservices-network
+
+  # Chats Service - Development with Hot Reload
+  chats-service:
+    build:
+      context: .
+      dockerfile: apps/chats-service/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-chats
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=chats_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3005
+      - CHATS_DATABASE_URL=postgresql://postgres:postgres123@postgres-chats:5432/chats_db
+    ports:
+      - "3005:3005"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/chats-service/src:/app/apps/chats-service/src
+      - ./apps/chats-service/tsconfig.json:/app/apps/chats-service/tsconfig.json
+      - ./apps/chats-service/tsconfig.build.json:/app/apps/chats-service/tsconfig.build.json
+      - ./apps/chats-service/nest-cli.json:/app/apps/chats-service/nest-cli.json
+      - ./apps/chats-service/package.json:/app/apps/chats-service/package.json
+      - ./apps/chats-service/prisma:/app/apps/chats-service/prisma
+      - ./apps/chats-service/.env:/app/apps/chats-service/.env
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - chats_service_node_modules:/app/apps/chats-service/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - postgres-chats
+      - redis
+    networks:
+      - microservices-network
+
+  # Exams Service - Development with Hot Reload
+  exams-service:
+    build:
+      context: .
+      dockerfile: apps/exams-service/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-exams
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=exams_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3006
+      - EXAMS_DATABASE_URL=postgresql://postgres:postgres123@postgres-exams:5432/exams_db
+    ports:
+      - "3006:3006"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/exams-service/src:/app/apps/exams-service/src
+      - ./apps/exams-service/tsconfig.json:/app/apps/exams-service/tsconfig.json
+      - ./apps/exams-service/tsconfig.build.json:/app/apps/exams-service/tsconfig.build.json
+      - ./apps/exams-service/nest-cli.json:/app/apps/exams-service/nest-cli.json
+      - ./apps/exams-service/package.json:/app/apps/exams-service/package.json
+      - ./apps/exams-service/prisma:/app/apps/exams-service/prisma
+      - ./apps/exams-service/.env:/app/apps/exams-service/.env
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - exams_service_node_modules:/app/apps/exams-service/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - postgres-exams
+      - redis
+    networks:
+      - microservices-network
+
+  # Classes Service - Development with Hot Reload
+  classes-service:
+    build:
+      context: .
+      dockerfile: apps/classes-service/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-classes
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=classes_db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3007
+      - CLASSES_DATABASE_URL=postgresql://postgres:postgres123@postgres-classes:5432/classes_db
+    ports:
+      - "3007:3007"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/classes-service/src:/app/apps/classes-service/src
+      - ./apps/classes-service/tsconfig.json:/app/apps/classes-service/tsconfig.json
+      - ./apps/classes-service/tsconfig.build.json:/app/apps/classes-service/tsconfig.build.json
+      - ./apps/classes-service/nest-cli.json:/app/apps/classes-service/nest-cli.json
+      - ./apps/classes-service/package.json:/app/apps/classes-service/package.json
+      - ./apps/classes-service/prisma:/app/apps/classes-service/prisma
+      - ./apps/classes-service/.env:/app/apps/classes-service/.env
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - classes_service_node_modules:/app/apps/classes-service/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - postgres-classes
+      - redis
+    networks:
+      - microservices-network
+
+  # API Gateway - Development with Hot Reload
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - USERS_SERVICE_HOST=users-service
+      - USERS_SERVICE_PORT=3001
+      - MEETINGS_SERVICE_HOST=meetings-service
+      - MEETINGS_SERVICE_PORT=3004
+      - CHATS_SERVICE_HOST=chats-service
+      - CHATS_SERVICE_PORT=3005
+      - EXAMS_SERVICE_HOST=exams-service
+      - EXAMS_SERVICE_PORT=3006
+      - CLASSES_SERVICE_HOST=classes-service
+      - CLASSES_SERVICE_PORT=3007
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./apps/api-gateway/src:/app/apps/api-gateway/src
+      - ./apps/api-gateway/tsconfig.json:/app/apps/api-gateway/tsconfig.json
+      - ./apps/api-gateway/tsconfig.build.json:/app/apps/api-gateway/tsconfig.build.json
+      - ./apps/api-gateway/nest-cli.json:/app/apps/api-gateway/nest-cli.json
+      - ./apps/api-gateway/nodemon.json:/app/apps/api-gateway/nodemon.json
+      # Mount shared packages
+      - ./packages:/app/packages
+      # Named volumes for node_modules to prevent anonymous volumes
+      - api_gateway_node_modules:/app/apps/api-gateway/node_modules
+      - root_node_modules:/app/node_modules
+    depends_on:
+      - redis
+      - users-service
+      - meetings-service
+      - chats-service
+      - exams-service
+      - classes-service
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_users_data:
+  postgres_meetings_data:
+  postgres_chats_data:
+  postgres_exams_data:
+  postgres_classes_data:
+  redis_data:
+  # Named volumes for node_modules to prevent anonymous volumes
+  users_service_node_modules:
+  meetings_service_node_modules:
+  chats_service_node_modules:
+  exams_service_node_modules:
+  classes_service_node_modules:
+  api_gateway_node_modules:
+  root_node_modules:
+
+networks:
+  microservices-network:
+    driver: bridge

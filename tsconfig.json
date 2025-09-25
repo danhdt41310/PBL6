@@ -1,0 +1,32 @@
+{
+  "extends": "./packages/typescript-config/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./apps/*"],
+      "@packages/*": ["./packages/*"]
+    }
+  },
+  "references": [
+    {
+      "path": "./apps/api-gateway"
+    },
+    {
+      "path": "./apps/users-service"
+    },
+    {
+      "path": "./apps/product-service"
+    },
+    {
+      "path": "./apps/orders-service"
+    }
+  ],
+  "files": [],
+  "include": [],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
+}
