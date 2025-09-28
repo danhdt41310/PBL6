@@ -8,11 +8,12 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { CreateUserDto } from './dto/user.dto';
 import { User } from './interfaces/user.interface';
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
-    constructor(private prisma: PrismaService, private mailSer: MailerService) {}
+  constructor(private prisma: PrismaService, private mailSer: MailerService) {}
   private readonly expired_verify_otp = 5*60*1000;
-
+  private readonly salt_round = 10;
   async create(createUserDto: CreateUserDto): Promise<User> {
     return await this.prisma.user.create({
       data: createUserDto,
@@ -45,11 +46,13 @@ export class UsersService {
       where: {user_id}
     });
     if (!user) return null;
-    if (user.password !== old_pass)  throw new Error('Old password not matched');
+    const isMatch = await bcrypt.compare(old_pass, user.password);
+    if (!isMatch) throw new Error('Password not match');
+    const new_hashed_pass = await bcrypt.hash(new_pass, this.salt_round);
     const updated_user = await this.prisma.user.update({
         where: {user_id},
         data: {
-          password: new_pass,
+          password: new_hashed_pass,
           updated_at: new Date(),
         },
       });
