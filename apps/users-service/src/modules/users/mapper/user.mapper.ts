@@ -34,7 +34,7 @@ export class UserMapper {
    * Maps users array with pagination info to UserListResponseDto
    */
   static toUserListResponseDto(
-    users: User[], 
+    users: User[],
     total: number, 
     page: number, 
     limit: number

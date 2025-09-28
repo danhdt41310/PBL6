@@ -2,26 +2,16 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { UsersModule } from './modules/users/users.module';
-import { PrismaService } from './prisma/prisma.service';
-import { MailerModule } from '@nestjs-modules/mailer';
+import { PrismaService } from './shared/prisma/prisma.service';
+import { SharedModule } from 'src/shared/shared.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['.env', '.env.local'],
     }),
-    MailerModule.forRoot({
-      transport: {
-        host: 'smtp.example.com',
-        port: 587,
-        auth: {
-          user: 'your@email.com',
-          pass: 'yourpassword',
-        },
-      },
-      defaults: {
-        from: '"No Reply" <noreply@example.com>',
-      },
-    }),
+    SharedModule,
     UsersModule,
   ],
   controllers: [AppController],
