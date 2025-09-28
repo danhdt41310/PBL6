@@ -7,13 +7,15 @@ import {
 import { UserMapper } from './mapper/user.mapper';
 import { CreateUserDto, UpdateProfileDto, UpdateUserDto, UserStatus } from './dto/user.dto';
 import { User } from './interfaces/user.interface';
+import * as bcrypt from 'bcrypt';
 import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponseDto } from './dto/auth-response.dto';
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 
 @Injectable()
 export class UsersService {
-  private readonly verificationCodeExpiryMinutes = 5;
+  private readonly salt_round = 10
+  private readonly verificationCodeExpiryMinutes = 5
 
   constructor(
     private readonly prisma: PrismaService, 
@@ -52,11 +54,13 @@ export class UsersService {
       where: {user_id}
     });
     if (!user) return null;
-    if (user.password !== old_pass)  throw new Error('Old password not matched');
+    const isMatch = await bcrypt.compare(old_pass, user.password);
+    if (!isMatch) throw new Error('Password not match');
+    const new_hashed_pass = await bcrypt.hash(new_pass, this.salt_round);
     const updated_user = await this.prisma.user.update({
         where: {user_id},
         data: {
-          password: new_pass,
+          password: new_hashed_pass,
           updated_at: new Date(),
         },
       });
