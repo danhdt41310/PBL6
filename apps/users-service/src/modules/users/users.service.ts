@@ -12,7 +12,6 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService, private mailSer: MailerService) {}
-  private readonly expired_verify_otp = 5*60*1000;
   private readonly salt_round = 10;
   async create(createUserDto: CreateUserDto): Promise<User> {
     return await this.prisma.user.create({
