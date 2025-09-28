@@ -17,7 +17,7 @@ COPY apps/exams-service/prisma ./apps/exams-service/prisma
 COPY packages/ ./packages/
 
 # Install all dependencies (including dev dependencies)
-RUN npm ci
+RUN npm install
 
 # Generate Prisma Client for exams-service
 WORKDIR /app/apps/exams-service
@@ -25,14 +25,6 @@ RUN npx prisma generate
 
 # Go back to root
 WORKDIR /app
-
-# Create non-root user
-RUN groupadd -r nodejs && useradd -r -g nodejs nestjs
-
-# Change ownership of the app directory to the nestjs user
-RUN chown -R nestjs:nodejs /app
-
-USER nestjs
 
 EXPOSE 3006
 
