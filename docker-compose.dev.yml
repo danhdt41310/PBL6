@@ -70,7 +70,7 @@ services:
     networks:
       - microservices-network
 
-  # Redis for microservices communication
+  # Redis
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -81,7 +81,7 @@ services:
     networks:
       - microservices-network
 
-  # Users Service - Development with Hot Reload
+  # Users Service
   users-service:
     build:
       context: .
@@ -101,7 +101,6 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      # Mount source code for hot reload
       - ./apps/users-service/src:/app/apps/users-service/src
       - ./apps/users-service/tsconfig.json:/app/apps/users-service/tsconfig.json
       - ./apps/users-service/tsconfig.build.json:/app/apps/users-service/tsconfig.build.json
@@ -110,20 +109,14 @@ services:
       - ./apps/users-service/package.json:/app/apps/users-service/package.json
       - ./apps/users-service/prisma:/app/apps/users-service/prisma
       - ./apps/users-service/.env:/app/apps/users-service/.env
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - users_service_node_modules:/app/apps/users-service/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - postgres-users
       - redis
     networks:
       - microservices-network
 
-
-
-  # Meetings Service - Development with Hot Reload
+  # Meetings Service
   meetings-service:
     build:
       context: .
@@ -143,7 +136,6 @@ services:
     ports:
       - "3004:3004"
     volumes:
-      # Mount source code for hot reload
       - ./apps/meetings-service/src:/app/apps/meetings-service/src
       - ./apps/meetings-service/tsconfig.json:/app/apps/meetings-service/tsconfig.json
       - ./apps/meetings-service/tsconfig.build.json:/app/apps/meetings-service/tsconfig.build.json
@@ -151,18 +143,14 @@ services:
       - ./apps/meetings-service/package.json:/app/apps/meetings-service/package.json
       - ./apps/meetings-service/prisma:/app/apps/meetings-service/prisma
       - ./apps/meetings-service/.env:/app/apps/meetings-service/.env
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - meetings_service_node_modules:/app/apps/meetings-service/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - postgres-meetings
       - redis
     networks:
       - microservices-network
 
-  # Chats Service - Development with Hot Reload
+  # Chats Service
   chats-service:
     build:
       context: .
@@ -182,7 +170,6 @@ services:
     ports:
       - "3005:3005"
     volumes:
-      # Mount source code for hot reload
       - ./apps/chats-service/src:/app/apps/chats-service/src
       - ./apps/chats-service/tsconfig.json:/app/apps/chats-service/tsconfig.json
       - ./apps/chats-service/tsconfig.build.json:/app/apps/chats-service/tsconfig.build.json
@@ -190,18 +177,14 @@ services:
       - ./apps/chats-service/package.json:/app/apps/chats-service/package.json
       - ./apps/chats-service/prisma:/app/apps/chats-service/prisma
       - ./apps/chats-service/.env:/app/apps/chats-service/.env
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - chats_service_node_modules:/app/apps/chats-service/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - postgres-chats
       - redis
     networks:
       - microservices-network
 
-  # Exams Service - Development with Hot Reload
+  # Exams Service
   exams-service:
     build:
       context: .
@@ -221,7 +204,6 @@ services:
     ports:
       - "3006:3006"
     volumes:
-      # Mount source code for hot reload
       - ./apps/exams-service/src:/app/apps/exams-service/src
       - ./apps/exams-service/tsconfig.json:/app/apps/exams-service/tsconfig.json
       - ./apps/exams-service/tsconfig.build.json:/app/apps/exams-service/tsconfig.build.json
@@ -229,18 +211,14 @@ services:
       - ./apps/exams-service/package.json:/app/apps/exams-service/package.json
       - ./apps/exams-service/prisma:/app/apps/exams-service/prisma
       - ./apps/exams-service/.env:/app/apps/exams-service/.env
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - exams_service_node_modules:/app/apps/exams-service/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - postgres-exams
       - redis
     networks:
       - microservices-network
 
-  # Classes Service - Development with Hot Reload
+  # Classes Service
   classes-service:
     build:
       context: .
@@ -260,7 +238,6 @@ services:
     ports:
       - "3007:3007"
     volumes:
-      # Mount source code for hot reload
       - ./apps/classes-service/src:/app/apps/classes-service/src
       - ./apps/classes-service/tsconfig.json:/app/apps/classes-service/tsconfig.json
       - ./apps/classes-service/tsconfig.build.json:/app/apps/classes-service/tsconfig.build.json
@@ -268,18 +245,14 @@ services:
       - ./apps/classes-service/package.json:/app/apps/classes-service/package.json
       - ./apps/classes-service/prisma:/app/apps/classes-service/prisma
       - ./apps/classes-service/.env:/app/apps/classes-service/.env
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - classes_service_node_modules:/app/apps/classes-service/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - postgres-classes
       - redis
     networks:
       - microservices-network
 
-  # API Gateway - Development with Hot Reload
+  # API Gateway
   api-gateway:
     build:
       context: .
@@ -303,17 +276,12 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Mount source code for hot reload
       - ./apps/api-gateway/src:/app/apps/api-gateway/src
       - ./apps/api-gateway/tsconfig.json:/app/apps/api-gateway/tsconfig.json
       - ./apps/api-gateway/tsconfig.build.json:/app/apps/api-gateway/tsconfig.build.json
       - ./apps/api-gateway/nest-cli.json:/app/apps/api-gateway/nest-cli.json
       - ./apps/api-gateway/nodemon.json:/app/apps/api-gateway/nodemon.json
-      # Mount shared packages
       - ./packages:/app/packages
-      # Named volumes for node_modules to prevent anonymous volumes
-      - api_gateway_node_modules:/app/apps/api-gateway/node_modules
-      - root_node_modules:/app/node_modules
     depends_on:
       - redis
       - users-service
@@ -331,14 +299,6 @@ volumes:
   postgres_exams_data:
   postgres_classes_data:
   redis_data:
-  # Named volumes for node_modules to prevent anonymous volumes
-  users_service_node_modules:
-  meetings_service_node_modules:
-  chats_service_node_modules:
-  exams_service_node_modules:
-  classes_service_node_modules:
-  api_gateway_node_modules:
-  root_node_modules:
 
 networks:
   microservices-network:
