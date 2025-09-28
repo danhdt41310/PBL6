@@ -75,7 +75,6 @@ export class UsersService {
     // Find the user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      // For security reasons, still return success even if the email doesn't exist
       return {
         message: 'If your email is registered, you will receive a password reset code.',
         success: true,
@@ -202,13 +201,14 @@ export class UsersService {
       };
     }
 
-    // TODO: Hash the new password before saving
-    
+    // Hash the new password before saving
+    const newHashedPassword = await bcrypt.hash(newPassword, this.salt_round);
+
     // Update the user's password
     await this.prisma.user.update({
       where: { user_id: user.user_id },
       data: {
-        password: newPassword,
+        password: newHashedPassword,
         updated_at: new Date(),
       },
     });
