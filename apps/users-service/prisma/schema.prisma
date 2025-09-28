@@ -22,15 +22,35 @@ enum UserStatus {
   blocked
 }
 
+enum VerificationPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 model User {
-  user_id    Int        @id @default(autoincrement())
-  full_name   String     @db.VarChar
-  email       String     @unique @db.VarChar
-  password    String     @db.VarChar
-  role        UserRole
-  status      UserStatus @default(active)
-  created_at  DateTime   @default(now()) @db.Timestamp(6)
-  updated_at  DateTime?  @updatedAt @db.Timestamp(6)
+  user_id        Int        @id @default(autoincrement())
+  full_name      String     @db.VarChar
+  email          String     @unique @db.VarChar
+  password       String     @db.VarChar
+  role           UserRole
+  status         UserStatus @default(active)
+  created_at     DateTime   @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?  @updatedAt @db.Timestamp(6)
+  verificationCodes VerificationCode[]
 
   @@map("users")
+}
+
+model VerificationCode {
+  id          Int               @id @default(autoincrement())
+  code        String            @db.VarChar(8)
+  purpose     VerificationPurpose
+  expires_at  DateTime          @db.Timestamp(6)
+  created_at  DateTime          @default(now()) @db.Timestamp(6)
+  used        Boolean           @default(false)
+  user_id     Int
+  user        User              @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([code])
+  @@map("verification_codes")
 }

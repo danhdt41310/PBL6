@@ -32,3 +32,11 @@ export class DeleteUserResponseDto {
   message: string;
   user_id: number;
 }
+
+
+// Response DTO for admin user operations
+export class AdminActionResponseDto {
+  message: string;
+  success: boolean;
+  user_id: number;
+}

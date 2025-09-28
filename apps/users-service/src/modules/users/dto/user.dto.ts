@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length, IsNotEmpty } from 'class-validator';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -55,4 +55,18 @@ export class UpdateUserDto {
   @IsEnum(UserStatus)
   @IsOptional()
   status?: UserStatus;
+}
+
+
+// DTO for admin to block/unblock a user
+export class UpdateUserStatusDto {
+  @IsNotEmpty()
+  user_id: number;
+}
+
+// DTO for updating user profile
+export class UpdateProfileDto {
+  @IsString()
+  @IsNotEmpty()
+  full_name: string;
 }

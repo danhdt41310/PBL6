@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNumber, IsInt } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNumber, IsInt, Length, IsNotEmpty } from 'class-validator';
+import { IsMatchedPassword } from 'src/common/decorators/is-matched-password.decorator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -55,4 +56,50 @@ export class UserInfoDto {
 
   @IsString()
   lastName: string;
+}
+
+// DTO for forgot password request (email submission)
+export class ForgotPasswordDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string
+}
+
+export class VerifyCodeDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @Length(6, 6)
+  @IsNotEmpty()
+  code: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string
+
+  @IsString()
+  @Length(6, 6)
+  @IsNotEmpty()
+  code: string
+
+  @IsString()
+  @MinLength(6)
+  @IsNotEmpty()
+  password: string
+
+  @IsString()
+  @MinLength(6)
+  @IsNotEmpty()
+  @IsMatchedPassword('password')
+  confirmPassword: string
+}
+
+export class UpdateProfileDto {
+  @IsString({ message: 'Full name must be a string' })
+  @IsNotEmpty({ message: 'Full name is required' })
+  full_name: string;
 }
