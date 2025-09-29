@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param, Post, Put, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param, Post, Put, ValidationPipe, ParseIntPipe } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, Observable, throwError, timeout, TimeoutError } from 'rxjs';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
@@ -27,10 +27,6 @@ export class ClassesController {
           }),
         )
         .toPromise();
-
-      if (!result.success) {
-        throw new HttpException(result.error || result.message, HttpStatus.BAD_REQUEST);
-      }
 
       return result;
     } catch (error) {
@@ -64,7 +60,7 @@ export class ClassesController {
   }
 
   @Get(':class_id')
-  async findOne(@Param('class_id') class_id: number) {
+  async findOne(@Param('class_id', ParseIntPipe) class_id: number) {
     try {
       return await this.classesService.send('classes.find_one', +class_id)
         .pipe(
@@ -86,10 +82,12 @@ export class ClassesController {
   }
 
   @Put(':class_id')
-  async update(@Param('class_id') class_id: number, @Body(ValidationPipe) updateClassDto: UpdateClassDto) {
+  async update(@Param('class_id', ParseIntPipe) class_id: number, @Body(ValidationPipe) updateClassDto: UpdateClassDto) {
+    console.log('Received update request for class_id:', class_id);
+    console.log('Update data:', updateClassDto);
     try {
       const result = await this.classesService.send('classes.update_class', { 
-        class_id: +class_id, 
+        class_id, 
         updateClassDto 
       })
         .pipe(
@@ -102,11 +100,6 @@ export class ClassesController {
           }),
         )
         .toPromise();
-
-      if (!result.success) {
-        throw new HttpException(result.error || result.message, HttpStatus.BAD_REQUEST);
-      }
-
       return result;
     } catch (error) {
       if (error instanceof HttpException) {
@@ -117,7 +110,7 @@ export class ClassesController {
   }
 
   @Delete(':class_id')
-  async remove(@Param('class_id') class_id: number) {
+  async remove(@Param('class_id', ParseIntPipe) class_id: number) {
     try {
       const result = await this.classesService.send('classes.delete_class', +class_id)
         .pipe(
@@ -130,10 +123,6 @@ export class ClassesController {
           }),
         )
         .toPromise();
-
-      if (!result.success) {
-        throw new HttpException(result.error || result.message, HttpStatus.BAD_REQUEST);
-      }
 
       return result;
     } catch (error) {
@@ -169,11 +158,11 @@ export class ClassesController {
   }
 
   @Delete(':class_id/students/:user_id')
-  async removeStudent(@Param('class_id') class_id: number, @Param('user_id') user_id: number) {
+  async removeStudent(@Param('class_id', ParseIntPipe) class_id: number, @Param('user_id', ParseIntPipe) user_id: number) {
     try {
       const result = await this.classesService.send('classes.remove_student', { 
-        class_id: +class_id, 
-        user_id: +user_id 
+        class_id, 
+        user_id 
       })
         .pipe(
           timeout(5000),
@@ -185,10 +174,6 @@ export class ClassesController {
           }),
         )
         .toPromise();
-
-      if (!result.success) {
-        throw new HttpException(result.error || result.message, HttpStatus.BAD_REQUEST);
-      }
 
       return result;
     } catch (error) {

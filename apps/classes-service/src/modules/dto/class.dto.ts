@@ -32,7 +32,7 @@ export class AddStudentsDto {
 }
 
 export class UpdateClassDto {
-  name?: string;
+  class_name?: string;
   description?: string;
   class_code?: string;
   teacher_id?: number;

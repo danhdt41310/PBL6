@@ -1,7 +1,7 @@
 import { AddManyStudentsToClassResponseDto, AddOneStudentToClassResponseDto } from "../dto/classEnrollment-response.dto";
 import { ClassEnrollment } from "../interface/classEnrollment.interface";
 
-export class ClassMapper{
+export class ClassEnrollmentMapper{
     static toAddManyStudentsToClassResponseDto(classEnrollments: ClassEnrollment[]):AddManyStudentsToClassResponseDto{
         var enrollments = [];
         for (let enroll of classEnrollments){

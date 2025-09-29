@@ -35,8 +35,22 @@ export class AddStudentsDto {
 }
 
 export class UpdateClassDto {
-  name?: string;
-  description?: string;
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  class_name?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
   class_code?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @Transform(({ value }) => parseInt(value))
+  @IsInt()
+  @IsOptional()
   teacher_id?: number;
 }
