@@ -3,18 +3,24 @@ import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNumber, IsInt, L
 import { IsMatchedPassword } from 'src/common/decorators/is-matched-password.decorator';
 
 export class CreateUserDto {
+  @IsString()
+  full_name: string;
+
   @IsEmail()
   email: string;
 
   @IsString()
-  firstName: string;
-
-  @IsString()
-  lastName: string;
-
-  @IsString()
   @MinLength(6)
   password: string;
+
+  @IsString()
+  role: string;
+
+  @IsOptional()
+  status?: string;
+
+  @IsOptional()
+  otp?: string;
 }
 
 export class UpdateUserDto {
@@ -37,14 +43,16 @@ export class UpdateUserDto {
 
 export class LoginDto {
   @IsEmail()
+  @IsNotEmpty()
   email: string;
 
   @IsString()
+  @IsNotEmpty()
   password: string;
 }
 
 export class UserInfoDto {
-  @Transform(({value})=> parseInt(value))
+  @Transform(({ value }) => parseInt(value))
   @IsInt()
   id: number;
 
@@ -103,3 +111,4 @@ export class UpdateProfileDto {
   @IsNotEmpty({ message: 'Full name is required' })
   full_name: string;
 }
+

@@ -40,3 +40,12 @@ export class AdminActionResponseDto {
   success: boolean;
   user_id: number;
 }
+
+//Reponse DTO for login
+export class LoginResponseDto {
+  message: string;
+  success: boolean;
+  user?: UserResponseDto;
+  accessToken?: string;
+  refreshToken?: string;
+}

@@ -70,3 +70,14 @@ export class UpdateProfileDto {
   @IsNotEmpty()
   full_name: string;
 }
+
+// DTO for login uset
+export class LoginDto{
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
