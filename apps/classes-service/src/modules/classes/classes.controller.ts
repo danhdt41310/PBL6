@@ -1,7 +1,7 @@
 import { Controller, Get, Inject } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ClassesService } from './classes.service';
-import { AddStudentsDto, CreateClassDto } from '../dto/class.dto';
+import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { UserInfoDto } from '../dto/user.dto';
 
 @Controller('classes')
@@ -18,6 +18,21 @@ export class ClassesController {
     return await this.classesService.create(createClassDto);
   }
 
+  @MessagePattern('classes.find_one')
+  async findOneClass(@Payload() class_id: number) {
+    return await this.classesService.findOne(class_id);
+  }
+
+  @MessagePattern('classes.update_class')
+  async updateClass(@Payload() data: { class_id: number; updateClassDto: UpdateClassDto }) {
+    return await this.classesService.update(data.class_id, data.updateClassDto);
+  }
+
+  @MessagePattern('classes.delete_class')
+  async deleteClass(@Payload() class_id: number) {
+    return await this.classesService.remove(class_id);
+  }
+
   @MessagePattern('classes.find_all')
   async findAllClasses() {
     return await this.classesService.findAll();
@@ -32,4 +47,10 @@ export class ClassesController {
   async addStudentClassCode(@Payload() data: {user_id: number, class_code: string}){
     return await this.classesService.addStudentClassCode(data.user_id, data.class_code);
   }
+
+  @MessagePattern('classes.remove_student')
+  async removeStudent(@Payload() data: { class_id: number; user_id: number }) {
+    return await this.classesService.removeStudent(data.class_id, data.user_id);
+  }
+
 }

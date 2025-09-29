@@ -13,7 +13,7 @@ COPY packages/ ./packages/
 RUN npm ci
 
 # Copy source code
-    COPY apps/users-service/ ./apps/users-service/
+COPY apps/users-service/ ./apps/users-service/
 
 # Build the application
 RUN npm run build --workspace=users-service

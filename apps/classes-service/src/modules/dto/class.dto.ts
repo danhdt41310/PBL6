@@ -30,3 +30,10 @@ export class AddStudentsDto {
     class_id: number;
 
 }
+
+export class UpdateClassDto {
+  name?: string;
+  description?: string;
+  class_code?: string;
+  teacher_id?: number;
+}
