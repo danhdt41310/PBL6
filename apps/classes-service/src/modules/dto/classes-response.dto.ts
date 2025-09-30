@@ -6,7 +6,7 @@ export class ClassResponseDto{
   class_name: string;
   class_code: string;
   description?: string;
-  teacher_id?: string;
+  teacher_id?: number;
   created_at: Date;
   updated_at?: Date;
 }
@@ -16,7 +16,7 @@ export class ClassResponseAllInfoDto {
   class_name: string;
   class_code: string;
   description?: string;
-  teacher_id?: string;
+  teacher_id?: number;
   created_at: Date;
   updated_at?: Date;
   posts:PostResponseDto[];

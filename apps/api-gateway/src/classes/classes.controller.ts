@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Inject, Param, Post, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param, Post, Put, ValidationPipe, ParseIntPipe } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, Observable, throwError, timeout, TimeoutError } from 'rxjs';
-import { AddStudentsDto, CreateClassDto } from '../dto/class.dto';
+import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { UserInfoDto } from 'src/dto/user.dto';
 
 @Controller('classes')
@@ -27,10 +27,6 @@ export class ClassesController {
           }),
         )
         .toPromise();
-
-      if (!result.success) {
-        throw new HttpException(result.message, HttpStatus.BAD_REQUEST);
-      }
 
       return result;
     } catch (error) {
@@ -63,8 +59,82 @@ export class ClassesController {
     }
   }
 
+  @Get(':class_id')
+  async findOne(@Param('class_id', ParseIntPipe) class_id: number) {
+    try {
+      return await this.classesService.send('classes.find_one', +class_id)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Class not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to fetch class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Put(':class_id')
+  async update(@Param('class_id', ParseIntPipe) class_id: number, @Body(ValidationPipe) updateClassDto: UpdateClassDto) {
+    console.log('Received update request for class_id:', class_id);
+    console.log('Update data:', updateClassDto);
+    try {
+      const result = await this.classesService.send('classes.update_class', { 
+        class_id, 
+        updateClassDto 
+      })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to update class', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to update class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete(':class_id')
+  async remove(@Param('class_id', ParseIntPipe) class_id: number) {
+    try {
+      const result = await this.classesService.send('classes.delete_class', +class_id)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to delete class', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to delete class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Post('add-students')
-  async addStudents(@Body() addStudentsDto :AddStudentsDto, te){
+  async addStudents(@Body() addStudentsDto: AddStudentsDto) {
     try {
       const result = await this.classesService.send('classes.add_students', addStudentsDto)
         .pipe(
@@ -78,10 +148,6 @@ export class ClassesController {
         )
         .toPromise();
 
-      if (!result.success) {
-        throw new HttpException(result.message, HttpStatus.BAD_REQUEST);
-      }
-
       return result;
     } catch (error) {
       if (error instanceof HttpException) {
@@ -91,8 +157,61 @@ export class ClassesController {
     }
   }
 
+  @Delete(':class_id/students/:user_id')
+  async removeStudent(@Param('class_id', ParseIntPipe) class_id: number, @Param('user_id', ParseIntPipe) user_id: number) {
+    try {
+      const result = await this.classesService.send('classes.remove_student', { 
+        class_id, 
+        user_id 
+      })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to remove student from class', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to remove student from class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Post(':class_code/joinclass')
-  joinClass(@Param('class_code') class_code: number, @Body() data:{user_id}){
-    return this.classesService.send('classes.add_student_class_code',{user_id: data.user_id, class_code});
+  async joinClass(@Param('class_code') class_code: string, @Body() data: { user_id: number }) {
+    try {
+      const result = await this.classesService.send('classes.add_student_class_code', {
+        user_id: data.user_id, 
+        class_code
+      })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to join class', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+
+      if (!result) {
+        throw new HttpException('Class not found', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to join class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }
