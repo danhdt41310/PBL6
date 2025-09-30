@@ -9,7 +9,7 @@ import { PaginationDto } from 'src/dto/common.dto';
 export class UsersController {
   constructor(
     @Inject('USERS_SERVICE') private readonly usersClient: ClientProxy,
-  ) {}
+  ) { }
 
   @Get('hello')
   getHello(@Body() data: { name: string }) {
@@ -61,8 +61,8 @@ export class UsersController {
   }
 
   @Post(':id/changepass')
-  changePass(@Param('id', ParseIntPipe) id : number, @Body() data: {oldPass: string, newPass: string}) {
-    return this.usersClient.send('users.change_password', {user_id: id, old_pass: data.oldPass, new_pass: data.newPass});
+  changePass(@Param('id', ParseIntPipe) id: number, @Body() data: { oldPass: string, newPass: string }) {
+    return this.usersClient.send('users.change_password', { user_id: id, old_pass: data.oldPass, new_pass: data.newPass });
   }
 
   /**
@@ -116,4 +116,54 @@ export class UsersController {
   updateProfile(@Param('id', ParseIntPipe) id: number, @Body() profile: UpdateProfileDto) {
     return this.usersClient.send('users.update_profile', { user_id: id, profile });
   }
+
+  /**
+   * 
+   * @param createUserDto 
+   * @returns 
+   * 
+   */
+  @Post('create')
+  async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
+    console.log("create user", createUserDto);
+    try {
+      return await this.usersClient
+        .send('users.create', createUserDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('fail to create', HttpStatus.NOT_FOUND));
+          }),
+
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to create user', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post('login')
+  async login(@Body(ValidationPipe) loginDto: LoginDto) {
+    try {
+      return await this.usersClient
+        .send('users.login', loginDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+
 }
