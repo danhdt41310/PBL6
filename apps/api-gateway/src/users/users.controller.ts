@@ -127,7 +127,16 @@ export class UsersController {
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log("create user", createUserDto);
     try {
-      return this.usersClient.send('users.create', createUserDto)
+      return await this.usersClient
+        .send('users.create', createUserDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('fail to create', HttpStatus.NOT_FOUND));
+          }),
+
+        )
+        .toPromise();
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -136,16 +145,18 @@ export class UsersController {
     }
   }
 
-  /**
-   * 
-   * @param loginDto 
-   * @returns 
-   * 
-   */
   @Post('login')
   async login(@Body(ValidationPipe) loginDto: LoginDto) {
     try {
-      return this.usersClient.send('users.login', loginDto)
+      return await this.usersClient
+        .send('users.login', loginDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -153,5 +164,6 @@ export class UsersController {
       throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
 
 }

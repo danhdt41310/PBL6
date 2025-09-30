@@ -4,6 +4,7 @@ import {
   UserListResponseDto,
   AdminActionResponseDto,
   LoginResponseDto,
+  CreateUserResponseDto
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
 import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserStatus } from './dto/user.dto';
@@ -31,7 +32,7 @@ export class UsersService {
  * @returns Promise<User> - The newly created user (including id, email, role, status...)
  * 
  **/
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
     const { full_name, email, password, role, status } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
     const newUser = await this.prisma.user.create({
@@ -43,7 +44,7 @@ export class UsersService {
         status: status || 'active',
       },
     });
-    return newUser;
+    return UserMapper.toCreateUserResponseDto(newUser);
   }
 
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {

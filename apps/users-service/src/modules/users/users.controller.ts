@@ -72,8 +72,7 @@ export class UsersController {
   @MessagePattern('users.create')
   async create(@Payload() createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
     console.log('Creating new user', createUserDto);
-    const newUser = await this.usersService.create(createUserDto);
-    return UserMapper.toCreateUserResponseDto(newUser);
+    return await this.usersService.create(createUserDto);
   }
 
   @MessagePattern('users.login')

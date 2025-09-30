@@ -23,7 +23,7 @@ export class AuthMiddleware implements NestMiddleware {
         if (access_jwt) {
             try {
                 const payload = this.jwt.verify(access_jwt);
-            
+
                 req.user = payload;
                 console.log('Access token hợp lệ:', payload);
                 return next();
@@ -88,7 +88,7 @@ export class AuthMiddleware implements NestMiddleware {
     private async createTokens(payload: object) {
         const accessToken = await this.jwt.signAsync(payload);
         const refreshToken = await this.jwt.signAsync(payload, {
-            secret: process.env.REFRESH_JWT_SECRET,
+            secret: process.env.REFRESH_JWT_SECRET || 'keybimat',
             expiresIn: this.rt_expiry
         });
         return { accessToken, refreshToken };
