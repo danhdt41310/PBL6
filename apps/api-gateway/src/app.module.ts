@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
@@ -16,6 +16,11 @@ import { AuthMiddleware } from './middleware/auth.middleware';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    JwtModule.register({
+      global: true,
+      secret: process.env.ACCESS_JWT_SECRET||'keybimat',
+      signOptions: { expiresIn: '1h' },
     }),
     ClientsModule.register([
       {
@@ -65,7 +70,6 @@ import { AuthMiddleware } from './middleware/auth.middleware';
     ClassesModule,
     ExamsModule,
     MeetingsModule,
-    JwtModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -73,7 +77,16 @@ import { AuthMiddleware } from './middleware/auth.middleware';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-    .apply(AuthMiddleware)
-    .exclude("")//exclude Sign in, register here
+      .apply(AuthMiddleware)
+      .exclude(
+        { path: 'users/login', method: RequestMethod.POST },
+        { path: 'users/create', method: RequestMethod.POST },
+        { path: 'users/forgot-password', method: RequestMethod.POST },
+        { path: 'users/verify-code', method: RequestMethod.POST },
+        { path: 'users/reset-password', method: RequestMethod.POST },
+        { path: '/', method: RequestMethod.GET },
+        { path: 'users/hello', method: RequestMethod.GET },
+      )
+      .forRoutes('*');
   }
 }

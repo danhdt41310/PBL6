@@ -1,14 +1,18 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { UsersService } from './users.service';
-import { 
-  UserResponseDto, 
+import {
+  UserResponseDto,
   UserListResponseDto,
+  CreateUserResponseDto,
   AdminActionResponseDto,
+  LoginResponseDto
 } from './dto/user-response.dto';
-import { 
-  ForgotPasswordResponseDto, 
-  VerifyCodeResponseDto, 
+import { CreateUserDto, LoginDto } from './dto/user.dto';
+import { UserMapper } from './mapper';
+import {
+  ForgotPasswordResponseDto,
+  VerifyCodeResponseDto,
   ResetPasswordResponseDto,
 } from './dto/auth-response.dto';
 import { UpdateProfileDto, UserStatus } from './dto/user.dto';
@@ -16,8 +20,8 @@ import { ForgotPasswordDto, ResetPasswordDto, VerifyCodeDto } from './dto/auth.d
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
-  
+  constructor(private readonly usersService: UsersService) { }
+
   @MessagePattern('users.list')
   async findAll(@Payload() data: { page: number; limit: number }): Promise<UserListResponseDto> {
     console.log('Finding all users with pagination:', data);
@@ -63,5 +67,17 @@ export class UsersController {
   @MessagePattern('users.update_profile')
   async updateProfile(@Payload() data: { user_id: number, profile: UpdateProfileDto }): Promise<UserResponseDto> {
     return await this.usersService.updateProfile(data.user_id, data.profile);
+  }
+
+  @MessagePattern('users.create')
+  async create(@Payload() createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
+    console.log('Creating new user', createUserDto);
+    return await this.usersService.create(createUserDto);
+  }
+
+  @MessagePattern('users.login')
+  async login(@Payload() loginDto: LoginDto): Promise<LoginResponseDto> {
+    console.log('User login attempt:', loginDto.email);
+    return await this.usersService.login(loginDto);
   }
 }
