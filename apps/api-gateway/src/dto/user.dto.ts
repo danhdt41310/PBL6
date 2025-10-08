@@ -112,3 +112,7 @@ export class UpdateProfileDto {
   full_name: string;
 }
 
+export class UserEmailsDto{
+  @IsEmail({},{each:true})
+  userEmails: string[];
+}

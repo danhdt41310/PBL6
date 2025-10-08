@@ -49,3 +49,7 @@ export class LoginResponseDto {
   accessToken?: string;
   refreshToken?: string;
 }
+
+export class UserListByEmailResponseDto {
+  users: UserResponseDto[];
+}
