@@ -32,6 +32,11 @@ model User {
   full_name      String     @db.VarChar
   email          String     @unique @db.VarChar
   password       String     @db.VarChar
+  phone          String?    @db.VarChar
+  address        String?    @db.Text
+  dateOfBirth    DateTime?  @db.Date @map("date_of_birth")
+  gender         String?    @db.VarChar
+  avatar         String?    @db.VarChar
   role           UserRole
   status         UserStatus @default(active)
   created_at     DateTime   @default(now()) @db.Timestamp(6)

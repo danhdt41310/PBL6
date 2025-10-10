@@ -4,7 +4,8 @@ import {
   UserListResponseDto,
   AdminActionResponseDto,
   LoginResponseDto,
-  CreateUserResponseDto
+  CreateUserResponseDto,
+  ChangePasswordResponseDto
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
 import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserStatus } from './dto/user.dto';
@@ -81,12 +82,12 @@ export class UsersService {
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.ACCESS_JWT_SECRET || 'access-secret',
+      secret: process.env.ACCESS_JWT_SECRET || 'keybimat',
       expiresIn: '1h',
     });
 
     const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.REFRESH_JWT_SECRET || 'refresh-secret',
+      secret: process.env.REFRESH_JWT_SECRET || 'keybimat',
       expiresIn: '7d',
     });
 
@@ -112,23 +113,33 @@ export class UsersService {
     return UserMapper.toUserListResponseDto(users, total, page, limit);
   }
 
-  async findOne(user_id: number): Promise<UserResponseDto | null> {
+  async findOne(user_id: number): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { user_id },
     });
 
     if (!user) return null;
-    return UserMapper.toResponseDto(user);
+    const data = UserMapper.toResponseDto(user);
+    return {
+      data: data,
+      success: true,
+    }
   }
 
-  async changePass(user_id: number, old_pass: string, new_pass: string) {
+  async changePass(user_id: number, current_password: string, new_password: string): Promise<ChangePasswordResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id }
     });
-    if (!user) return null;
-    const isMatch = await bcrypt.compare(old_pass, user.password);
-    if (!isMatch) throw new Error('Password not match');
-    const new_hashed_pass = await bcrypt.hash(new_pass, this.salt_round);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    const isMatch = await bcrypt.compare(current_password, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+    
+    const new_hashed_pass = await bcrypt.hash(new_password, this.salt_round);
     const updated_user = await this.prisma.user.update({
       where: { user_id },
       data: {
@@ -136,7 +147,10 @@ export class UsersService {
         updated_at: new Date(),
       },
     });
-    return UserMapper.toUpdateUserResponseDto(updated_user);
+    
+    return {
+      message: 'Password changed successfully'
+    };
   }
 
   /**
@@ -342,12 +356,30 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // Build the update data object with only provided fields
+    const updateData: any = {
+      updated_at: new Date(),
+    };
+
+    if (updateProfileDto.phone !== undefined) {
+      updateData.phone = updateProfileDto.phone;
+    }
+    if (updateProfileDto.address !== undefined) {
+      updateData.address = updateProfileDto.address;
+    }
+    if (updateProfileDto.dateOfBirth !== undefined) {
+      updateData.dateOfBirth = new Date(updateProfileDto.dateOfBirth);
+    }
+    if (updateProfileDto.gender !== undefined) {
+      updateData.gender = updateProfileDto.gender;
+    }
+    if(updateProfileDto.fullName !== undefined) {
+      updateData.full_name = updateProfileDto.fullName;
+    }
+
     const updatedUser = await this.prisma.user.update({
       where: { user_id: userId },
-      data: {
-        full_name: updateProfileDto.full_name,
-        updated_at: new Date(),
-      },
+      data: updateData,
     });
 
     return UserMapper.toResponseDto(updatedUser);
