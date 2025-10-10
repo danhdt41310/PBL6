@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto } from '../dto/user.dto';
+import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, UserEmailsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
 import { PaginationDto } from 'src/dto/common.dto';
@@ -165,5 +165,24 @@ export class UsersController {
     }
   }
 
+  @Post('get-list-profile-by-email')
+  async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto ){
+    try {
+      return await this.usersClient
+        .send('users.get_list_profile_by_email', userEmailsDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
 }
