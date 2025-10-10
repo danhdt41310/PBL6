@@ -5,10 +5,11 @@ import {
   AdminActionResponseDto,
   LoginResponseDto,
   CreateUserResponseDto,
-  ChangePasswordResponseDto
+  ChangePasswordResponseDto,
+  UserListByEmailResponseDto
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
-import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserStatus } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserEmailsDto, UserStatus } from './dto/user.dto';
 import { User } from './interfaces/user.interface';
 import * as bcrypt from 'bcrypt';
 import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponseDto } from './dto/auth-response.dto';
@@ -383,5 +384,19 @@ export class UsersService {
     });
 
     return UserMapper.toResponseDto(updatedUser);
+  }
+  
+  async getListProfileByEmail(userEmails: UserEmailsDto): Promise<UserListByEmailResponseDto>{
+    const records = [];
+    for (let email of userEmails.userEmails){
+      let user = await this.prisma.user.findUnique({
+        where:{email: email}
+      })
+      records.push(user);
+    }
+
+    return {
+      users: UserMapper.toResponseDtoArray(records),
+    }
   }
 }

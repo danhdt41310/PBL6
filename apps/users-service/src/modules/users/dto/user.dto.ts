@@ -109,3 +109,8 @@ export class LoginDto{
   @IsNotEmpty()
   password: string;
 }
+
+export class UserEmailsDto{
+  @IsEmail({},{each:true})
+  userEmails: string[];
+}

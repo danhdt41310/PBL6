@@ -7,9 +7,10 @@ import {
   CreateUserResponseDto,
   AdminActionResponseDto,
   LoginResponseDto,
-  ChangePasswordResponseDto
+  ChangePasswordResponseDto,
+  UserListByEmailResponseDto
 } from './dto/user-response.dto';
-import { CreateUserDto, LoginDto } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UserEmailsDto } from './dto/user.dto';
 import { UserMapper } from './mapper';
 import {
   ForgotPasswordResponseDto,
@@ -81,4 +82,11 @@ export class UsersController {
     console.log('User login attempt:', loginDto.email);
     return await this.usersService.login(loginDto);
   }
+
+  @MessagePattern('user.getListProfileByEmail')
+  async getListProfileByEmail(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailResponseDto> {
+    console.log('User get list profile by emails:', userEmailsDto);
+    return await this.usersService.getListProfileByEmail(userEmailsDto);
+  }
+
 }

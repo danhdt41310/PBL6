@@ -177,4 +177,42 @@ export class ClassesService {
       throw new BadRequestException('Failed to remove student from class');
     }
   }
+
+  async getAllClassesOfStudent(userId: number){
+    try {
+      const classEnrolls = await this.prisma.classEnrollment.findMany({
+        where: {student_id: userId},
+        include: {
+          class:true
+        },
+      });
+
+      return ClassMapper.toClassListResponseDto(classEnrolls.map((classEnroll)=>classEnroll.class));
+    }  catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to get all class of student');
+    }
+
+  }
+
+  async getAllClassesOfTeacher(userId: number){
+    try {
+      const classTeachers = await this.prisma.classTeacher.findMany({
+        where: {teacher_id: userId},
+        include: {
+          class:true
+        },
+      });
+
+      return ClassMapper.toClassListResponseDto(classTeachers.map((classTeachers)=>classTeachers.class));
+    }  catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to get all class of teacher');
+    }
+
+  }
 }

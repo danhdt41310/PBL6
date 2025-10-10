@@ -1,5 +1,5 @@
 import { AddManyStudentsToClassResponseDto, AddOneStudentToClassResponseDto } from "../dto/classEnrollment-response.dto";
-import { ClassEnrollment } from "../interface/classEnrollment.interface";
+import { ClassEnrollment  } from "@prisma/classes-client";
 
 export class ClassEnrollmentMapper{
     static toAddManyStudentsToClassResponseDto(classEnrollments: ClassEnrollment[]):AddManyStudentsToClassResponseDto{

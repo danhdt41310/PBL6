@@ -58,3 +58,7 @@ export class LoginResponseDto {
 export class ChangePasswordResponseDto {
   message: string;
 }
+
+export class UserListByEmailResponseDto {
+  users: UserResponseDto[];
+}

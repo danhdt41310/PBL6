@@ -214,4 +214,38 @@ export class ClassesController {
       throw new HttpException('Failed to join class', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+
+  @Get('of/:role/:id')
+  async getAllClassesOfTeacher(@Param('id', ParseIntPipe) id: number, @Param('role') role:string){
+    try {
+      if (role!=='student' && role!=='teacher'){
+        throw new HttpException('Not correct role', HttpStatus.BAD_REQUEST);
+      }
+      const result = await this.classesService.send(`classes.get_all_classes_of_${role}`, {
+        user_id: id
+      })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to join class', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+
+      if (!result) {
+        throw new HttpException('Class not found', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to join class', HttpStatus.INTERNAL_SERVER_ERROR);
+    }  
+  }
 }
