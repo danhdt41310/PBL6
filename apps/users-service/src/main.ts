@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe } from '@nestjs/common';
+import { RpcExceptionFilter } from './common/filters';
 
 async function bootstrap() {
   // Create hybrid application that supports both HTTP and microservice
@@ -18,12 +19,14 @@ async function bootstrap() {
 
   // Enable validation
   app.useGlobalPipes(new ValidationPipe());
+  microservice.useGlobalPipes(new ValidationPipe());
 
   // Start both HTTP and microservice
   await app.startAllMicroservices();
   await app.listen(process.env.PORT || 3001);
   
   console.log(`Users Service is running on port ${process.env.PORT || 3001}`);
-  console.log('Users Microservice is connected to Redis');
+  console.log(`Users Microservice is connected to Redis`);
+  console.log(`RpcExceptionFilter applied via APP_FILTER provider`);
 }
 bootstrap();
