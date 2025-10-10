@@ -169,7 +169,7 @@ export class UsersController {
   async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto ){
     try {
       return await this.usersClient
-        .send('users.getListProfileByEmail', userEmailsDto)
+        .send('users.get_list_profile_by_email', userEmailsDto)
         .pipe(
           timeout(5000),
           catchError(err => {
