@@ -1,4 +1,4 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import { HttpException, Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
 import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { Request, Response, NextFunction } from 'express';
 
@@ -13,50 +13,54 @@ export class AuthMiddleware implements NestMiddleware {
     constructor(private readonly jwt: JwtService) { }
 
     async use(req: RequestWithUser, res: Response, next: NextFunction) {
-        const access_jwt = this.extractTokenFromHeader(req, "authorization");
-        const refresh_jwt = this.extractTokenFromHeader(req, "x-refresh-token");
+        try {
+          const access_jwt = this.extractTokenFromHeader(req, "authorization");
+          const refresh_jwt = this.extractTokenFromHeader(req, "x-refresh-token");
 
-        if (!access_jwt && !refresh_jwt) {
-            throw new UnauthorizedException('Vui lòng đăng nhập');
+          if (!access_jwt && !refresh_jwt) {
+              throw new UnauthorizedException('Vui lòng đăng nhập');
+          }
+
+          if (access_jwt) {
+              try {
+                  const payload = this.jwt.verify(access_jwt);
+
+                  req.user = payload;
+                  console.log('Access token hợp lệ:', payload);
+                  return next();
+              } catch (error) {
+                  if (error instanceof TokenExpiredError) {
+                      console.log('Access token hết hạn, thử refresh token...');
+                  } else {
+                      console.log('Access token không hợp lệ:', error.message);
+                  }
+              }
+          }
+          console.log(access_jwt);
+
+          if (refresh_jwt) {
+              try {
+                  const { accessToken, refreshToken, payload } = await this.refreshToken(refresh_jwt);
+
+                  req.user = payload;
+
+                  res.setHeader("x-access-token", accessToken);
+                  res.setHeader("x-refresh-token", refreshToken);
+
+                  console.log('Đã làm mới token thành công cho user:', payload.sub);
+                  return next();
+              } catch (error) {
+                  if (error instanceof TokenExpiredError) {
+                      throw new UnauthorizedException('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại');
+                  }
+                  throw new UnauthorizedException('Token không hợp lệ. Vui lòng đăng nhập lại');
+              }
+          }
+
+          throw new UnauthorizedException('Vui lòng đăng nhập để tiếp tục');
+        } catch (error) {
+          next(error)
         }
-
-        if (access_jwt) {
-            try {
-                const payload = this.jwt.verify(access_jwt);
-
-                req.user = payload;
-                console.log('Access token hợp lệ:', payload);
-                return next();
-            } catch (error) {
-                if (error instanceof TokenExpiredError) {
-                    console.log('Access token hết hạn, thử refresh token...');
-                } else {
-                    console.log('Access token không hợp lệ:', error.message);
-                }
-            }
-        }
-        console.log(access_jwt);
-
-        if (refresh_jwt) {
-            try {
-                const { accessToken, refreshToken, payload } = await this.refreshToken(refresh_jwt);
-
-                req.user = payload;
-
-                res.setHeader("x-access-token", accessToken);
-                res.setHeader("x-refresh-token", refreshToken);
-
-                console.log('Đã làm mới token thành công cho user:', payload.sub);
-                return next();
-            } catch (error) {
-                if (error instanceof TokenExpiredError) {
-                    throw new UnauthorizedException('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại');
-                }
-                throw new UnauthorizedException('Token không hợp lệ. Vui lòng đăng nhập lại');
-            }
-        }
-
-        throw new UnauthorizedException('Vui lòng đăng nhập để tiếp tục');
     }
 
     private extractTokenFromHeader(request: Request, type_of_token: "authorization" | "x-refresh-token"): string | undefined {

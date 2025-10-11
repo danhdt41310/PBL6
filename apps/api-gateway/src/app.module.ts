@@ -12,7 +12,7 @@ import { MeetingsModule } from './meetings/meetings.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { GatewayResponseInterceptor } from 'src/common/interceptors';
+import { GatewayResponseInterceptor, RpcErrorInterceptor } from 'src/common/interceptors';
 import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
 
 @Module({
@@ -79,15 +79,19 @@ import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
     AppService,
     {
       provide: APP_INTERCEPTOR,
-      useClass: GatewayResponseInterceptor,
+      useClass: RpcErrorInterceptor, // Convert RpcException → HttpException
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: GatewayResponseInterceptor, // Format successful http responses
     },
     {
       provide: APP_FILTER,
-      useClass: AllExceptionsFilter,
+      useClass: AllExceptionsFilter, // Catch all unhandled exceptions - Safety net (first)
     },
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
+      useClass: HttpExceptionFilter, // Handle HttpException - more specific (last)
     },
   ],
 })
