@@ -1,9 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, UserEmailsDto } from '../dto/user.dto';
+import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
 import { PaginationDto } from 'src/dto/common.dto';
+import { Request } from 'express';
+
+interface RequestWithUser extends Request {
+  user?: any;
+}
 
 @Controller('users')
 export class UsersController {
@@ -40,6 +45,64 @@ export class UsersController {
     }
   }
 
+  /**
+   * Get current user profile from access token
+   */
+  @Get('profile')
+  async getProfile(@Req() req: RequestWithUser) {
+    if (!req.user || !req.user.sub) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const userId = req.user.sub;
+    console.log('Fetching profile for user ID:', userId);
+    try {
+      return await this.usersClient
+        .send('users.get_user', { id: userId })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(new HttpException('Profile not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to fetch profile', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Update current user profile from access token
+   */
+  @Patch('profile')
+  async updateCurrentProfile(@Req() req: RequestWithUser, @Body() profile: UpdateProfileDto) {
+    if (!req.user || !req.user.sub) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const userId = req.user.sub;
+    
+    try {
+      return await this.usersClient
+        .send('users.update_profile', { user_id: userId, profile })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(new HttpException('Failed to update profile', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to update profile', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
@@ -60,9 +123,31 @@ export class UsersController {
     }
   }
 
-  @Post(':id/changepass')
-  changePass(@Param('id', ParseIntPipe) id: number, @Body() data: { oldPass: string, newPass: string }) {
-    return this.usersClient.send('users.change_password', { user_id: id, old_pass: data.oldPass, new_pass: data.newPass });
+  @Put('/change-password')
+  async changePass(@Req() req: RequestWithUser, @Body(ValidationPipe) changePasswordDto: ChangePasswordDto) {
+    if (!req.user || !req.user.sub) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const userId = req.user.sub;
+    try {
+      return await this.usersClient.send('users.change_password', { 
+        user_id: userId, 
+        current_password: changePasswordDto.currentPassword, 
+        new_password: changePasswordDto.newPassword 
+      })
+      .pipe(
+        timeout(5000),
+        catchError(err => {
+          return throwError(new HttpException('Failed to change password', HttpStatus.BAD_REQUEST));
+        }),
+      ).toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to change password', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**

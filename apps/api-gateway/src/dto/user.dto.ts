@@ -106,10 +106,43 @@ export class ResetPasswordDto {
   confirmPassword: string
 }
 
+export class ChangePasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(6)
+  @IsNotEmpty()
+  newPassword: string;
+
+  @IsString()
+  @MinLength(6)
+  @IsNotEmpty()
+  @IsMatchedPassword('newPassword')
+  confirmPassword: string;
+}
+
 export class UpdateProfileDto {
+  @IsString({ message: 'Phone must be a string' })
+  @IsOptional()
+  phone?: string;
+
+  @IsString({ message: 'Address must be a string' })
+  @IsOptional()
+  address?: string;
+
+  @IsString({ message: 'Date of birth must be a string' })
+  @IsOptional()
+  dateOfBirth?: string;
+
+  @IsString({ message: 'Gender must be a string' })
+  @IsOptional()
+  gender?: string;
+
   @IsString({ message: 'Full name must be a string' })
-  @IsNotEmpty({ message: 'Full name is required' })
-  full_name: string;
+  @IsOptional()
+  fullName: string;
 }
 
 export class UserEmailsDto{

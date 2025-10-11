@@ -7,6 +7,7 @@ import {
   CreateUserResponseDto,
   AdminActionResponseDto,
   LoginResponseDto,
+  ChangePasswordResponseDto,
   UserListByEmailResponseDto
 } from './dto/user-response.dto';
 import { CreateUserDto, LoginDto, UserEmailsDto } from './dto/user.dto';
@@ -16,7 +17,7 @@ import {
   VerifyCodeResponseDto,
   ResetPasswordResponseDto,
 } from './dto/auth-response.dto';
-import { UpdateProfileDto, UserStatus } from './dto/user.dto';
+import { UpdateProfileDto, UserStatus, ChangePasswordDto } from './dto/user.dto';
 import { ForgotPasswordDto, ResetPasswordDto, VerifyCodeDto } from './dto/auth.dto';
 
 @Controller('users')
@@ -36,8 +37,8 @@ export class UsersController {
   }
 
   @MessagePattern('users.change_password')
-  async changePass(@Payload() data: { user_id: number, old_pass: string, new_pass: string }) {
-    return await this.usersService.changePass(data.user_id, data.old_pass, data.new_pass);
+  async changePass(@Payload() data: { user_id: number, current_password: string, new_password: string }): Promise<ChangePasswordResponseDto> {
+    return await this.usersService.changePass(data.user_id, data.current_password, data.new_password);
   }
 
   @MessagePattern('users.forgot_password')
