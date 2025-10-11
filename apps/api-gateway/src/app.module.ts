@@ -11,6 +11,9 @@ import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { GatewayResponseInterceptor } from 'src/common/interceptors';
+import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
 
 @Module({
   imports: [
@@ -72,7 +75,21 @@ import { AuthMiddleware } from './middleware/auth.middleware';
     MeetingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: GatewayResponseInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
