@@ -4,6 +4,11 @@ export class UserResponseDto {
   user_id: number;
   full_name: string;
   email: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  avatar?: string;
   role: UserRole;
   status: UserStatus;
   created_at: Date;
@@ -48,4 +53,12 @@ export class LoginResponseDto {
   user?: UserResponseDto;
   accessToken?: string;
   refreshToken?: string;
+}
+
+export class ChangePasswordResponseDto {
+  message: string;
+}
+
+export class UserListByEmailResponseDto {
+  users: UserResponseDto[];
 }

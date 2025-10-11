@@ -53,4 +53,13 @@ export class ClassesController {
     return await this.classesService.removeStudent(data.class_id, data.user_id);
   }
 
+  @MessagePattern('classes.get_all_classes_of_student')
+  async getAllClassesOfStudent(@Payload() data : {user_id: number}){
+    return await this.classesService.getAllClassesOfStudent(data.user_id);
+  }
+
+  @MessagePattern('classes.get_all_classes_of_student')
+  async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
+    return await this.classesService.getAllClassesOfTeacher(data.user_id);
+  }
 }

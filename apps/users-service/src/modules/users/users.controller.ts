@@ -6,16 +6,18 @@ import {
   UserListResponseDto,
   CreateUserResponseDto,
   AdminActionResponseDto,
-  LoginResponseDto
+  LoginResponseDto,
+  ChangePasswordResponseDto,
+  UserListByEmailResponseDto
 } from './dto/user-response.dto';
-import { CreateUserDto, LoginDto } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UserEmailsDto } from './dto/user.dto';
 import { UserMapper } from './mapper';
 import {
   ForgotPasswordResponseDto,
   VerifyCodeResponseDto,
   ResetPasswordResponseDto,
 } from './dto/auth-response.dto';
-import { UpdateProfileDto, UserStatus } from './dto/user.dto';
+import { UpdateProfileDto, UserStatus, ChangePasswordDto } from './dto/user.dto';
 import { ForgotPasswordDto, ResetPasswordDto, VerifyCodeDto } from './dto/auth.dto';
 
 @Controller('users')
@@ -35,8 +37,8 @@ export class UsersController {
   }
 
   @MessagePattern('users.change_password')
-  async changePass(@Payload() data: { user_id: number, old_pass: string, new_pass: string }) {
-    return await this.usersService.changePass(data.user_id, data.old_pass, data.new_pass);
+  async changePass(@Payload() data: { user_id: number, current_password: string, new_password: string }): Promise<ChangePasswordResponseDto> {
+    return await this.usersService.changePass(data.user_id, data.current_password, data.new_password);
   }
 
   @MessagePattern('users.forgot_password')
@@ -81,4 +83,11 @@ export class UsersController {
     console.log('User login attempt:', loginDto.email);
     return await this.usersService.login(loginDto);
   }
+
+  @MessagePattern('user.getListProfileByEmail')
+  async getListProfileByEmail(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailResponseDto> {
+    console.log('User get list profile by emails:', userEmailsDto);
+    return await this.usersService.getListProfileByEmail(userEmailsDto);
+  }
+
 }
