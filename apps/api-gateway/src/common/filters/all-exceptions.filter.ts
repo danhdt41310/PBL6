@@ -26,16 +26,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>()
     const request = ctx.getRequest()
 
-    if (exception instanceof HttpException) {
-      // If it's already an HttpException, let HttpExceptionFilter handle it
-      throw exception
-    }
-
     let status = HttpStatus.INTERNAL_SERVER_ERROR
     let message = 'Internal server error'
     let error = 'UnknownError'
 
-    if (this.isPrismaError(exception)) {
+    if (exception instanceof HttpException) {
+      status = exception.getStatus()
+      const exceptionResponse = exception.getResponse()
+      
+      if (typeof exceptionResponse === 'string') {
+        message = exceptionResponse
+        error = exception.name
+      } else if (typeof exceptionResponse === 'object') {
+        const responseObj = exceptionResponse as any
+        message = Array.isArray(responseObj.message) 
+          ? responseObj.message.join(', ') 
+          : (responseObj.message || 'An error occurred')
+        error = responseObj.error || exception.name
+      }
+      
+      this.logger.error(`HttpException in AllExceptionsFilter [${status}]: ${message}`)
+    } else if (this.isPrismaError(exception)) {
+      // Handle Prisma errors
       const prismaError = exception as any
       status = HttpStatus.BAD_REQUEST
       

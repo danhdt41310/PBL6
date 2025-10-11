@@ -19,10 +19,6 @@ import { RpcExceptionFilter } from './common/filters';
   controllers: [AppController],
   providers: [
     PrismaService,
-    {
-      provide: APP_FILTER,
-      useClass: RpcExceptionFilter,
-    },
   ],
   exports: [PrismaService],
 })

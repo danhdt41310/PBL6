@@ -23,6 +23,22 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix('api');
 
+  // Global error handling middleware
+  app.use((err, req, res, next) => {
+    console.error('Global error caught:', err);
+
+    // Nếu là NestJS Exception thì xử lý chuẩn
+    if (err.getStatus && err.getResponse) {
+      return res.status(err.getStatus()).json(err.getResponse());
+    }
+
+    // Nếu không phải Exception của Nest
+    return res.status(500).json({
+      statusCode: 500,
+      message: err.message || 'Internal server error',
+    });
+  })
+
   // Start the application
   const port = process.env.PORT || 3000;
   await app.listen(port);

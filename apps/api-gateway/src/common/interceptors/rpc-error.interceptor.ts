@@ -12,15 +12,6 @@ import { catchError } from 'rxjs/operators';
 import { RpcException } from '@nestjs/microservices';
 import { IApiResponse, IRpcError } from '../interfaces';
 
-/**
- * RPC Error Interceptor for API Gateway.
- * 
- * Flow:
- * 1. Microservice throws RpcException with IRpcError
- * 2. This interceptor catches it
- * 3. Converts to HttpException with IApiResponse format
- * 4. HttpExceptionFilter handles the HttpException
- */
 @Injectable()
 export class RpcErrorInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RpcErrorInterceptor.name);
@@ -28,7 +19,6 @@ export class RpcErrorInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       catchError((error) => {
-        // Catch 'RpcException' from microservice
         if (error instanceof RpcException) {
           const errorDetails = error.getError() as IRpcError;
           
@@ -51,53 +41,42 @@ export class RpcErrorInterceptor implements NestInterceptor {
           );
         }
 
-        // Check if it's an HttpException-like structure from microservice
-        if (error && typeof error === 'object' && 'status' in error && 'response' in error) {
-          const httpError = error as any;
-          
-          this.logger.error('HTTP-like error from microservice:', httpError);
-
-          const statusCode = httpError.status || HttpStatus.INTERNAL_SERVER_ERROR;
-          const response = httpError.response;
-          const message = Array.isArray(response?.message)
-            ? response.message.join(', ')
-            : response?.message || httpError.message || 'An error occurred';
-
-          throw new HttpException(
-            {
-              success: false,
-              message,
-              data: null,
-              error: response?.error || httpError.name || 'InternalServerError',
-            } as IApiResponse<null>,
-            statusCode,
-          );
-        }
-
-        // Check if it's an RPC error with structured response (from Redis)
-        if (error && typeof error === 'object' && 'error' in error) {
+        // Check if it's an error object with nested IRpcError (from microservice)
+        if (error && typeof error === 'object' && 'error' in error && 'message' in error) {
           const errorObj = error as any;
           
-          this.logger.error('Structured RPC Error:', errorObj);
+          // Check if it has the structure: { error: IRpcError, message: string }
+          if (errorObj.error && typeof errorObj.error === 'object' && 
+              'statusCode' in errorObj.error && 'message' in errorObj.error) {
+            
+            this.logger.error('Structured Error from Microservice:', errorObj);
+            
+            const rpcError = errorObj.error;
+            const statusCode = rpcError.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
+            const message = Array.isArray(rpcError.message)
+              ? rpcError.message.join(', ')
+              : rpcError.message || errorObj.message || 'An error occurred';
 
-          const statusCode = errorObj.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
-          const message = Array.isArray(errorObj.message)
-            ? errorObj.message.join(', ')
-            : errorObj.message || 'An error occurred';
-
-          throw new HttpException(
-            {
-              success: false,
-              message,
-              data: null,
-              error: errorObj.error || 'InternalServerError',
-            } as IApiResponse<null>,
-            statusCode,
-          );
+            throw new HttpException(
+              {
+                success: false,
+                message,
+                data: null,
+                error: rpcError.error || 'InternalServerError',
+              } as IApiResponse<null>,
+              statusCode,
+            );
+          }
         }
 
-        // Handle timeout or connection errors
-        if (error?.message?.includes('timeout') || error?.code === 'ECONNREFUSED') {
+        // Handle timeout or connection errors (microservice specific)
+        if (error?.message?.includes('timeout') || 
+            error?.code === 'ECONNREFUSED' ||
+            (error?.message && (
+              error.message.includes('REDIS') || 
+              error.message.includes('microservice') ||
+              error.message.includes('ENOTFOUND')
+            ))) {
           this.logger.error('Microservice Connection Error:', error);
           
           throw new HttpException(
@@ -111,13 +90,9 @@ export class RpcErrorInterceptor implements NestInterceptor {
           );
         }
 
-        // If error is already an HttpException, pass it through
-        if (error instanceof HttpException) {
-          throw error;
-        }
-
-        // Re-throw other errors to be handled by filters
-        this.logger.error('Unknown error type, passing to filters:', error);
+        // Pass through all other errors to be handled by filters
+        // This includes HttpExceptions from local controllers
+        this.logger.debug('Passing error to filters:', error.constructor.name);
         return throwError(() => error);
       }),
     );

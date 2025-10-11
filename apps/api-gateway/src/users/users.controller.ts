@@ -123,23 +123,7 @@ export class UsersController {
   @Post('create')
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log("create user", createUserDto);
-    try {
-      return await this.usersClient
-        .send('users.create', createUserDto)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('fail to create', HttpStatus.NOT_FOUND));
-          }),
-
-        )
-        .toPromise();
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Failed to create user', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    return this.usersClient.send('users.create', createUserDto);
   }
 
   @Post('login')
