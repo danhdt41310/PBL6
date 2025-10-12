@@ -14,6 +14,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
 import { CommonModule } from './common/common.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { GatewayResponseInterceptor, RpcErrorInterceptor } from 'src/common/interceptors';
+import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
 
 @Module({
   imports: [
@@ -81,6 +84,22 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RpcErrorInterceptor, // Convert RpcException → HttpException
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: GatewayResponseInterceptor, // Format successful http responses
+    },
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter, // Catch all unhandled exceptions - Safety net (first)
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter, // Handle HttpException - more specific (last)
     },
   ],
 })

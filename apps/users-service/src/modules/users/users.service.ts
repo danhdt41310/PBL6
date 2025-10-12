@@ -17,6 +17,7 @@ import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponse
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class UsersService {
@@ -27,14 +28,14 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService
-  ) { }
+  ) {}
   /**
- * Create a new User in the system
- *
- * @param createUserDto - Data Transfer Object containing the user information
- * @returns Promise<User> - The newly created user (including id, email, role, status...)
- * 
- **/
+   * Create a new User in the system
+   *
+   * @param createUserDto - Data Transfer Object containing the user information
+   * @returns Promise<User> - The newly created user (including id, email, role, status...)
+   * 
+   **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
     const { full_name, email, password, role, status } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
@@ -296,11 +297,7 @@ export class UsersService {
   async verifyCode(email: string, code: string): Promise<VerifyCodeResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return {
-        message: 'Invalid verification code.',
-        success: false,
-        isValid: false,
-      };
+      throw new RpcException(new NotFoundException('User not found'))
     }
 
     // Find the verification code
@@ -317,11 +314,7 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      return {
-        message: 'Invalid or expired verification code.',
-        success: false,
-        isValid: false,
-      };
+      throw new RpcException(new BadRequestException('Invalid or expired verification code.'))
     }
 
     return {
@@ -338,10 +331,7 @@ export class UsersService {
     console.log('resetPassword called', { email, code });
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return {
-        message: 'Invalid request.',
-        success: false,
-      };
+      throw new RpcException(new NotFoundException('User not found'));
     }
 
     // Find and validate the verification code
@@ -358,10 +348,7 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      return {
-        message: 'Invalid or expired verification code.',
-        success: false,
-      };
+      throw new RpcException(new NotFoundException('Invalid or expired verification code.'));
     }
 
     // Hash the new password before saving
@@ -397,11 +384,7 @@ export class UsersService {
     });
 
     if (!user) {
-      return {
-        message: 'User not found.',
-        success: false,
-        user_id: userId,
-      };
+      throw new RpcException(new NotFoundException('User not found'))
     }
 
     const updatedUser = await this.prisma.user.update({

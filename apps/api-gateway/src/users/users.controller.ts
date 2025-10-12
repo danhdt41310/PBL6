@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put, UseInterceptors, UseFilters } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
@@ -188,13 +188,11 @@ export class UsersController {
    */
   @Post('admin/block/:id')
   blockUser(@Param('id', ParseIntPipe) id: number) {
-    // Here you would typically add admin authentication guards
     return this.usersClient.send('users.block_user', { user_id: id });
   }
 
   @Post('admin/unblock/:id')
   unblockUser(@Param('id', ParseIntPipe) id: number) {
-    // Here you would typically add admin authentication guards
     return this.usersClient.send('users.unblock_user', { user_id: id });
   }
 
@@ -207,32 +205,15 @@ export class UsersController {
   }
 
   /**
-   * 
-   * @param createUserDto 
-   * @returns 
-   * 
+   * Create a new user
+   * @param createUserDto - User creation data
+   * @returns Created user response
    */
   @Post('create')
   @SkipPermissionCheck()
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log("create user", createUserDto);
-    try {
-      return await this.usersClient
-        .send('users.create', createUserDto)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('fail to create', HttpStatus.NOT_FOUND));
-          }),
-
-        )
-        .toPromise();
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Failed to create user', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    return this.usersClient.send('users.create', createUserDto);
   }
 
   @Post('login')
