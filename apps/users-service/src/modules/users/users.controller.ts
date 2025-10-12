@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UnprocessableEntityException } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { UsersService } from './users.service';
 import {
@@ -58,6 +58,7 @@ export class UsersController {
 
   @MessagePattern('users.block_user')
   async blockUser(@Payload() data: { user_id: number }): Promise<AdminActionResponseDto> {
+    throw new UnprocessableEntityException('This function is temporarily disabled');
     return await this.usersService.updateUserStatus(data.user_id, UserStatus.BLOCKED);
   }
 

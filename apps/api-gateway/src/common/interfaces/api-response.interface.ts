@@ -1,5 +1,5 @@
 /**
- * API Response Interface for Microservices.
+ * Standard API Response Interface format.
  */
 export interface IApiResponse<T = any> {
   /** Response status indicator */
@@ -13,4 +13,15 @@ export interface IApiResponse<T = any> {
 
   /** Error information - flexible structure for any error details */
   error?: unknown
+}
+
+/**
+ * Standard RPC Error Structure
+ * Send via Redis from 'microservice' to 'api-gateway'
+ */
+export interface IRpcError {
+  statusCode: number
+  message: string | string[]
+  error: unknown
+  timestamp?: string
 }
