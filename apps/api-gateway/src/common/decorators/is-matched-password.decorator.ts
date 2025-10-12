@@ -18,9 +18,9 @@ export function IsMatchedPassword(property: string, validationOptions?: Validati
         },
         defaultMessage(args: ValidationArguments) {
           const [relatedPropertyName] = args.constraints;
-          return `${propertyName} must match ${relatedPropertyName}`;
+          return `${args.property} must match ${relatedPropertyName}`;
         },
       },
     });
-  }
+  };
 }

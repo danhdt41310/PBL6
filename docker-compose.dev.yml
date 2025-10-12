@@ -263,6 +263,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PORT=3000
+      - USERS_DATABASE_URL=postgresql://postgres:postgres123@postgres-users:5432/users_db
       - USERS_SERVICE_HOST=users-service
       - USERS_SERVICE_PORT=3001
       - MEETINGS_SERVICE_HOST=meetings-service
@@ -281,6 +282,7 @@ services:
       - ./apps/api-gateway/tsconfig.build.json:/app/apps/api-gateway/tsconfig.build.json
       - ./apps/api-gateway/nest-cli.json:/app/apps/api-gateway/nest-cli.json
       - ./apps/api-gateway/nodemon.json:/app/apps/api-gateway/nodemon.json
+      - ./apps/api-gateway/.env:/app/apps/api-gateway/.env
       - ./packages:/app/packages
     depends_on:
       - redis
@@ -289,6 +291,7 @@ services:
       - chats-service
       - exams-service
       - classes-service
+      - postgres-users
     networks:
       - microservices-network
 

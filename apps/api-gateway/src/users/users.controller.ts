@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put, UseInterceptors, UseFilters } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
-import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto } from '../dto/user.dto';
+import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
-import { PaginationDto } from 'src/dto/common.dto';
+import { PaginationDto } from '../dto/common.dto';
 import { Request } from 'express';
+import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
 
 interface RequestWithUser extends Request {
   user?: any;
@@ -17,6 +17,7 @@ export class UsersController {
   ) { }
 
   @Get('hello')
+  @SkipPermissionCheck()
   getHello(@Body() data: { name: string }) {
     return this.usersClient.send('users.get_hello', { name: data.name });
   }
@@ -154,16 +155,19 @@ export class UsersController {
    * Password reset flow
    */
   @Post('forgot-password')
+  @SkipPermissionCheck()
   forgotPassword(@Body() data: ForgotPasswordDto) {
     return this.usersClient.send('users.forgot_password', data);
   }
 
   @Post('verify-code')
+  @SkipPermissionCheck()
   verifyCode(@Body() data: VerifyCodeDto) {
     return this.usersClient.send('users.verify_code', data);
   }
 
   @Post('reset-password')
+  @SkipPermissionCheck()
   resetPassword(@Body() data: ResetPasswordDto) {
     console.log('resetPassword called in controller', data);
     return this.usersClient.send('users.reset_password', data)
@@ -206,12 +210,14 @@ export class UsersController {
    * @returns Created user response
    */
   @Post('create')
+  @SkipPermissionCheck()
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log("create user", createUserDto);
     return this.usersClient.send('users.create', createUserDto);
   }
 
   @Post('login')
+  @SkipPermissionCheck()
   async login(@Body(ValidationPipe) loginDto: LoginDto) {
     try {
       return await this.usersClient
@@ -248,6 +254,124 @@ export class UsersController {
         throw error;
       }
       throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Create/assign permissions to roles
+   * Admin only endpoint for role permission management
+   */
+  @Post('admin/roles/assign-permissions')
+  @SkipPermissionCheck()
+  async assignPermissionsToRole(@Body(ValidationPipe) rolePermissionDto: RolePermissionDto) {
+    try {
+      return await this.usersClient
+        .send('users.assign_role_permissions', rolePermissionDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('Failed to assign permissions', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to assign permissions to role', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Get all roles with their permissions
+   */
+  @Get('admin/roles')
+  @SkipPermissionCheck()
+  async getAllRoles() {
+    try {
+      return await this.usersClient
+        .send('users.get_all_roles', {})
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('Failed to fetch roles', HttpStatus.INTERNAL_SERVER_ERROR));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to fetch roles', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Get all available permissions
+   */
+  @Get('admin/permissions')
+  async getAllPermissions() {
+    try {
+      return await this.usersClient
+        .send('users.get_all_permissions', {})
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('Failed to fetch permissions', HttpStatus.INTERNAL_SERVER_ERROR));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to fetch permissions', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Create a new role
+   */
+  @Post('admin/roles/create')
+  async createRole(@Body(ValidationPipe) createRoleDto: CreateRoleDto) {
+    try {
+      return await this.usersClient
+        .send('users.create_role', createRoleDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('Failed to create role', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to create role', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Create a new permission
+   */
+  @Post('admin/permissions/create')
+  async createPermission(@Body(ValidationPipe) createPermissionDto: CreatePermissionDto) {
+    try {
+      return await this.usersClient
+        .send('users.create_permission', createPermissionDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('Failed to create permission', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to create permission', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

@@ -12,7 +12,7 @@ export interface User {
   dateOfBirth?: Date;
   gender?: string;
   avatar?: string;
-  role: 'admin' | 'user' | 'teacher';
+  role?: string;
   status: 'active' | 'blocked';
   created_at: Date;
   updated_at?: Date | null;

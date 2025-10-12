@@ -11,11 +11,17 @@ COPY package*.json ./
 COPY turbo.json ./
 COPY apps/api-gateway/package*.json ./apps/api-gateway/
 COPY packages/ ./packages/
+COPY apps/api-gateway/prisma ./apps/api-gateway/prisma
+COPY apps/api-gateway/.env ./apps/api-gateway/.env
 
 RUN cd apps/api-gateway && npm install
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
+WORKDIR /app/apps/api-gateway
+RUN npx prisma generate
+# Go back to root
+WORKDIR /app
 
 EXPOSE 3000
 

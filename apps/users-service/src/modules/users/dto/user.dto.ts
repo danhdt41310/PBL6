@@ -114,3 +114,45 @@ export class UserEmailsDto{
   @IsEmail({},{each:true})
   userEmails: string[];
 }
+
+export class RolePermissionDto {
+  @IsString()
+  @IsNotEmpty()
+  roleName: string;
+
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  permissionNames: string[];
+}
+
+export class CreateRoleDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+
+export class CreatePermissionDto {
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  resource?: string;
+
+  @IsString()
+  @IsOptional()
+  action?: string;
+}
