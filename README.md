@@ -185,3 +185,33 @@ docker compose -f docker-compose.dev.yml logs -f [service-name]
 5. Start building your application features!
 
 For more detailed information about each service, check the individual README files in their respective directories.
+
+## Sync permissions
+
+Follow these steps to sync permissions and (optionally) seed roles in the API Gateway container.
+
+1. Enter the running backend container (replace container name if different):
+
+```bash
+docker exec -it be-api-gateway-1 sh
+```
+
+2. Change to the `api-gateway` directory:
+
+```bash
+cd apps/api-gateway
+```
+
+3. Run the permission sync command:
+
+```bash
+npm run sync:permissions
+```
+
+4. (Optional) Seed roles if not already seeded:
+
+```bash
+npm run seed:roles
+```
+
+Note: If your container name differs, use `docker ps` to find the correct name.

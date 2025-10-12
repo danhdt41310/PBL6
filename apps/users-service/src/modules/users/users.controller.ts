@@ -8,9 +8,10 @@ import {
   AdminActionResponseDto,
   LoginResponseDto,
   ChangePasswordResponseDto,
-  UserListByEmailResponseDto
+  UserListByEmailResponseDto,
+  RolePermissionResponseDto
 } from './dto/user-response.dto';
-import { CreateUserDto, LoginDto, UserEmailsDto } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from './dto/user.dto';
 import { UserMapper } from './mapper';
 import {
   ForgotPasswordResponseDto,
@@ -87,6 +88,42 @@ export class UsersController {
   async getListProfileByEmail(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailResponseDto> {
     console.log('User get list profile by emails:', userEmailsDto);
     return await this.usersService.getListProfileByEmail(userEmailsDto);
+  }
+
+  @MessagePattern('users.assign_role_permissions')
+  async assignRolePermissions(@Payload() rolePermissionDto: RolePermissionDto): Promise<RolePermissionResponseDto> {
+    console.log('Assigning permissions to role:', rolePermissionDto);
+    return await this.usersService.assignRolePermissions(rolePermissionDto);
+  }
+
+  @MessagePattern('users.get_all_roles')
+  async getAllRoles(): Promise<any> {
+    console.log('Fetching all roles with permissions');
+    return await this.usersService.getAllRolesWithPermissions();
+  }
+
+  @MessagePattern('users.get_all_permissions')
+  async getAllPermissions(): Promise<any> {
+    console.log('Fetching all permissions');
+    return await this.usersService.getAllPermissions();
+  }
+
+  @MessagePattern('users.create_role')
+  async createRole(@Payload() createRoleDto: CreateRoleDto): Promise<any> {
+    console.log('Creating new role:', createRoleDto);
+    return await this.usersService.createRole(createRoleDto.name, createRoleDto.description);
+  }
+
+  @MessagePattern('users.create_permission')
+  async createPermission(@Payload() createPermissionDto: CreatePermissionDto): Promise<any> {
+    console.log('Creating new permission:', createPermissionDto);
+    return await this.usersService.createPermission(
+      createPermissionDto.key,
+      createPermissionDto.name,
+      createPermissionDto.description,
+      createPermissionDto.resource,
+      createPermissionDto.action
+    );
   }
 
 }

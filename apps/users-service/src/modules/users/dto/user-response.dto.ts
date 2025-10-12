@@ -62,3 +62,10 @@ export class ChangePasswordResponseDto {
 export class UserListByEmailResponseDto {
   users: UserResponseDto[];
 }
+
+export class RolePermissionResponseDto {
+  message: string;
+  success: boolean;
+  roleName: string;
+  permissionsAssigned: string[];
+}

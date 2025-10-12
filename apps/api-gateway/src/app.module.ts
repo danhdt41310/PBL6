@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -11,6 +12,8 @@ import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
+import { CommonModule } from './common/common.module';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 
 @Module({
   imports: [
@@ -64,6 +67,7 @@ import { AuthMiddleware } from './middleware/auth.middleware';
         },
       },
     ]),
+    CommonModule,
     UsersModule,
     ProductsModule,
     ChatsModule,
@@ -72,7 +76,13 @@ import { AuthMiddleware } from './middleware/auth.middleware';
     MeetingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -86,6 +96,7 @@ export class AppModule implements NestModule {
         { path: 'users/reset-password', method: RequestMethod.POST },
         { path: '/', method: RequestMethod.GET },
         { path: 'users/hello', method: RequestMethod.GET },
+        { path: 'admin/*', method: RequestMethod.ALL }
       )
       .forRoutes('*');
   }
