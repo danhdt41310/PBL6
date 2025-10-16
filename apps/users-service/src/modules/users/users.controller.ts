@@ -8,10 +8,10 @@ import {
   AdminActionResponseDto,
   LoginResponseDto,
   ChangePasswordResponseDto,
-  UserListByEmailResponseDto,
-  RolePermissionResponseDto
+  RolePermissionResponseDto,
+  UserListByEmailsOrIdsResponseDto
 } from './dto/user-response.dto';
-import { CreateUserDto, LoginDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from './dto/user.dto';
 import { UserMapper } from './mapper';
 import {
   ForgotPasswordResponseDto,
@@ -85,10 +85,16 @@ export class UsersController {
     return await this.usersService.login(loginDto);
   }
 
-  @MessagePattern('user.getListProfileByEmail')
-  async getListProfileByEmail(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailResponseDto> {
+  @MessagePattern('user.get_list_profile_by_emails')
+  async getListProfileByEmails(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto> {
     console.log('User get list profile by emails:', userEmailsDto);
-    return await this.usersService.getListProfileByEmail(userEmailsDto);
+    return await this.usersService.getListProfileByEmails(userEmailsDto);
+  }
+
+  @MessagePattern('user.get_list_profile_by_ids')
+  async getListProfileByIds(@Payload() userIdsDto: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto> {
+    console.log('User get list profile by ids:', userIdsDto);
+    return await this.usersService.getListProfileByIds(userIdsDto);
   }
 
   @MessagePattern('users.assign_role_permissions')

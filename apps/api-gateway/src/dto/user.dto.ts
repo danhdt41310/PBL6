@@ -150,6 +150,14 @@ export class UserEmailsDto{
   userEmails: string[];
 }
 
+export class UserIdsDto{
+  @Transform(({value})=>{
+    value.map((id:string)=>parseInt(id))
+  })
+  @IsInt({each:true})
+  userIds: number[];
+}
+
 export class RolePermissionDto {
   @IsString()
   @IsNotEmpty()
