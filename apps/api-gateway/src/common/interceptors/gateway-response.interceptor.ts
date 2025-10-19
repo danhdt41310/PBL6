@@ -1,8 +1,8 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common'
 import { Observable } from 'rxjs'
 import { map } from 'rxjs/operators'
-import { ApiResponseBuilder } from 'src/common/helpers'
-import { IApiResponse } from 'src/common/interfaces'
+import { ApiResponseBuilder } from '../helpers'
+import { IApiResponse } from '../interfaces'
 
 /**
  * API Gateway Response Transform Interceptor
