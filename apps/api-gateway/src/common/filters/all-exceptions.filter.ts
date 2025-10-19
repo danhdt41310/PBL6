@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common'
 import { Response } from 'express'
-import { IApiResponse } from 'src/common/interfaces'
+import { IApiResponse } from '../interfaces'
 
 /**
  * All Exceptions Filter.

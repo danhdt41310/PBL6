@@ -15,8 +15,8 @@ import { AuthMiddleware } from './middleware/auth.middleware';
 import { CommonModule } from './common/common.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { GatewayResponseInterceptor, RpcErrorInterceptor } from 'src/common/interceptors';
-import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
+import { GatewayResponseInterceptor, RpcErrorInterceptor } from './common/interceptors';
+import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
 
 @Module({
   imports: [
@@ -95,11 +95,11 @@ import { AllExceptionsFilter, HttpExceptionFilter } from 'src/common/filters';
     },
     {
       provide: APP_FILTER,
-      useClass: AllExceptionsFilter, // Catch all unhandled exceptions - Safety net (first)
+      useClass: AllExceptionsFilter, // Catch all unhandled exceptions
     },
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter, // Handle HttpException - more specific (last)
+      useClass: HttpExceptionFilter, // Handle HttpException - High priority - Run first
     },
   ],
 })
