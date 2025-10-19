@@ -59,7 +59,7 @@ export class ChangePasswordResponseDto {
   message: string;
 }
 
-export class UserListByEmailResponseDto {
+export class UserListByEmailsOrIdsResponseDto {
   users: UserResponseDto[];
 }
 
