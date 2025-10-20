@@ -37,6 +37,12 @@ export class UsersController {
     return await this.usersService.findOne(data.id);
   }
 
+  @MessagePattern('users.get_me')
+  async findOneWithPermissions(@Payload() data: { id: number }): Promise<any> {
+    console.log('Finding user with permissions for ID:', data.id);
+    return await this.usersService.findUserWithPermissions(data.id);
+  }
+
   @MessagePattern('users.change_password')
   async changePass(@Payload() data: { user_id: number, current_password: string, new_password: string }): Promise<ChangePasswordResponseDto> {
     return await this.usersService.changePass(data.user_id, data.current_password, data.new_password);

@@ -204,6 +204,79 @@ export class UsersService {
     }
   }
 
+  /**
+   * Get user with roles and permissions (consolidated endpoint)
+   * Returns user info + roles array + permissions array
+   */
+  async findUserWithPermissions(user_id: number): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { user_id },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Extract roles
+    const roles = user.userRoles.map(ur => ({
+      role_id: ur.role.role_id,
+      name: ur.role.name,
+      description: ur.role.description,
+    }));
+
+    // Extract unique permissions from all roles
+    const permissionsMap = new Map();
+    user.userRoles.forEach(ur => {
+      ur.role.rolePermissions.forEach(rp => {
+        const permission = rp.permission;
+        if (!permissionsMap.has(permission.permission_id)) {
+          permissionsMap.set(permission.permission_id, {
+            permission_id: permission.permission_id,
+            key: permission.key,
+            name: permission.name,
+            description: permission.description,
+            resource: permission.resource,
+            action: permission.action,
+          });
+        }
+      });
+    });
+
+    const permissions = Array.from(permissionsMap.values());
+
+    // Build user response with basic info
+    const userWithRole = {
+      ...user,
+      role: user.userRoles[0]?.role?.name || 'user',
+    };
+
+    const userData = UserMapper.toResponseDto(userWithRole);
+
+    return {
+      success: true,
+      data: {
+        ...userData,
+        roles,
+        permissions,
+      },
+    };
+  }
+
   async changePass(user_id: number, current_password: string, new_password: string): Promise<ChangePasswordResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id }

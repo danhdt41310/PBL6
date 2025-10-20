@@ -25,7 +25,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
     }),
     JwtModule.register({
       global: true,
-      secret: process.env.ACCESS_JWT_SECRET||'keybimat',
+      secret: process.env.ACCESS_JWT_SECRET || 'keybimat',
       signOptions: { expiresIn: '1h' },
     }),
     ClientsModule.register([
