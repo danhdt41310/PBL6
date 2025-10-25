@@ -47,6 +47,36 @@ export class UsersController {
   }
 
   /**
+   * Get current user with roles and permissions (consolidated endpoint)
+   * Returns user info + roles + permissions in a single API call
+   */
+  @Get('me')
+  async getCurrentUser(@Req() req: RequestWithUser) {
+    if (!req.user || !req.user.sub) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const userId = req.user.sub;
+    console.log('Fetching user, roles, and permissions for user ID:', userId);
+    try {
+      return await this.usersClient
+        .send('users.get_me', { id: userId })
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to fetch user data', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
    * Get current user profile from access token
    */
   @Get('profile')
