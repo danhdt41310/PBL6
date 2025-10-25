@@ -1,10 +1,10 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNumber, IsInt, Length, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsBoolean, IsNumber, IsInt, Length, IsNotEmpty, IsPhoneNumber } from 'class-validator';
 import { IsMatchedPassword } from '../common/decorators/is-matched-password.decorator';
 
 export class CreateUserDto {
   @IsString()
-  full_name: string;
+  fullName: string;
 
   @IsEmail()
   email: string;
@@ -21,6 +21,18 @@ export class CreateUserDto {
 
   @IsOptional()
   otp?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsPhoneNumber('VN', { message: 'Invalid Vietnamese phone number' })
+  phone?: string;
+
+  @IsOptional()
+  dateOfBirth?: string;
+
+  @IsString()
+  @IsOptional()
+  gender?: string;
 }
 
 export class UpdateUserDto {
@@ -142,7 +154,12 @@ export class UpdateProfileDto {
 
   @IsString({ message: 'Full name must be a string' })
   @IsOptional()
-  fullName: string;
+  fullName?: string;
+
+  @IsString({ message: 'Status must be a string' })
+  @IsOptional()
+  status?: string;
+  
 }
 
 export class UserEmailsDto{

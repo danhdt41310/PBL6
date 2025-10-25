@@ -27,7 +27,7 @@ model User {
   password       String     @db.VarChar
   phone          String?    @db.VarChar
   address        String?    @db.Text
-  dateOfBirth    DateTime?  @db.Date @map("date_of_birth")
+  date_of_birth  DateTime?  @db.Date
   gender         String?    @db.VarChar
   avatar         String?    @db.VarChar
   status         UserStatus @default(active)
