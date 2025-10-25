@@ -6,11 +6,11 @@ import {
   LoginResponseDto,
   CreateUserResponseDto,
   ChangePasswordResponseDto,
-  UserListByEmailResponseDto,
-  RolePermissionResponseDto
+  RolePermissionResponseDto,
+  UserListByEmailsOrIdsResponseDto
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
-import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserEmailsDto, UserStatus, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from './dto/user.dto';
+import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserEmailsDto, UserStatus, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from './dto/user.dto';
 import { User } from './interfaces/user.interface';
 import * as bcrypt from 'bcrypt';
 import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponseDto } from './dto/auth-response.dto';
@@ -476,11 +476,40 @@ export class UsersService {
     return UserMapper.toResponseDto(userWithRole);
   }
   
-  async getListProfileByEmail(userEmails: UserEmailsDto): Promise<UserListByEmailResponseDto>{
+  async getListProfileByEmails(userEmails: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto>{
     const records = [];
     for (let email of userEmails.userEmails){
       let user = await this.prisma.user.findUnique({
         where: { email: email },
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+      
+      if (user) {
+        // Add role for compatibility
+        const userWithRole = {
+          ...user,
+          role: user.userRoles[0]?.role?.name || 'user',
+        };
+        records.push(userWithRole);
+      }
+    }
+
+    return {
+      users: UserMapper.toResponseDtoArray(records),
+    }
+  }
+
+  async getListProfileByIds(userIds: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto>{
+    const records = [];
+    for (let userId of userIds.userIds){
+      let user = await this.prisma.user.findUnique({
+        where: { user_id: userId },
         include: {
           userRoles: {
             include: {

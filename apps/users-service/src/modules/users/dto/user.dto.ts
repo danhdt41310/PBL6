@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length, IsNotEmpty, IsPhoneNumber, IsIn } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length, IsNotEmpty, IsInt, IsPhoneNumber, IsIn } from 'class-validator';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -129,6 +129,11 @@ export class LoginDto{
 export class UserEmailsDto{
   @IsEmail({},{each:true})
   userEmails: string[];
+}
+
+export class UserIdsDto{
+  @IsInt({each:true})
+  userIds: number[];
 }
 
 export class RolePermissionDto {

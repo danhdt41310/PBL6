@@ -14,7 +14,7 @@ COPY packages/ ./packages/
 COPY apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY apps/api-gateway/.env ./apps/api-gateway/.env
 
-RUN cd apps/api-gateway && npm install
+RUN cd ./apps/api-gateway/ && npm install
 # Install all dependencies (including dev dependencies)
 RUN npm install
 

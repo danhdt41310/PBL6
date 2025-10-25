@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put, UseInterceptors, UseFilters } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto } from '../dto/user.dto';
+import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
@@ -237,11 +237,31 @@ export class UsersController {
     }
   }
 
-  @Post('get-list-profile-by-email')
+  @Post('get-list-profile-by-emails')
   async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto ){
     try {
       return await this.usersClient
-        .send('users.get_list_profile_by_email', userEmailsDto)
+        .send('users.get_list_profile_by_emails', userEmailsDto)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post('get-list-profile-by-ids')
+  async getListProfileById(@Body(ValidationPipe) userIdsDto: UserIdsDto ){
+    try {
+      return await this.usersClient
+        .send('users.get_list_profile_by_ids', userIdsDto)
         .pipe(
           timeout(5000),
           catchError(err => {
