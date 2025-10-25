@@ -18,7 +18,7 @@ export class UserMapper {
       email: user.email,
       phone: user.phone,
       address: user.address,
-      dateOfBirth: user.dateOfBirth,
+      dateOfBirth: user.date_of_birth,
       gender: user.gender,
       avatar: user.avatar,
       role: user.role as any,

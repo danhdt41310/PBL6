@@ -18,6 +18,7 @@ import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
+import { QueryBuilderUtil, SearchFilter } from 'src/shared/utils/query-builder.util';
 
 @Injectable()
 export class UsersService {
@@ -152,11 +153,18 @@ export class UsersService {
   }
 
 
-  async findAll(page: number, limit: number): Promise<UserListResponseDto> {
+  async findAll(page: number, limit: number, filters?: SearchFilter): Promise<UserListResponseDto> {
+    // Build the where clause using the query builder
+    const where = QueryBuilderUtil.buildUserSearchQuery(filters || {});
+
+    // Build pagination options
+    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(page, limit);
+
+    // Execute queries in parallel
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
+        where,
+        ...paginationOptions,
         include: {
           userRoles: {
             include: {
@@ -164,8 +172,11 @@ export class UsersService {
             },
           },
         },
+        orderBy: {
+          created_at: 'desc',
+        },
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     // Add role to each user for compatibility

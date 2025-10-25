@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inje
 import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
-import { PaginationDto } from '../dto/common.dto';
+import { PaginationDto, UserSearchDto } from '../dto/common.dto';
 import { Request } from 'express';
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
 
@@ -23,11 +23,11 @@ export class UsersController {
   }
 
   @Get('list')
-  async findAll(@Query() pagination: PaginationDto) {
-    const { page = 1, limit = 10 } = pagination;
+  async findAll(@Query() searchDto: UserSearchDto) {
+    const { page = 1, limit = 10, text, role, status, gender, birthday } = searchDto;
     try {
       return await this.usersClient
-        .send('users.list', { page, limit })
+        .send('users.list', { page, limit, text, role, status, gender, birthday })
         .pipe(
           timeout(5000),
           catchError(err => {
