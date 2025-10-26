@@ -38,7 +38,7 @@ export class UsersService {
    * 
    **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const { fullName, email, password, role, status } = createUserDto;
+    const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
     
     // Create user without role first
@@ -48,6 +48,9 @@ export class UsersService {
         email,
         password: hashedPassword,
         status: status || 'active',
+        phone,
+        date_of_birth: new Date(dateOfBirth),
+        gender,
       },
     });
 
