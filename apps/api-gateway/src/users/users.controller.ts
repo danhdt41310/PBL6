@@ -5,11 +5,14 @@ import { throwError, TimeoutError } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
 import { Request } from 'express';
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 
 interface RequestWithUser extends Request {
   user?: any;
 }
 
+@ApiTags('users')
+@ApiBearerAuth('JWT-auth')
 @Controller('users')
 export class UsersController {
   constructor(
@@ -18,11 +21,24 @@ export class UsersController {
 
   @Get('hello')
   @SkipPermissionCheck()
+  @ApiOperation({ summary: 'Test endpoint', description: 'Simple hello endpoint for testing' })
+  @ApiResponse({ status: 200, description: 'Returns hello message' })
   getHello(@Body() data: { name: string }) {
     return this.usersClient.send('users.get_hello', { name: data.name });
   }
 
   @Get('list')
+  @ApiOperation({ summary: 'Get all users', description: 'Retrieve a paginated list of users with optional filters' })
+  @ApiResponse({ status: 200, description: 'List of users retrieved successfully' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'text', required: false, type: String, description: 'Search text' })
+  @ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
+  @ApiQuery({ name: 'gender', required: false, type: String, description: 'Filter by gender' })
+  @ApiQuery({ name: 'birthday', required: false, type: String, description: 'Filter by birthday' })
   async findAll(@Query() searchDto: UserSearchDto) {
     const { page = 1, limit = 10, text, role, status, gender, birthday } = searchDto;
     try {
@@ -51,6 +67,10 @@ export class UsersController {
    * Returns user info + roles + permissions in a single API call
    */
   @Get('me')
+  @ApiOperation({ summary: 'Get current user', description: 'Get the currently authenticated user with roles and permissions' })
+  @ApiResponse({ status: 200, description: 'Current user retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'User not authenticated' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getCurrentUser(@Req() req: RequestWithUser) {
     if (!req.user || !req.user.sub) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
@@ -80,6 +100,10 @@ export class UsersController {
    * Get current user profile from access token
    */
   @Get('profile')
+  @ApiOperation({ summary: 'Get current user profile', description: 'Get the profile of the currently authenticated user' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'User not authenticated' })
+  @ApiResponse({ status: 404, description: 'Profile not found' })
   async getProfile(@Req() req: RequestWithUser) {
     if (!req.user || !req.user.sub) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
@@ -109,6 +133,11 @@ export class UsersController {
    * Update current user profile from access token
    */
   @Patch('profile')
+  @ApiOperation({ summary: 'Update current user profile', description: 'Update the profile of the currently authenticated user' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'User not authenticated' })
   async updateCurrentProfile(@Req() req: RequestWithUser, @Body() profile: UpdateProfileDto) {
     if (!req.user || !req.user.sub) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
@@ -135,6 +164,10 @@ export class UsersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID', description: 'Retrieve a specific user by their ID' })
+  @ApiParam({ name: 'id', type: Number, description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
       return await this.usersClient
@@ -155,6 +188,11 @@ export class UsersController {
   }
 
   @Put('/change-password')
+  @ApiOperation({ summary: 'Change password', description: 'Change the password of the currently authenticated user' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'User not authenticated' })
   async changePass(@Req() req: RequestWithUser, @Body(ValidationPipe) changePasswordDto: ChangePasswordDto) {
     if (!req.user || !req.user.sub) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
@@ -186,18 +224,29 @@ export class UsersController {
    */
   @Post('forgot-password')
   @SkipPermissionCheck()
+  @ApiOperation({ summary: 'Forgot password', description: 'Initiate password reset process' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({ status: 200, description: 'Reset code sent successfully' })
   forgotPassword(@Body() data: ForgotPasswordDto) {
     return this.usersClient.send('users.forgot_password', data);
   }
 
   @Post('verify-code')
   @SkipPermissionCheck()
+  @ApiOperation({ summary: 'Verify reset code', description: 'Verify the password reset code' })
+  @ApiBody({ type: VerifyCodeDto })
+  @ApiResponse({ status: 200, description: 'Code verified successfully' })
   verifyCode(@Body() data: VerifyCodeDto) {
     return this.usersClient.send('users.verify_code', data);
   }
 
   @Post('reset-password')
   @SkipPermissionCheck()
+  @ApiOperation({ summary: 'Reset password', description: 'Reset password using verification code' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   resetPassword(@Body() data: ResetPasswordDto) {
     console.log('resetPassword called in controller', data);
     return this.usersClient.send('users.reset_password', data)
@@ -217,11 +266,17 @@ export class UsersController {
    * Admin user management
    */
   @Post('admin/block/:id')
+  @ApiOperation({ summary: 'Block user', description: 'Block a user (Admin only)' })
+  @ApiParam({ name: 'id', type: Number, description: 'User ID to block' })
+  @ApiResponse({ status: 200, description: 'User blocked successfully' })
   blockUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersClient.send('users.block_user', { user_id: id });
   }
 
   @Post('admin/unblock/:id')
+  @ApiOperation({ summary: 'Unblock user', description: 'Unblock a user (Admin only)' })
+  @ApiParam({ name: 'id', type: Number, description: 'User ID to unblock' })
+  @ApiResponse({ status: 200, description: 'User unblocked successfully' })
   unblockUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersClient.send('users.unblock_user', { user_id: id });
   }
@@ -230,6 +285,10 @@ export class UsersController {
    * User profile management
    */
   @Patch(':id/profile')
+  @ApiOperation({ summary: 'Update user profile', description: 'Update a specific user profile (Admin)' })
+  @ApiParam({ name: 'id', type: Number, description: 'User ID' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   updateProfile(@Param('id', ParseIntPipe) id: number, @Body() profile: UpdateProfileDto) {
     return this.usersClient.send('users.update_profile', { user_id: id, profile });
   }
@@ -241,6 +300,10 @@ export class UsersController {
    */
   @Post('create')
   @SkipPermissionCheck()
+  @ApiOperation({ summary: 'Create user', description: 'Create a new user account' })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log("create user", createUserDto);
     return this.usersClient.send('users.create', createUserDto);
