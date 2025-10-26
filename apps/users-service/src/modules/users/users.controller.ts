@@ -26,9 +26,16 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @MessagePattern('users.list')
-  async findAll(@Payload() data: { page: number; limit: number }): Promise<UserListResponseDto> {
+  async findAll(@Payload() data: { page: number; limit: number, text: string, role: string, status: UserStatus, gender: string, birthday: Date }): Promise<UserListResponseDto> {
     console.log('Finding all users with pagination:', data);
-    return await this.usersService.findAll(data.page, data.limit);
+    const filter: any = {
+      text: data.text,
+      role: data.role,
+      status: data.status,
+      gender: data.gender,
+      birthday: data.birthday,
+    }
+    return await this.usersService.findAll(data.page, data.limit, filter);
   }
 
   @MessagePattern('users.get_user')
