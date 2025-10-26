@@ -38,13 +38,13 @@ export class UsersService {
    * 
    **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const { full_name, email, password, role, status } = createUserDto;
+    const { fullName, email, password, role, status } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
     
     // Create user without role first
     const newUser = await this.prisma.user.create({
       data: {
-        full_name,
+        full_name: fullName,
         email,
         password: hashedPassword,
         status: status || 'active',
@@ -519,13 +519,16 @@ export class UsersService {
       updateData.address = updateProfileDto.address;
     }
     if (updateProfileDto.dateOfBirth !== undefined) {
-      updateData.dateOfBirth = new Date(updateProfileDto.dateOfBirth);
+      updateData.date_of_birth = new Date(updateProfileDto.dateOfBirth);
     }
     if (updateProfileDto.gender !== undefined) {
       updateData.gender = updateProfileDto.gender;
     }
     if(updateProfileDto.fullName !== undefined) {
       updateData.full_name = updateProfileDto.fullName;
+    }
+    if(updateProfileDto.status !== undefined) {
+      updateData.status = updateProfileDto.status;
     }
 
     const updatedUser = await this.prisma.user.update({
