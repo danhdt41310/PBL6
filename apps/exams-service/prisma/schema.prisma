@@ -35,17 +35,55 @@ model Exam {
   @@map("exams")
 }
 
-model Question {
-  question_id        Int                @id @default(autoincrement())
-  content            String             @db.Text
-  type               String             @db.VarChar // MCQ, essay, true/false
-  options            Json?              // JSON array for MCQ options
-  correct_answer     String?            @db.Text
-  created_at         DateTime           @default(now()) @db.Timestamp(6)
+enum QuestionType {
+  multiple_choice
+  essay
+}
+
+enum QuestionDifficulty {
+  easy
+  medium
+  hard
+}
+
+model QuestionCategory {
+  category_id   Int        @id @default(autoincrement())
+  name          String     @unique @db.VarChar(255)
+  description   String?    @db.Text
+  created_at    DateTime   @default(now()) @db.Timestamp(6)
+  updated_at    DateTime   @updatedAt @db.Timestamp(6)
   
+  questions     Question[]
+
+  @@map("question_categories")
+}
+
+model Question {
+  question_id        Int                  @id @default(autoincrement())
+  content            String               @db.Text
+  type               QuestionType         @default(multiple_choice)
+  difficulty         QuestionDifficulty?  @default(medium)
+  category_id        Int?
+  
+  // Multiple choice specific fields
+  is_multiple_answer Boolean              @default(false) // true = multiple answers, false = single answer
+  options            Json?
+
+  // Metadata
+  created_by         Int                  // Teacher ID who created this question
+  is_public          Boolean              @default(false) // Can other teachers use this?
+  created_at         DateTime             @default(now()) @db.Timestamp(6)
+  updated_at         DateTime             @updatedAt @db.Timestamp(6)
+  
+  // Relations
+  category           QuestionCategory?    @relation(fields: [category_id], references: [category_id], onDelete: SetNull)
   submission_answers SubmissionAnswer[]
   question_exams     QuestionExam[]
 
+  @@index([created_by])
+  @@index([type])
+  @@index([category_id])
+  @@index([difficulty])
   @@map("questions")
 }
 
