@@ -8,8 +8,7 @@ import {
   Param, 
   Query, 
   Inject, 
-  ParseIntPipe, 
-  UseGuards, 
+  ParseIntPipe,
   Req,
   ValidationPipe,
 } from '@nestjs/common'

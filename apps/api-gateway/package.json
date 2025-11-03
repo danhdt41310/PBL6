@@ -21,6 +21,7 @@
     "sync:permissions": "npx ts-node src/common/commands/sync-permissions.command.ts",
     "seed:roles": "npx ts-node src/common/scripts/seed-roles-permissions.ts",
     "seed:admin": "npx ts-node src/common/scripts/seed-admin-account.ts",
+    "seed:teacher": "npx ts-node src/common/scripts/seed-teacher-account.ts",
     "seed:all": "npm run seed:roles && npm run seed:admin"
   },
   "dependencies": {
