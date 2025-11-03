@@ -19,6 +19,13 @@ enum ExamStatus {
   cancelled
 }
 
+enum SubmissionStatus {
+  in_progress
+  submitted
+  cancelled
+  graded
+}
+
 model Exam {
   exam_id     Int           @id @default(autoincrement())
   class_id    Int
@@ -90,6 +97,7 @@ model Question {
 model QuestionExam {
   question_id Int
   exam_id     Int
+  order       Int @default(1)
   points      Int @default(1)
   
   question Question @relation(fields: [question_id], references: [question_id], onDelete: Cascade)
@@ -108,6 +116,7 @@ model Submission {
   teacher_feedback  String?            @db.Text
   graded_at         DateTime?          @db.Timestamp(6)
   graded_by         Int?
+  status            SubmissionStatus         @default(in_progress)
   
   exam    Exam               @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
   answers SubmissionAnswer[]
