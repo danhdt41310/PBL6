@@ -32,6 +32,8 @@ model Exam {
   title       String        @db.VarChar
   start_time  DateTime      @db.Timestamp(6)
   end_time    DateTime      @db.Timestamp(6)
+  total_time  Int           // in minutes
+  description String?       @db.Text
   status      ExamStatus    @default(draft)
   created_by  Int
   created_at  DateTime      @default(now()) @db.Timestamp(6)
@@ -98,8 +100,8 @@ model QuestionExam {
   question_id Int
   exam_id     Int
   order       Int @default(1)
-  points      Int @default(1)
-  
+  points      Decimal @default(1) @db.Decimal(5, 2)
+
   question Question @relation(fields: [question_id], references: [question_id], onDelete: Cascade)
   exam     Exam     @relation(fields: [exam_id], references: [exam_id], onDelete: Cascade)
 
