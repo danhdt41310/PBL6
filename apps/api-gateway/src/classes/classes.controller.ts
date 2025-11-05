@@ -305,13 +305,12 @@ export class ClassesController {
     }  
   }
 
-  @Post(':class_id/add_new_post')
+  @Post('add-new-post')
   @ApiOperation({ summary: 'Add new post and reply', description: 'Retrieve classes by user role and ID' })
-  @ApiParam({ name: 'class_id', type: 'integer', description: 'Id of the class' })
   @ApiResponse({ status: 200, description: 'Messages for adding and data for new post added' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
-  async addNewPost(@Param('id', ParseIntPipe) id: number, @Body() body:PostsDTO){
+  async addNewPost(@Body() body:PostsDTO){
     try {
       const result = await this.classesService.send(`posts.add_new_post`, body)
         .pipe(
