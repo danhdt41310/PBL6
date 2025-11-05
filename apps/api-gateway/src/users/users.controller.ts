@@ -329,7 +329,9 @@ export class UsersController {
       throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
+  // Get profile by other unique key
+  //
+  //
   @Post('get-list-profile-by-emails')
   async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto ){
     try {
@@ -370,6 +372,25 @@ export class UsersController {
     }
   }
 
+  @Post('get-list-profile-match-email')
+  async getListProfileMatchEmail(@Body() body: {emailPattern :string} ){
+    try {
+      return await this.usersClient
+        .send('users.get_list_profile_match_email', body)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
   /**
    * Create/assign permissions to roles
    * Admin only endpoint for role permission management
@@ -487,5 +508,7 @@ export class UsersController {
       throw new HttpException('Failed to create permission', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+
 
 }
