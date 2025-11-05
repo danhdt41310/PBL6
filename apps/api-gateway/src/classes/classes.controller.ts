@@ -4,6 +4,7 @@ import { catchError, Observable, throwError, timeout, TimeoutError } from 'rxjs'
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { UserInfoDto } from 'src/dto/user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import { PostsDTO } from 'src/dto/post.dto';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
@@ -303,4 +304,38 @@ export class ClassesController {
       throw new HttpException('Failed to join class', HttpStatus.INTERNAL_SERVER_ERROR);
     }  
   }
+
+  @Post(':class_id/add_new_post')
+  @ApiOperation({ summary: 'Add new post and reply', description: 'Retrieve classes by user role and ID' })
+  @ApiParam({ name: 'class_id', type: 'integer', description: 'Id of the class' })
+  @ApiResponse({ status: 200, description: 'Messages for adding and data for new post added' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  async addNewPost(@Param('id', ParseIntPipe) id: number, @Body() body:PostsDTO){
+    try {
+      const result = await this.classesService.send(`posts.add_new_post`, body)
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            if (err instanceof TimeoutError) {
+              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+            }
+            return throwError(new HttpException('Failed to add post', HttpStatus.BAD_REQUEST));
+          }),
+        )
+        .toPromise();
+
+      if (!result) {
+        throw new HttpException('Failed to add post', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to add post', HttpStatus.INTERNAL_SERVER_ERROR);
+    }  
+  }
+
 }
