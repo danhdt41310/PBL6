@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength } from 'class-validator'
+import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
@@ -352,9 +352,12 @@ export class QuestionInExamDto {
     minimum: 1
   })
   @IsNotEmpty({ message: 'Points are required' })
-  @IsInt({ message: 'Points must be a number' })
+  @IsNumber(
+    { allowNaN: false, maxDecimalPlaces: 2 },
+    { message: 'Points must be a valid number (up to 2 decimal places)' }
+  )
   @Min(1, { message: 'Points must be at least 1' })
-  points: number
+  points: number;
 }
 
 export class CreateExamDto {
