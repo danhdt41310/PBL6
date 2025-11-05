@@ -19,7 +19,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "sync:permissions": "npx ts-node src/common/commands/sync-permissions.command.ts",
-    "seed:roles": "npx ts-node src/common/scripts/seed-roles-permissions.ts"
+    "seed:roles": "npx ts-node src/common/scripts/seed-roles-permissions.ts",
+    "seed:admin": "npx ts-node src/common/scripts/seed-admin-account.ts",
+    "seed:all": "npm run seed:roles && npm run seed:admin"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
@@ -29,13 +31,18 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/microservices": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/swagger": "^7.4.2",
     "@prisma/client": "^6.17.1",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "dotenv": "^17.2.3",
     "nodemailer": "^7.0.6",
     "prisma": "^6.17.1",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

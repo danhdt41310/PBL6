@@ -214,4 +214,12 @@ npm run sync:permissions
 npm run seed:roles
 ```
 
+5.(Optional - Run after step 4 or already has roles)
+
+```npm run seed:admin```
+
+6.(Optional) Can run step 4 & 5 in one command
+
+```npm run seed:all```
+
 Note: If your container name differs, use `docker ps` to find the correct name.

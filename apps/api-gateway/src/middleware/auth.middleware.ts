@@ -17,8 +17,11 @@ export class AuthMiddleware implements NestMiddleware {
           const access_jwt = this.extractTokenFromHeader(req, "authorization");
           const refresh_jwt = this.extractTokenFromHeader(req, "x-refresh-token");
 
+          console.debug('[DEBUG] Access JWT: ', access_jwt)
+          console.debug('[DEBUG] Refresh JWT: ', refresh_jwt)
+
           if (!access_jwt && !refresh_jwt) {
-              throw new UnauthorizedException('Vui lòng đăng nhập');
+            throw new UnauthorizedException('Vui lòng đăng nhập')
           }
 
           if (access_jwt) {

@@ -18,6 +18,7 @@ import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
+import { QueryBuilderUtil, SearchFilter } from 'src/shared/utils/query-builder.util';
 
 @Injectable()
 export class UsersService {
@@ -37,16 +38,19 @@ export class UsersService {
    * 
    **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const { full_name, email, password, role, status } = createUserDto;
+    const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
     
     // Create user without role first
     const newUser = await this.prisma.user.create({
       data: {
-        full_name,
+        full_name: fullName,
         email,
         password: hashedPassword,
         status: status || 'active',
+        phone,
+        date_of_birth: new Date(dateOfBirth),
+        gender,
       },
     });
 
@@ -152,11 +156,18 @@ export class UsersService {
   }
 
 
-  async findAll(page: number, limit: number): Promise<UserListResponseDto> {
+  async findAll(page: number, limit: number, filters?: SearchFilter): Promise<UserListResponseDto> {
+    // Build the where clause using the query builder
+    const where = QueryBuilderUtil.buildUserSearchQuery(filters || {});
+
+    // Build pagination options
+    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(page, limit);
+
+    // Execute queries in parallel
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
+        where,
+        ...paginationOptions,
         include: {
           userRoles: {
             include: {
@@ -164,8 +175,11 @@ export class UsersService {
             },
           },
         },
+        orderBy: {
+          created_at: 'desc',
+        },
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     // Add role to each user for compatibility
@@ -202,6 +216,79 @@ export class UsersService {
       data: data,
       success: true,
     }
+  }
+
+  /**
+   * Get user with roles and permissions (consolidated endpoint)
+   * Returns user info + roles array + permissions array
+   */
+  async findUserWithPermissions(user_id: number): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { user_id },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Extract roles
+    const roles = user.userRoles.map(ur => ({
+      role_id: ur.role.role_id,
+      name: ur.role.name,
+      description: ur.role.description,
+    }));
+
+    // Extract unique permissions from all roles
+    const permissionsMap = new Map();
+    user.userRoles.forEach(ur => {
+      ur.role.rolePermissions.forEach(rp => {
+        const permission = rp.permission;
+        if (!permissionsMap.has(permission.permission_id)) {
+          permissionsMap.set(permission.permission_id, {
+            permission_id: permission.permission_id,
+            key: permission.key,
+            name: permission.name,
+            description: permission.description,
+            resource: permission.resource,
+            action: permission.action,
+          });
+        }
+      });
+    });
+
+    const permissions = Array.from(permissionsMap.values());
+
+    // Build user response with basic info
+    const userWithRole = {
+      ...user,
+      role: user.userRoles[0]?.role?.name || 'user',
+    };
+
+    const userData = UserMapper.toResponseDto(userWithRole);
+
+    return {
+      success: true,
+      data: {
+        ...userData,
+        roles,
+        permissions,
+      },
+    };
   }
 
   async changePass(user_id: number, current_password: string, new_password: string): Promise<ChangePasswordResponseDto> {
@@ -435,13 +522,16 @@ export class UsersService {
       updateData.address = updateProfileDto.address;
     }
     if (updateProfileDto.dateOfBirth !== undefined) {
-      updateData.dateOfBirth = new Date(updateProfileDto.dateOfBirth);
+      updateData.date_of_birth = new Date(updateProfileDto.dateOfBirth);
     }
     if (updateProfileDto.gender !== undefined) {
       updateData.gender = updateProfileDto.gender;
     }
     if(updateProfileDto.fullName !== undefined) {
       updateData.full_name = updateProfileDto.fullName;
+    }
+    if(updateProfileDto.status !== undefined) {
+      updateData.status = updateProfileDto.status;
     }
 
     const updatedUser = await this.prisma.user.update({

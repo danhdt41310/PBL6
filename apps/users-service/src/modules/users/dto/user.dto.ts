@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length, IsNotEmpty, IsInt } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, Length, IsNotEmpty, IsInt, IsPhoneNumber, IsIn } from 'class-validator';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -13,7 +13,7 @@ export enum UserStatus {
 
 export class CreateUserDto {
   @IsString()
-  full_name: string;
+  fullName: string;
 
   @IsEmail()
   email: string;
@@ -32,12 +32,24 @@ export class CreateUserDto {
   @Length(6)
   @IsOptional()
   otp?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsPhoneNumber('VN', { message: 'Invalid Vietnamese phone number' })
+  phone?: string;
+
+  @IsOptional()
+  dateOfBirth?: string;
+
+  @IsString()
+  @IsOptional()
+  gender?: string;
 }
 
 export class UpdateUserDto {
   @IsString()
   @IsOptional()
-  full_name?: string;
+  fullName?: string;
 
   @IsEmail()
   @IsOptional()
@@ -54,7 +66,7 @@ export class UpdateUserDto {
 
   @IsEnum(UserStatus)
   @IsOptional()
-  status?: UserStatus;
+  status?: UserStatus;z
 }
 
 
@@ -84,7 +96,11 @@ export class UpdateProfileDto {
 
   @IsString({ message: 'Full name must be a string' })
   @IsOptional()
-  fullName: string;
+  fullName?: string;
+
+  @IsIn(['active', 'blocked'], { message: 'Status must be active or blocked' })
+  @IsOptional()
+  status?: string;
 }
 
 // DTO for change password

@@ -9,7 +9,7 @@ export interface User {
   phone?: string;
   address?: string;
   bio?: string;
-  dateOfBirth?: Date;
+  date_of_birth?: Date;
   gender?: string;
   avatar?: string;
   role?: string;

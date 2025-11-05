@@ -3,7 +3,10 @@ import { ClientProxy } from '@nestjs/microservices';
 import { CreateProductDto, UpdateProductDto } from '../dto/product.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
+@ApiTags('products')
+@ApiBearerAuth('JWT-auth')
 @Controller('products')
 export class ProductsController {
   constructor(
@@ -11,6 +14,11 @@ export class ProductsController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create product', description: 'Create a new product' })
+  @ApiBody({ type: CreateProductDto })
+  @ApiResponse({ status: 201, description: 'Product created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
   async create(@Body(ValidationPipe) createProductDto: CreateProductDto) {
     try {
       return await this.productsClient
