@@ -110,6 +110,12 @@ export class UsersController {
     return await this.usersService.getListProfileByIds(userIdsDto);
   }
 
+  @MessagePattern('user.get_list_profile_match_email')
+  async getListProfileMatchEmail(@Payload() data: {emailPattern: string}): Promise<UserListByEmailsOrIdsResponseDto> {
+    console.log('User get list profile match email:', data);
+    return await this.usersService.getListProfileMatchEmail(data.emailPattern);
+  }
+
   @MessagePattern('users.assign_role_permissions')
   async assignRolePermissions(@Payload() rolePermissionDto: RolePermissionDto): Promise<RolePermissionResponseDto> {
     console.log('Assigning permissions to role:', rolePermissionDto);

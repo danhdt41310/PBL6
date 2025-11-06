@@ -613,6 +613,25 @@ export class UsersService {
     }
   }
 
+  async getListProfileMatchEmail(emailPattern: string): Promise<UserListByEmailsOrIdsResponseDto>{
+    const records = await this.prisma.user.findMany({
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+      where: {
+        email:{contains: emailPattern},
+      },
+      take: 100,
+    })
+
+    return {
+      users: UserMapper.toResponseDtoArray(records),
+    }
+  }
   /**
    * Assign permissions to a role
    * Both the role and permissions must already exist in the database

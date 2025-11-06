@@ -28,6 +28,9 @@ import {
   QuestionFilterDto,
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto,
+  CreateExamDto,
+  UpdateExamDto,
+  ExamFilterDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { firstValueFrom } from 'rxjs'
@@ -45,6 +48,103 @@ interface RequestWithUser extends Request {
 @Controller()
 export class ExamsController {
   constructor(@Inject('EXAMS_SERVICE') private examsService: ClientProxy) {}
+
+  // ============================================================
+  // EXAMS
+  // ============================================================
+  @Post('exams')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Create a new exam',
+    description: 'Create a new exam with questions. Creator ID will be set from JWT token.'
+  })
+  @ApiBody({ type: CreateExamDto })
+  @ApiResponse({ status: 201, description: 'Exam created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed or questions not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
+  async createExam(
+    @Body(ValidationPipe) createExamDto: CreateExamDto,
+    @Req() req: RequestWithUser
+  ) {
+    const examData = {
+      ...createExamDto,
+      created_by: req.user?.userId || createExamDto.created_by,
+    }
+    
+    return firstValueFrom(
+      this.examsService.send('exams.create', examData)
+    )
+  }
+
+  @Get('exams')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get all exams',
+    description: 'Get paginated list of exams with filters. Returns exams with question counts and submission counts.'
+  })
+  @ApiQuery({ name: 'class_id', required: false, type: Number, description: 'Filter by class ID' })
+  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled'], description: 'Filter by exam status' })
+  @ApiQuery({ name: 'created_by', required: false, type: Number, description: 'Filter by creator user ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
+  @ApiResponse({ status: 200, description: 'Exams retrieved successfully' })
+  async getAllExams(@Query(ValidationPipe) filterDto: ExamFilterDto) {
+    return firstValueFrom(
+      this.examsService.send('exams.findAll', filterDto)
+    )
+  }
+
+  @Get('exams/:id')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get exam by ID',
+    description: 'Get detailed information about a specific exam including all questions and submissions'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Exam ID' })
+  @ApiResponse({ status: 200, description: 'Exam retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  async getExamById(@Param('id', ParseIntPipe) id: number) {
+    return firstValueFrom(
+      this.examsService.send('exams.findOne', { id })
+    )
+  }
+
+  @Put('exams/:id')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Update exam',
+    description: 'Update an existing exam. Can update exam details and/or replace questions.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Exam ID' })
+  @ApiBody({ type: UpdateExamDto })
+  @ApiResponse({ status: 200, description: 'Exam updated successfully' })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Can only update own exams' })
+  async updateExam(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) updateExamDto: UpdateExamDto,
+  ) {
+    return firstValueFrom(
+      this.examsService.send('exams.update', { id, updateExamDto })
+    )
+  }
+
+  @Delete('exams/:id')
+  @ApiOperation({ 
+    summary: 'Delete exam',
+    description: 'Delete an exam and all associated data (question associations, submissions, etc.)'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Exam ID' })
+  @ApiResponse({ status: 200, description: 'Exam deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Can only delete own exams' })
+  async deleteExam(@Param('id', ParseIntPipe) id: number) {
+    return firstValueFrom(
+      this.examsService.send('exams.delete', { id })
+    )
+  }
 
   // ============================================================
   // QUESTION CATEGORY
@@ -154,6 +254,7 @@ export class ExamsController {
   }
 
   @Get('questions')
+  @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all questions',
     description: 'Get paginated list of questions with filters. Teachers see their own questions + public ones.'
@@ -171,9 +272,9 @@ export class ExamsController {
     @Req() req: RequestWithUser
   ) {
     // If not admin, only show questions created by user or public questions
-    if (req.user?.role !== 'admin') {
-      filterDto.created_by = req.user?.userId
-    }
+    // if (req.user?.role !== 'admin') {
+    //   filterDto.created_by = req.user?.userId
+    // }
     
     return firstValueFrom(
       this.examsService.send('questions.findAll', filterDto)

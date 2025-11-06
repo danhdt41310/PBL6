@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength } from 'class-validator'
+import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
@@ -310,6 +310,276 @@ export class QuestionFilterDto {
   @ApiPropertyOptional({ 
     description: 'Search text in question content',
     example: 'capital'
+  })
+  @IsOptional()
+  @IsString()
+  search?: string
+}
+
+// ============================================================
+// EXAM DTOs
+// ============================================================
+export enum ExamStatus {
+  DRAFT = 'draft',
+  PUBLISHED = 'published',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+export class QuestionInExamDto {
+  @ApiProperty({ 
+    description: 'Question ID',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Question ID is required' })
+  @IsInt({ message: 'Question ID must be a number' })
+  question_id: number
+
+  @ApiProperty({ 
+    description: 'Order/position of question in exam',
+    example: 1,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Question order is required' })
+  @IsInt({ message: 'Order must be a number' })
+  @Min(0, { message: 'Order must be at least 0' })
+  order: number
+
+  @ApiProperty({ 
+    description: 'Points awarded for this question',
+    example: 10,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Points are required' })
+  @IsNumber(
+    { allowNaN: false, maxDecimalPlaces: 2 },
+    { message: 'Points must be a valid number (up to 2 decimal places)' }
+  )
+  @Min(1, { message: 'Points must be at least 1' })
+  points: number;
+}
+
+export class CreateExamDto {
+  @ApiProperty({ 
+    description: 'Class ID this exam belongs to',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Class ID is required' })
+  @IsInt({ message: 'Class ID must be a number' })
+  class_id: number
+
+  @ApiProperty({ 
+    description: 'Exam title',
+    example: 'Midterm Exam - OOP Fundamentals',
+    minLength: 5
+  })
+  @IsNotEmpty({ message: 'Title is required' })
+  @IsString()
+  @MinLength(5, { message: 'Title must be at least 5 characters' })
+  title: string
+
+  @ApiProperty({ 
+    description: 'Exam start time (ISO 8601 format)',
+    example: '2024-12-01T09:00:00Z'
+  })
+  @IsNotEmpty({ message: 'Start time is required' })
+  @IsString()
+  start_time: string
+
+  @ApiProperty({ 
+    description: 'Exam end time (ISO 8601 format)',
+    example: '2024-12-01T11:00:00Z'
+  })
+  @IsNotEmpty({ message: 'End time is required' })
+  @IsString()
+  end_time: string
+
+  @ApiProperty({ 
+    description: 'Total time allowed for exam in minutes',
+    example: 90,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Total time is required' })
+  @IsInt({ message: 'Total time must be a number' })
+  @Min(1, { message: 'Total time must be at least 1 minute' })
+  total_time: number
+
+  @ApiPropertyOptional({ 
+    description: 'Exam description/instructions',
+    example: 'This is a comprehensive midterm exam covering OOP principles...'
+  })
+  @IsOptional()
+  @IsString()
+  description?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Exam status',
+    enum: ExamStatus,
+    example: ExamStatus.DRAFT,
+    default: ExamStatus.DRAFT
+  })
+  @IsOptional()
+  @IsEnum(ExamStatus, { message: 'Invalid exam status' })
+  status?: ExamStatus
+
+  @ApiProperty({ 
+    description: 'User ID who created this exam (auto-filled from JWT)',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Creator ID is required' })
+  @IsInt()
+  created_by: number
+
+  @ApiProperty({ 
+    description: 'Array of questions with their order and points',
+    type: [QuestionInExamDto],
+    example: [
+      { question_id: 1, order: 1, points: 10 },
+      { question_id: 2, order: 2, points: 15 },
+      { question_id: 3, order: 3, points: 20 }
+    ]
+  })
+  @IsArray({ message: 'Questions must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => QuestionInExamDto)
+  questions: QuestionInExamDto[]
+}
+
+export class UpdateExamDto {
+  @ApiPropertyOptional({ 
+    description: 'Class ID this exam belongs to',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Class ID must be a number' })
+  class_id?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Exam title',
+    example: 'Updated Midterm Exam',
+    minLength: 5
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(5, { message: 'Title must be at least 5 characters' })
+  title?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Exam start time (ISO 8601 format)',
+    example: '2024-12-01T09:00:00Z'
+  })
+  @IsOptional()
+  @IsString()
+  start_time?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Exam end time (ISO 8601 format)',
+    example: '2024-12-01T11:00:00Z'
+  })
+  @IsOptional()
+  @IsString()
+  end_time?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Total time allowed for exam in minutes',
+    example: 90,
+    minimum: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Total time must be a number' })
+  @Min(1, { message: 'Total time must be at least 1 minute' })
+  total_time?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Exam description/instructions',
+    example: 'Updated exam description...'
+  })
+  @IsOptional()
+  @IsString()
+  description?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Exam status',
+    enum: ExamStatus,
+    example: ExamStatus.PUBLISHED
+  })
+  @IsOptional()
+  @IsEnum(ExamStatus, { message: 'Invalid exam status' })
+  status?: ExamStatus
+
+  @ApiPropertyOptional({ 
+    description: 'Array of questions with their order and points (replaces all existing questions)',
+    type: [QuestionInExamDto],
+    example: [
+      { question_id: 1, order: 1, points: 10 },
+      { question_id: 2, order: 2, points: 15 }
+    ]
+  })
+  @IsOptional()
+  @IsArray({ message: 'Questions must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => QuestionInExamDto)
+  questions?: QuestionInExamDto[]
+}
+
+export class ExamFilterDto {
+  @ApiPropertyOptional({ 
+    description: 'Filter by class ID',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  class_id?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Filter by exam status',
+    enum: ExamStatus,
+    example: ExamStatus.PUBLISHED
+  })
+  @IsOptional()
+  @IsEnum(ExamStatus)
+  status?: ExamStatus
+
+  @ApiPropertyOptional({ 
+    description: 'Filter by creator user ID',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  created_by?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Page number for pagination',
+    example: 1,
+    minimum: 1,
+    default: 1
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Number of items per page',
+    example: 10,
+    minimum: 1,
+    maximum: 100,
+    default: 10
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number
+
+  @ApiPropertyOptional({ 
+    description: 'Search text in exam title or description',
+    example: 'midterm'
   })
   @IsOptional()
   @IsString()
