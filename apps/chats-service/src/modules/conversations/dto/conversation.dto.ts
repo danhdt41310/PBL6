@@ -1,21 +1,97 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional } from 'class-validator';
+// Lưu ý: PartialType phải được import từ '@nestjs/swagger' hoặc '@nestjs/mapped-types'
+// Vì bạn yêu cầu loại bỏ Swagger, tôi giả định PartialType sẽ đến từ '@nestjs/mapped-types'
+// hoặc bạn sẽ tự định nghĩa nó, nhưng để giữ tính toàn vẹn của logic, tôi đã bỏ qua nó.
 
+// **********************************************
+// ********** Conversation DTOs (Sửa) ***********
+// **********************************************
+
+/**
+ * DTO for creating a new conversation
+ */
 export class CreateConversationDto {
-  @IsString()
+  @IsInt()
   @IsNotEmpty()
-  sender_id: string;
+  sender_id: number;
 
-  @IsString()
+  @IsInt()
   @IsNotEmpty()
-  receiver_id: string;
+  receiver_id: number;
 }
 
+/**
+ * DTO for updating a conversation (minimal - conversations rarely update)
+ * (Cần import PartialType từ '@nestjs/mapped-types' nếu không dùng Swagger)
+ */
+// export class UpdateConversationDto extends PartialType(CreateConversationDto) { } 
+// Để tránh lỗi import, tôi định nghĩa lại thủ công:
 export class UpdateConversationDto {
-  @IsString()
+  @IsInt()
   @IsOptional()
-  sender_id?: string;
+  sender_id?: number;
 
-  @IsString()
+  @IsInt()
   @IsOptional()
-  receiver_id?: string;
+  receiver_id?: number;
+}
+
+/**
+ * DTO for pagination
+ */
+export class PaginationDto {
+  @IsInt()
+  @IsOptional()
+  page?: number = 1;
+
+  @IsInt()
+  @IsOptional()
+  limit?: number = 20;
+}
+
+// **********************************************
+// ********** Response DTOs (Sửa) ***************
+// **********************************************
+
+// Định nghĩa kiểu cho tin nhắn con bên trong DTO
+interface MessageDto {
+  id: number;
+  sender_id: number;
+  conversation_id: number;
+  timestamp: Date;
+  message_type: string;
+  content?: string;
+}
+
+/**
+ * Response DTO for a single conversation with messages
+ */
+export class ConversationResponseDto {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  messages?: MessageDto[];
+  lastMessage?: Omit<MessageDto, 'conversation_id'>; // Dùng Omit để làm sạch
+  messageCount?: number;
+}
+
+/**
+ * Response DTO for conversation list with pagination
+ */
+export class ConversationListResponseDto {
+  success: boolean;
+  conversations: ConversationResponseDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * Response DTO for conversation actions
+ */
+export class ConversationActionResponseDto {
+  success: boolean;
+  message: string;
+  data?: ConversationResponseDto;
 }
