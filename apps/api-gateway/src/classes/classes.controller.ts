@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param, Post, Put, ValidationPipe, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param, Post, Put, ValidationPipe, ParseIntPipe, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { catchError, Observable, throwError, timeout, TimeoutError } from 'rxjs';
+import { catchError, firstValueFrom, Observable, throwError, timeout, TimeoutError } from 'rxjs';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { UserInfoDto } from 'src/dto/user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { PostsDTO } from 'src/dto/post.dto';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { title } from 'process';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
@@ -337,4 +339,127 @@ export class ClassesController {
     }  
   }
 
+  @Post(':id/upload-post-with-files')
+  @ApiOperation({ summary: 'Upload file in a class', description: 'Upload file for class' })
+  @ApiParam({ name: 'id', type: 'integer', description: 'ID of the class' })
+  @ApiResponse({ status: 200, description: 'Messages for upload files successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  @UseInterceptors(FilesInterceptor('files'))
+  async uplaodPostWithFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id, @Body('title') title, @Body('message') message){
+    try {
+      const uploadFiles = files.map((file)=>({
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        buffer: file.buffer.toString('base64'), 
+      }));
+      const data = {
+        uploader_id,
+        class_id,
+        uploadFiles,
+        title,
+        message
+      }
+      const result = await this.classesService.send('classes.upload_post_with_files', data)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              if (err instanceof TimeoutError) {
+                return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+              }
+              return throwError(new HttpException('Failed to upload files', HttpStatus.BAD_REQUEST));
+            }),
+          )
+        .toPromise();
+      
+      if (!result) {
+        throw new HttpException('Failed to upload files', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to upload files', HttpStatus.INTERNAL_SERVER_ERROR);
+    }  
+  }
+
+  @Post(':id/upload-files')
+  @ApiOperation({ summary: 'Upload file in a class', description: 'Upload file for class' })
+  @ApiParam({ name: 'id', type: 'integer', description: 'ID of the class' })
+  @ApiResponse({ status: 200, description: 'Messages for upload files successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  @UseInterceptors(FilesInterceptor('files'))
+  async uplaodFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id){
+    try {
+      const uploadFiles = files.map((file)=>({
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        buffer: file.buffer.toString('base64'), 
+      }));
+      const data = {
+        uploader_id,
+        class_id,
+        uploadFiles
+      }
+      const result = await this.classesService.send('classes.upload_files', data)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              if (err instanceof TimeoutError) {
+                return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+              }
+              return throwError(new HttpException('Failed to upload files', HttpStatus.BAD_REQUEST));
+            }),
+          )
+        .toPromise();
+      
+      if (!result) {
+        throw new HttpException('Failed to upload files', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to upload files', HttpStatus.INTERNAL_SERVER_ERROR);
+    }  
+  }
+
+  @Get(':id/get-all-materials')
+  @ApiOperation({ summary: 'Get all materials', description: 'Get all materials' })
+  @ApiParam({ name: 'id', type: 'integer', description: 'ID of the class' })
+  @ApiResponse({ status: 200, description: 'List of materials related to class' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  async getAllMaterials(@Param('id', ParseIntPipe) class_id){
+    try {
+      
+      const result = await this.classesService.send('materials.all', class_id)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              if (err instanceof TimeoutError) {
+                return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
+              }
+              return throwError(new HttpException('Failed to get materials', HttpStatus.BAD_REQUEST));
+            }),
+          )
+        .toPromise();
+      
+      if (!result) {
+        throw new HttpException('Failed to get materials', HttpStatus.NOT_FOUND);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to get materials', HttpStatus.INTERNAL_SERVER_ERROR);
+    }  
+  }
 }

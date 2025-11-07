@@ -62,4 +62,14 @@ export class ClassesController {
   async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
   }
+
+  @MessagePattern('classes.upload_post_with_files')
+  async uploadPostWithFile(@Payload() data: {class_id:number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number, title: string, message:string}){
+    return await this.classesService.uploadPostWithFiles(data.class_id, data.uploadFiles, data.uploader_id, data.title, data.message)
+  }
+
+  @MessagePattern('classes.upload_files')
+  async uploadFile(@Payload() data: {class_id:number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number, title: string, message:string}){
+    return await this.classesService.uploadFiles(data.class_id, data.uploadFiles, data.uploader_id)
+  }
 }

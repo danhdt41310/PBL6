@@ -12,4 +12,14 @@ export class MaterialsService {
       },
     });
   }
+
+  async all(class_id:number) {
+    return this.prisma.material.findMany({
+      where:{
+        post:{
+          class_id
+        }
+      },
+    })
+  }
 }

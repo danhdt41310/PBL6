@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { ClassMapper } from '../mapper/class.mapper';
 import { ClassEnrollmentMapper } from '../mapper/classEnrollment.mapper';
-
+import {promises as fs}from 'fs'
+import { join } from 'path';
+import { FileHelper } from '../utils/FileHelper.utils';
 @Injectable()
 export class ClassesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly UPLOAD_DIR = '';
 
   async create(createClassDto: CreateClassDto) {
     try {
@@ -214,5 +218,67 @@ export class ClassesService {
       throw new BadRequestException('Failed to get all class of teacher');
     }
 
+  }
+
+  async uploadPostWithFiles(class_id: number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number, title: string, message:string){
+    const uploadDir = this.UPLOAD_DIR;
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const newPost = await this.prisma.post.create({
+      data:{
+        sender_id:uploader_id,
+        class_id,
+        message,
+        title
+      }
+    });
+
+    for (let uploadFile of uploadFiles){
+      const filePath = join(uploadDir, uploadFile.originalname);
+      const buffer = Buffer.from(uploadFile.buffer, 'base64');
+      await fs.writeFile(filePath, buffer);
+      const fstatus = await fs.stat(filePath);
+      this.prisma.material.create({
+        data:{
+          file_url: filePath,
+          title: uploadFile.originalname,
+          file_size: fstatus.size,
+          type: FileHelper.getFileTypeFromMime(uploadFile.mimetype, uploadFile.originalname),
+          uploaded_by: uploader_id,
+          post_id: newPost.id,
+        }
+      })
+    }
+
+    return {
+      message: 'Post uploaded successfully!',
+    };
+  }
+
+  async uploadFiles(class_id: number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number){
+    const uploadDir = this.UPLOAD_DIR;
+    await fs.mkdir(uploadDir, { recursive: true });
+
+  
+    for (let uploadFile of uploadFiles){
+      const filePath = join(uploadDir, uploadFile.originalname);
+      const buffer = Buffer.from(uploadFile.buffer, 'base64');
+      await fs.writeFile(filePath, buffer);
+      const fstatus = await fs.stat(filePath);
+      this.prisma.material.create({
+        data:{
+          file_url: filePath,
+          title: uploadFile.originalname,
+          file_size: fstatus.size,
+          type: FileHelper.getFileTypeFromMime(uploadFile.mimetype, uploadFile.originalname),
+          uploaded_by: uploader_id,
+          post_id: null,
+        }
+      })
+    }
+
+    return {
+      message: 'Files uploaded successfully!',
+    };
   }
 }
