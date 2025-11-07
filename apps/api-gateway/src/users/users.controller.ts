@@ -228,7 +228,22 @@ export class UsersController {
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({ status: 200, description: 'Reset code sent successfully' })
   forgotPassword(@Body() data: ForgotPasswordDto) {
-    return this.usersClient.send('users.forgot_password', data);
+    return this.usersClient.send('users.forgot_password', data)
+      .pipe(
+        timeout(5000),
+        catchError(err => {
+          if (err instanceof TimeoutError) {
+            return throwError(() => new HttpException('Request timed out', HttpStatus.REQUEST_TIMEOUT));
+          }
+          if (err?.error) {
+            const rpcError = err.error;
+            const statusCode = rpcError.statusCode || HttpStatus.BAD_REQUEST;
+            const message = rpcError.message || 'Forgot password failed';
+            return throwError(() => new HttpException(message, statusCode));
+          }
+          return throwError(() => new HttpException('Forgot password failed', HttpStatus.BAD_REQUEST));
+        })
+      );
   }
 
   @Post('verify-code')
@@ -237,7 +252,22 @@ export class UsersController {
   @ApiBody({ type: VerifyCodeDto })
   @ApiResponse({ status: 200, description: 'Code verified successfully' })
   verifyCode(@Body() data: VerifyCodeDto) {
-    return this.usersClient.send('users.verify_code', data);
+    return this.usersClient.send('users.verify_code', data)
+      .pipe(
+        timeout(5000),
+        catchError(err => {
+          if (err instanceof TimeoutError) {
+            return throwError(() => new HttpException('Request timed out', HttpStatus.REQUEST_TIMEOUT));
+          }
+          if (err?.error) {
+            const rpcError = err.error;
+            const statusCode = rpcError.statusCode || HttpStatus.BAD_REQUEST;
+            const message = rpcError.message || 'Code verification failed';
+            return throwError(() => new HttpException(message, statusCode));
+          }
+          return throwError(() => new HttpException('Code verification failed', HttpStatus.BAD_REQUEST));
+        })
+      );
   }
 
   @Post('reset-password')
@@ -256,7 +286,12 @@ export class UsersController {
           if (error instanceof TimeoutError) {
             return throwError(() => new RequestTimeoutException('Request timed out'));
           }
-
+          if (error?.error) {
+            const rpcError = error.error;
+            const statusCode = rpcError.statusCode || HttpStatus.BAD_REQUEST;
+            const message = rpcError.message || 'Failed to reset password';
+            return throwError(() => new HttpException(message, statusCode));
+          }
           return throwError(() => new InternalServerErrorException('Failed to reset password'));
         })
       ).toPromise()
@@ -318,7 +353,17 @@ export class UsersController {
         .pipe(
           timeout(5000),
           catchError(err => {
-            return throwError(() => new HttpException('User not found', HttpStatus.NOT_FOUND));
+            if (err instanceof TimeoutError) {
+              return throwError(() => new HttpException('Request timed out', HttpStatus.REQUEST_TIMEOUT));
+            }
+            // Extract error from RpcException
+            if (err?.error) {
+              const rpcError = err.error;
+              const statusCode = rpcError.statusCode || HttpStatus.UNAUTHORIZED;
+              const message = rpcError.message || 'Login failed';
+              return throwError(() => new HttpException(message, statusCode));
+            }
+            return throwError(() => new HttpException('Login failed', HttpStatus.UNAUTHORIZED));
           }),
         )
         .toPromise();
@@ -391,6 +436,7 @@ export class UsersController {
       throw new HttpException('Login failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
   /**
    * Create/assign permissions to roles
    * Admin only endpoint for role permission management
@@ -508,7 +554,4 @@ export class UsersController {
       throw new HttpException('Failed to create permission', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
-
-
 }
