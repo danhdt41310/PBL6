@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put, UseInterceptors, UseFilters } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from '../dto/user.dto';
+import { ClientProxy } from '@nestjs/microservices'; import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
@@ -144,7 +144,7 @@ export class UsersController {
     }
 
     const userId = req.user.sub;
-    
+
     try {
       return await this.usersClient
         .send('users.update_profile', { user_id: userId, profile })
@@ -200,17 +200,17 @@ export class UsersController {
 
     const userId = req.user.sub;
     try {
-      return await this.usersClient.send('users.change_password', { 
-        user_id: userId, 
-        current_password: changePasswordDto.currentPassword, 
-        new_password: changePasswordDto.newPassword 
+      return await this.usersClient.send('users.change_password', {
+        user_id: userId,
+        current_password: changePasswordDto.currentPassword,
+        new_password: changePasswordDto.newPassword
       })
-      .pipe(
-        timeout(5000),
-        catchError(err => {
-          return throwError(new HttpException('Failed to change password', HttpStatus.BAD_REQUEST));
-        }),
-      ).toPromise();
+        .pipe(
+          timeout(5000),
+          catchError(err => {
+            return throwError(new HttpException('Failed to change password', HttpStatus.BAD_REQUEST));
+          }),
+        ).toPromise();
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -331,7 +331,7 @@ export class UsersController {
   }
 
   @Post('get-list-profile-by-emails')
-  async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto ){
+  async getListProfileByEmail(@Body(ValidationPipe) userEmailsDto: UserEmailsDto) {
     try {
       return await this.usersClient
         .send('users.get_list_profile_by_emails', userEmailsDto)
@@ -351,10 +351,11 @@ export class UsersController {
   }
 
   @Post('get-list-profile-by-ids')
-  async getListProfileById(@Body(ValidationPipe) userIdsDto: UserIdsDto ){
+  async getListProfileById(@Body(ValidationPipe) userIdsDto: UserIdsDto) {
+    console.log('getListProfileById called with:', userIdsDto);
     try {
       return await this.usersClient
-        .send('users.get_list_profile_by_ids', userIdsDto)
+        .send('user.get_list_profile_by_ids', userIdsDto)
         .pipe(
           timeout(5000),
           catchError(err => {

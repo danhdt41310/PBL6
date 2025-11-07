@@ -132,7 +132,7 @@ export class UserEmailsDto{
 }
 
 export class UserIdsDto{
-  @IsInt({each:true})
+  // @IsInt({each:true})
   userIds: number[];
 }
 

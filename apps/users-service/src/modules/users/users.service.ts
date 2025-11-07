@@ -29,7 +29,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService
-  ) {}
+  ) { }
   /**
    * Create a new User in the system
    *
@@ -40,7 +40,7 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
     const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
-    
+
     // Create user without role first
     const newUser = await this.prisma.user.create({
       data: {
@@ -98,7 +98,7 @@ export class UsersService {
         },
       },
     });
-    
+
     if (!user) {
       return {
         message: 'Invalid email or password',
@@ -204,13 +204,13 @@ export class UsersService {
     });
 
     if (!user) return null;
-    
+
     // Add role for compatibility
     const userWithRole = {
       ...user,
       role: user.userRoles[0]?.role?.name || 'user',
     };
-    
+
     const data = UserMapper.toResponseDto(userWithRole);
     return {
       data: data,
@@ -298,12 +298,12 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) {
       throw new BadRequestException('Current password is incorrect');
     }
-    
+
     const new_hashed_pass = await bcrypt.hash(new_password, this.salt_round);
     const updated_user = await this.prisma.user.update({
       where: { user_id },
@@ -312,7 +312,7 @@ export class UsersService {
         updated_at: new Date(),
       },
     });
-    
+
     return {
       message: 'Password changed successfully'
     };
@@ -527,10 +527,10 @@ export class UsersService {
     if (updateProfileDto.gender !== undefined) {
       updateData.gender = updateProfileDto.gender;
     }
-    if(updateProfileDto.fullName !== undefined) {
+    if (updateProfileDto.fullName !== undefined) {
       updateData.full_name = updateProfileDto.fullName;
     }
-    if(updateProfileDto.status !== undefined) {
+    if (updateProfileDto.status !== undefined) {
       updateData.status = updateProfileDto.status;
     }
 
@@ -554,10 +554,10 @@ export class UsersService {
 
     return UserMapper.toResponseDto(userWithRole);
   }
-  
-  async getListProfileByEmails(userEmails: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto>{
+
+  async getListProfileByEmails(userEmails: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto> {
     const records = [];
-    for (let email of userEmails.userEmails){
+    for (let email of userEmails.userEmails) {
       let user = await this.prisma.user.findUnique({
         where: { email: email },
         include: {
@@ -568,7 +568,7 @@ export class UsersService {
           },
         },
       });
-      
+
       if (user) {
         // Add role for compatibility
         const userWithRole = {
@@ -584,9 +584,10 @@ export class UsersService {
     }
   }
 
-  async getListProfileByIds(userIds: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto>{
+  async getListProfileByIds(userIds: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto> {
+    console.log('getListProfileByIds called with:', userIds);
     const records = [];
-    for (let userId of userIds.userIds){
+    for (let userId of userIds.userIds) {
       let user = await this.prisma.user.findUnique({
         where: { user_id: userId },
         include: {
@@ -597,7 +598,7 @@ export class UsersService {
           },
         },
       });
-      
+
       if (user) {
         // Add role for compatibility
         const userWithRole = {
@@ -643,7 +644,7 @@ export class UsersService {
         // Process each permission
         for (const permissionName of permissionNames) {
           console.log(`Processing permission: ${permissionName}`);
-          
+
           // Find the permission (must exist)
           const permission = await tx.permission.findUnique({
             where: { key: permissionName }
@@ -823,7 +824,7 @@ export class UsersService {
       // Parse permission key if resource and action not provided
       let finalResource = resource;
       let finalAction = action;
-      
+
       if (!resource || !action) {
         const parts = key.split('.');
         finalAction = finalAction || parts[0] || 'access';

@@ -3,10 +3,14 @@ import { CreateMessageDto, UpdateMessageDto, PaginationDto, MessageResponseDto, 
 import { PrismaService } from '../../prisma/prisma.service';
 import { Message, Prisma } from '@prisma/chats-client';
 import { RpcException } from '@nestjs/microservices';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: EventsService,
+  ) { }
 
   /**
    * Create a new message
@@ -41,7 +45,12 @@ export class MessagesService {
         },
       });
 
-      return this.mapToResponseDto(message);
+      const messageDto = this.mapToResponseDto(message);
+
+      // Emit real-time event
+      await this.eventsService.emitMessageCreated(data.conversation_id, messageDto);
+
+      return messageDto;
     } catch (error) {
       this.handlePrismaError(error, 'create message');
     }
@@ -163,7 +172,12 @@ export class MessagesService {
         },
       });
 
-      return this.mapToResponseDto(message);
+      const messageDto = this.mapToResponseDto(message);
+
+      // Emit real-time event
+      await this.eventsService.emitMessageUpdated(existingMessage.conversation_id, messageDto);
+
+      return messageDto;
     } catch (error) {
       this.handlePrismaError(error, 'update message');
     }
@@ -188,10 +202,15 @@ export class MessagesService {
         );
       }
 
+      const conversationId = existingMessage.conversation_id;
+
       // Delete message
       await this.prisma.message.delete({
         where: { id },
       });
+
+      // Emit real-time event
+      await this.eventsService.emitMessageDeleted(conversationId, id);
 
       return {
         success: true,

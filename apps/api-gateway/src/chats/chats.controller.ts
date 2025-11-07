@@ -32,7 +32,10 @@ import { CreateConversationDto, PaginationQueryDto as ConversationPaginationDto 
 @ApiBearerAuth('JWT-auth')
 @Controller('chats')
 export class ChatsController {
-  constructor(@Inject('CHATS_SERVICE') private chatsService: ClientProxy) { }
+  constructor(
+    @Inject('CHATS_SERVICE') private chatsService: ClientProxy,
+    @Inject('USERS_SERVICE') private usersService: ClientProxy,
+  ) { }
 
   // ==================== Test Endpoints ====================
 
@@ -306,7 +309,7 @@ export class ChatsController {
   @Get('users/:userId/conversations')
   @ApiOperation({
     summary: 'Get all conversations for a user',
-    description: 'Retrieve all conversations for a specific user with pagination'
+    description: 'Retrieve all conversations for a specific user with pagination and user info'
   })
   @ApiParam({ name: 'userId', description: 'User ID', type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number', example: 1 })
@@ -318,12 +321,10 @@ export class ChatsController {
     @Query(new ValidationPipe({ transform: true })) pagination: ConversationPaginationDto,
   ) {
     try {
-      return await firstValueFrom( // Sử dụng firstValueFrom
+      // Get conversations from chats service
+      const conversationsResponse: any = await firstValueFrom(
         this.chatsService
-          .send('conversations.find_by_user', {
-            userId,
-            pagination,
-          })
+          .send('conversations.find_by_user', { userId, pagination })
           .pipe(
             timeout(5000),
             catchError(err => {
@@ -334,6 +335,66 @@ export class ChatsController {
             }),
           )
       );
+
+      // Extract conversations array
+      const conversations = conversationsResponse?.data?.conversations || conversationsResponse?.conversations || [];
+
+      if (conversations.length === 0) {
+        return conversationsResponse;
+      }
+
+      // Get unique user IDs from conversations
+      const userIds = [...new Set(
+        conversations.map((conv: any): number => Number(conv.receiver_id))
+      )].filter((id: number) => !isNaN(id));
+
+      // Fetch user info in batch
+      let usersMap: any = {};
+      if (userIds.length > 0) {
+        try {
+          const usersResponse: any = await firstValueFrom(
+            this.usersService
+              .send('user.get_list_profile_by_ids', { userIds })
+              .pipe(timeout(3000), catchError(() => throwError(() => [])))
+          );
+
+          const users = usersResponse?.users || usersResponse?.data?.users || [];
+          console.log('Fetched user info:', users);
+          usersMap = users.reduce((acc: any, user: any) => {
+            acc[user.user_id] = user;
+            return acc;
+          }, {});
+        } catch (err) {
+          console.error('Failed to fetch user info:', err.message);
+        }
+      }
+
+      // Populate user info into conversations
+      const populatedConversations = conversations.map((conv: any) => {
+        const receiverInfo = usersMap[conv.receiver_id];
+        console.log('Populating conversation for receiver ID:', conv.receiver_id);
+        return {
+          ...conv,
+          receiver_name: receiverInfo?.full_name || receiverInfo?.email || `User #${conv.receiver_id}`,
+          receiver_avatar: receiverInfo?.avatar || null,
+        };
+      });
+
+      // Return with populated data
+      if (conversationsResponse?.data) {
+        return {
+          ...conversationsResponse,
+          data: {
+            ...conversationsResponse.data,
+            conversations: populatedConversations,
+          }
+        };
+      }
+
+      return {
+        ...conversationsResponse,
+        conversations: populatedConversations,
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

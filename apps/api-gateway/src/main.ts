@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { RedisIoAdapter } from './chats/adapters/redis-io.adapter';
+import { Redis } from 'ioredis';
 
 async function bootstrap() {
   // Create HTTP application
@@ -23,6 +25,12 @@ async function bootstrap() {
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
+
+  // Setup Redis WebSocket Adapter for horizontal scaling
+  const redisClient = app.get<Redis>('REDIS_CLIENT');
+  const redisIoAdapter = new RedisIoAdapter(app, redisClient);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // Swagger Configuration
   const config = new DocumentBuilder()
@@ -47,7 +55,7 @@ async function bootstrap() {
       'JWT-auth',
     )
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document, {
     swaggerOptions: {
@@ -74,7 +82,7 @@ async function bootstrap() {
   // Start the application
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  
+
   console.log(`🚀 API Gateway is running on port ${port}`);
   console.log(`📋 API Documentation: http://localhost:${port}/api-docs`);
   console.log(`📝 API Endpoints: http://localhost:${port}/api`);

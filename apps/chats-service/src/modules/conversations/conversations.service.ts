@@ -187,7 +187,7 @@ export class ConversationsService {
 
       return {
         success: true,
-        conversations: conversations.map(conv => this.mapToResponseDto(conv)),
+        conversations: conversations.map(conv => this.mapToResponseDto(conv, userId)),
         total,
         page,
         limit,
@@ -271,12 +271,23 @@ export class ConversationsService {
   /**
    * Map Prisma conversation to response DTO
    */
-  private mapToResponseDto(conversation: any): ConversationResponseDto {
+  private mapToResponseDto(conversation: any, currentUserId?: number): ConversationResponseDto {
     const response: ConversationResponseDto = {
       id: conversation.id,
       sender_id: conversation.sender_id,
       receiver_id: conversation.receiver_id,
     };
+
+    // If currentUserId provided, determine the other user (receiver from perspective)
+    if (currentUserId) {
+      const otherUserId = conversation.sender_id === currentUserId
+        ? conversation.receiver_id
+        : conversation.sender_id;
+
+      // Add receiver info (will be populated by gateway later if needed)
+      response.receiver_id = otherUserId;
+      response.receiver_name = `User #${otherUserId}`; // Placeholder
+    }
 
     if (conversation.messages) {
       // If we have all messages
@@ -295,7 +306,7 @@ export class ConversationsService {
       // If we have at least one message (last message)
       if (conversation.messages.length > 0) {
         const lastMsg = conversation.messages[0];
-        response.lastMessage = {
+        response.last_message = {
           id: lastMsg.id,
           sender_id: lastMsg.sender_id,
           timestamp: lastMsg.timestamp,

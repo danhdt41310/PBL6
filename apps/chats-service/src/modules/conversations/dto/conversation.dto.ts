@@ -70,8 +70,12 @@ export class ConversationResponseDto {
   id: number;
   sender_id: number;
   receiver_id: number;
+  receiver_name?: string; // Name of the other user
+  receiver_avatar?: string; // Avatar of the other user
+  unread_count?: number; // Number of unread messages
   messages?: MessageDto[];
-  lastMessage?: Omit<MessageDto, 'conversation_id'>; // Dùng Omit để làm sạch
+  lastMessage?: Omit<MessageDto, 'conversation_id'>; // Use Omit to clean up
+  last_message?: Omit<MessageDto, 'conversation_id'>; // Alternative naming for frontend
   messageCount?: number;
 }
 
