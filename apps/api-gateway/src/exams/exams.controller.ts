@@ -8,12 +8,15 @@ import {
   Param, 
   Query, 
   Inject, 
-  ParseIntPipe, 
-  UseGuards, 
+  ParseIntPipe,
   Req,
   ValidationPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { 
   ApiTags, 
   ApiOperation, 
@@ -22,6 +25,7 @@ import {
   ApiParam, 
   ApiQuery,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger'
 import { 
   CreateQuestionDto, 
@@ -34,6 +38,8 @@ import {
   ExamFilterDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
+import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
+import { DefaultFileUploadConfigs } from '../common/types/file.types'
 import { firstValueFrom } from 'rxjs'
 
 interface RequestWithUser extends Request {
@@ -329,6 +335,103 @@ export class ExamsController {
   async deleteQuestion(@Param('id', ParseIntPipe) id: number) {
     return firstValueFrom(
       this.examsService.send('questions.delete', { id })
+    )
+  }
+
+  // ============================================================
+  // IMPORT EXCEL
+  // ============================================================
+  @Post('questions/import/preview')
+  @SkipPermissionCheck()
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiOperation({ 
+    summary: 'Preview Excel import',
+    description: 'Preview questions from Excel file before importing. Returns first 10 rows by default.'
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Excel file (.xlsx or .xls)'
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of rows to preview (default: 10)'
+        }
+      },
+      required: ['file']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Preview generated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file or format' })
+  async previewExcelImport(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('limit') limit?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.preview', {
+        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
+        limit: limit ? parseInt(limit) : 10,
+      })
+    )
+  }
+
+  @Post('questions/import/execute')
+  @SkipPermissionCheck()
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiOperation({ 
+    summary: 'Import questions from Excel',
+    description: 'Import questions from Excel file. Creator ID will be set from JWT token. Returns import results with errors if any.'
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Excel file (.xlsx or .xls)'
+        }
+      },
+      required: ['file']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Import completed (check response for errors)' })
+  @ApiResponse({ status: 400, description: 'Invalid file or format' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
+  async importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: RequestWithUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required')
+    }
+
+    const createdBy = req.user?.userId
+    if (!createdBy) {
+      throw new BadRequestException('User ID not found in token')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.execute', {
+        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
+        createdBy,
+      })
     )
   }
 }
