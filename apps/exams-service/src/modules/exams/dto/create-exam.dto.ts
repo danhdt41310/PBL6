@@ -36,10 +36,10 @@ export interface UpdateExamDto {
 }
 
 export interface ExamFilterDto {
-  class_id?: number
+  search?: string
   status?: ExamStatus
-  created_by?: number
+  start_time?: string
+  end_time?: string
   page?: number
   limit?: number
-  search?: string
 }
