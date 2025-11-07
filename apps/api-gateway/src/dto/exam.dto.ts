@@ -525,13 +525,12 @@ export class UpdateExamDto {
 
 export class ExamFilterDto {
   @ApiPropertyOptional({ 
-    description: 'Filter by class ID',
-    example: 1
+    description: 'Search text in exam title or description',
+    example: 'midterm'
   })
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  class_id?: number
+  @IsString()
+  search?: string
 
   @ApiPropertyOptional({ 
     description: 'Filter by exam status',
@@ -543,13 +542,20 @@ export class ExamFilterDto {
   status?: ExamStatus
 
   @ApiPropertyOptional({ 
-    description: 'Filter by creator user ID',
-    example: 1
+    description: 'Filter start time - exams with start_time >= this value (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z'
   })
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  created_by?: number
+  @IsString()
+  start_time?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Filter end time - exams with end_time <= this value (ISO 8601 format)',
+    example: '2024-12-31T23:59:59Z'
+  })
+  @IsOptional()
+  @IsString()
+  end_time?: string
 
   @ApiPropertyOptional({ 
     description: 'Page number for pagination',
@@ -576,12 +582,4 @@ export class ExamFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
-
-  @ApiPropertyOptional({ 
-    description: 'Search text in exam title or description',
-    example: 'midterm'
-  })
-  @IsOptional()
-  @IsString()
-  search?: string
 }

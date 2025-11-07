@@ -80,14 +80,14 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all exams',
-    description: 'Get paginated list of exams with filters. Returns exams with question counts and submission counts.'
+    description: 'Get paginated list of exams with filters. Returns exams that have start_time and end_time within the specified range.'
   })
-  @ApiQuery({ name: 'class_id', required: false, type: Number, description: 'Filter by class ID' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
   @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled'], description: 'Filter by exam status' })
-  @ApiQuery({ name: 'created_by', required: false, type: Number, description: 'Filter by creator user ID' })
+  @ApiQuery({ name: 'start_time', required: false, type: String, description: 'Filter exams with start_time >= this value (ISO 8601)' })
+  @ApiQuery({ name: 'end_time', required: false, type: String, description: 'Filter exams with end_time <= this value (ISO 8601)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
   @ApiResponse({ status: 200, description: 'Exams retrieved successfully' })
   async getAllExams(@Query(ValidationPipe) filterDto: ExamFilterDto) {
     return firstValueFrom(
