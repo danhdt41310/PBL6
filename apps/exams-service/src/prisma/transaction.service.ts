@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from './prisma.service'
 import { TransactionClient, TransactionOptions } from 'src/prisma/prisma.type'
-import { Prisma } from '@prisma/exams-client';
 
 /**
  * Transaction Service.
