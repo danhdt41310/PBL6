@@ -1,31 +1,40 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { PrismaService } from '../../prisma/prisma.service'
+import { PrismaClient } from '@prisma/exams-client'
 import { 
   CreateQuestionDto, 
   UpdateQuestionDto, 
   QuestionFilterDto,
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto 
-} from './dto/question.dto';
+} from './dto/question.dto'
+import { TransactionClient } from 'src/prisma/prisma.type'
 
 @Injectable()
 export class QuestionsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Get Prisma client for transaction or regular operation
+   */
+  getClient(tx?: TransactionClient) {
+    return tx || this.prisma
+  }
+
   // =============== QUESTION CATEGORIES ===============
   
   async createCategory(createCategoryDto: CreateQuestionCategoryDto) {
     try {
-      console.log('Creating category with name:', createCategoryDto);
+      console.log('Creating category with name:', createCategoryDto)
       const category = await this.prisma.questionCategory.create({
         data: createCategoryDto,
-      });
-      return category;
+      })
+      return category
     } catch (error) {
       if (error.code === 'P2002') {
-        throw new BadRequestException('Category name already exists');
+        throw new BadRequestException('Category name already exists')
       }
-      throw new BadRequestException('Failed to create category: ' + error.message);
+      throw new BadRequestException('Failed to create category: ' + error.message)
     }
   }
 
@@ -40,10 +49,10 @@ export class QuestionsService {
             select: { questions: true },
           },
         },
-      });
-      return categories;
+      })
+      return categories
     } catch (error) {
-      throw new BadRequestException('Failed to fetch categories: ' + error.message);
+      throw new BadRequestException('Failed to fetch categories: ' + error.message)
     }
   }
 
@@ -56,63 +65,63 @@ export class QuestionsService {
             select: { questions: true },
           },
         },
-      });
+      })
 
       if (!category) {
-        throw new NotFoundException(`Category with ID ${id} not found`);
+        throw new NotFoundException(`Category with ID ${id} not found`)
       }
 
-      return category;
+      return category
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to fetch category: ' + error.message);
+      throw new BadRequestException('Failed to fetch category: ' + error.message)
     }
   }
 
   async updateCategory(id: number, updateCategoryDto: UpdateQuestionCategoryDto) {
     try {
-      await this.findCategoryById(id);
+      await this.findCategoryById(id)
 
       const category = await this.prisma.questionCategory.update({
         where: { category_id: id },
         data: updateCategoryDto,
-      });
+      })
 
-      return category;
+      return category
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw error;
+        throw error
       }
       if (error.code === 'P2002') {
-        throw new BadRequestException('Category name already exists');
+        throw new BadRequestException('Category name already exists')
       }
-      throw new BadRequestException('Failed to update category: ' + error.message);
+      throw new BadRequestException('Failed to update category: ' + error.message)
     }
   }
 
   async deleteCategory(id: number) {
     try {
-      const category = await this.findCategoryById(id);
+      const category = await this.findCategoryById(id)
 
       // Check if category has questions
       if (category._count.questions > 0) {
         throw new BadRequestException(
           `Cannot delete category because it has ${category._count.questions} question(s). Please reassign or delete those questions first.`
-        );
+        )
       }
 
       await this.prisma.questionCategory.delete({
         where: { category_id: id },
-      });
+      })
 
-      return { message: 'Category deleted successfully' };
+      return { message: 'Category deleted successfully' }
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to delete category: ' + error.message);
+      throw new BadRequestException('Failed to delete category: ' + error.message)
     }
   }
 
@@ -123,22 +132,22 @@ export class QuestionsService {
       // Validate options for multiple choice questions
       if (createQuestionDto.type === 'multiple_choice') {
         if (!createQuestionDto.options || createQuestionDto.options.length < 2) {
-          throw new BadRequestException('Multiple choice questions must have at least 2 options');
+          throw new BadRequestException('Multiple choice questions must have at least 2 options')
         }
         
-        const correctAnswers = createQuestionDto.options.filter(opt => opt.is_correct);
+        const correctAnswers = createQuestionDto.options.filter(opt => opt.is_correct)
         if (correctAnswers.length === 0) {
-          throw new BadRequestException('At least one option must be marked as correct');
+          throw new BadRequestException('At least one option must be marked as correct')
         }
         
         if (!createQuestionDto.is_multiple_answer && correctAnswers.length > 1) {
-          throw new BadRequestException('Single answer questions can only have one correct option');
+          throw new BadRequestException('Single answer questions can only have one correct option')
         }
       }
 
       // Validate category exists if provided
       if (createQuestionDto.category_id) {
-        await this.findCategoryById(createQuestionDto.category_id);
+        await this.findCategoryById(createQuestionDto.category_id)
       }
 
       const question = await this.prisma.question.create({
@@ -155,50 +164,50 @@ export class QuestionsService {
         include: {
           category: true,
         },
-      });
+      })
 
-      return question;
+      return question
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to create question: ' + error.message);
+      throw new BadRequestException('Failed to create question: ' + error.message)
     }
   }
 
   async findAllQuestions(filterDto: QuestionFilterDto) {
     try {
-      const page = filterDto.page || 1;
-      const limit = filterDto.limit || 10;
-      const skip = (page - 1) * limit;
+      const page = filterDto.page || 1
+      const limit = filterDto.limit || 10
+      const skip = (page - 1) * limit
 
-      const where: any = {};
+      const where: any = {}
 
       if (filterDto.type) {
-        where.type = filterDto.type;
+        where.type = filterDto.type
       }
 
       if (filterDto.difficulty) {
-        where.difficulty = filterDto.difficulty;
+        where.difficulty = filterDto.difficulty
       }
 
       if (filterDto.category_id) {
-        where.category_id = filterDto.category_id;
+        where.category_id = filterDto.category_id
       }
 
       if (filterDto.created_by) {
-        where.created_by = filterDto.created_by;
+        where.created_by = filterDto.created_by
       }
 
       if (filterDto.is_public !== undefined) {
-        where.is_public = filterDto.is_public;
+        where.is_public = filterDto.is_public
       }
 
       if (filterDto.search) {
         where.content = {
           contains: filterDto.search,
           mode: 'insensitive',
-        };
+        }
       }
 
       const [questions, total] = await Promise.all([
@@ -214,7 +223,7 @@ export class QuestionsService {
           },
         }),
         this.prisma.question.count({ where }),
-      ]);
+      ])
 
       return {
         data: questions,
@@ -224,9 +233,9 @@ export class QuestionsService {
           limit,
           totalPages: Math.ceil(total / limit),
         },
-      };
+      }
     } catch (error) {
-      throw new BadRequestException('Failed to fetch questions: ' + error.message);
+      throw new BadRequestException('Failed to fetch questions: ' + error.message)
     }
   }
 
@@ -248,18 +257,18 @@ export class QuestionsService {
             },
           },
         },
-      });
+      })
 
       if (!question) {
-        throw new NotFoundException(`Question with ID ${id} not found`);
+        throw new NotFoundException(`Question with ID ${id} not found`)
       }
 
-      return question;
+      return question
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to fetch question: ' + error.message);
+      throw new BadRequestException('Failed to fetch question: ' + error.message)
     }
   }
 
@@ -268,36 +277,36 @@ export class QuestionsService {
       // First check if question exists
       const existingQuestion = await this.prisma.question.findUnique({
         where: { question_id: id },
-      });
+      })
 
       if (!existingQuestion) {
-        throw new NotFoundException(`Question with ID ${id} not found`);
+        throw new NotFoundException(`Question with ID ${id} not found`)
       }
 
       // Validate category exists if being updated
       if (updateQuestionDto.category_id) {
-        await this.findCategoryById(updateQuestionDto.category_id);
+        await this.findCategoryById(updateQuestionDto.category_id)
       }
 
       // Validate options if updating multiple choice question
       if (updateQuestionDto.type === 'multiple_choice' || 
           (existingQuestion.type === 'multiple_choice' && updateQuestionDto.options)) {
         if (updateQuestionDto.options && updateQuestionDto.options.length < 2) {
-          throw new BadRequestException('Multiple choice questions must have at least 2 options');
+          throw new BadRequestException('Multiple choice questions must have at least 2 options')
         }
         
         if (updateQuestionDto.options) {
-          const correctAnswers = updateQuestionDto.options.filter(opt => opt.is_correct);
+          const correctAnswers = updateQuestionDto.options.filter(opt => opt.is_correct)
           if (correctAnswers.length === 0) {
-            throw new BadRequestException('At least one option must be marked as correct');
+            throw new BadRequestException('At least one option must be marked as correct')
           }
           
           const isMultipleAnswer = updateQuestionDto.is_multiple_answer !== undefined 
             ? updateQuestionDto.is_multiple_answer 
-            : (existingQuestion as any).is_multiple_answer;
+            : (existingQuestion as any).is_multiple_answer
             
           if (!isMultipleAnswer && correctAnswers.length > 1) {
-            throw new BadRequestException('Single answer questions can only have one correct option');
+            throw new BadRequestException('Single answer questions can only have one correct option')
           }
         }
       }
@@ -311,14 +320,14 @@ export class QuestionsService {
         include: {
           category: true,
         },
-      });
+      })
 
-      return question;
+      return question
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to update question: ' + error.message);
+      throw new BadRequestException('Failed to update question: ' + error.message)
     }
   }
 
@@ -330,34 +339,34 @@ export class QuestionsService {
         include: {
           question_exams: true,
         },
-      });
+      })
 
       if (!question) {
-        throw new NotFoundException(`Question with ID ${id} not found`);
+        throw new NotFoundException(`Question with ID ${id} not found`)
       }
 
       // Check if question is being used in any exam
       if (question.question_exams.length > 0) {
         throw new BadRequestException(
           'Cannot delete question because it is being used in one or more exams'
-        );
+        )
       }
 
       await this.prisma.question.delete({
         where: { question_id: id },
-      });
+      })
 
-      return { message: 'Question deleted successfully' };
+      return { message: 'Question deleted successfully' }
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
-        throw error;
+        throw error
       }
-      throw new BadRequestException('Failed to delete question: ' + error.message);
+      throw new BadRequestException('Failed to delete question: ' + error.message)
     }
   }
 
   async getQuestionsByCreator(creatorId: number, filterDto?: QuestionFilterDto) {
-    return this.findAllQuestions({ ...filterDto, created_by: creatorId });
+    return this.findAllQuestions({ ...filterDto, created_by: creatorId })
   }
 
   async findQuestionsByExam(examId: number) {
@@ -377,6 +386,6 @@ export class QuestionsService {
           },
         },
       },
-    });
+    })
   }
 }
