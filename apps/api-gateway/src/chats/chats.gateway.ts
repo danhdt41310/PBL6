@@ -55,6 +55,8 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
      */
     async afterInit(server: Server) {
         this.logger.log('🔌 WebSocket Gateway initialized');
+        this.logger.log(`📍 Namespace: /chat`);
+        this.logger.log(`🌐 CORS enabled for all origins`);
     }
 
     /**
@@ -62,29 +64,38 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
      */
     async handleConnection(client: Socket) {
         try {
+            this.logger.log('='.repeat(60));
+            this.logger.log('🔌 [CONNECTION] New client connecting...');
+            this.logger.log(`   Socket ID: ${client.id}`);
+            this.logger.log(`   Query params:`, client.handshake.query);
+
             // Extract userId from query params or auth token
             const userId = client.handshake.query.userId as string;
 
             if (!userId) {
-                this.logger.warn(`Client ${client.id} connected without userId`);
+                this.logger.warn(`❌ [CONNECTION] Client ${client.id} connected WITHOUT userId`);
+                this.logger.log('='.repeat(60));
                 return;
             }
 
             const userIdNum = parseInt(userId, 10);
+            this.logger.log(`   User ID: ${userIdNum}`);
 
             // Store socket connection for this user
             if (!this.userSockets.has(userIdNum)) {
                 this.userSockets.set(userIdNum, new Set());
+                this.logger.log(`   Created new socket set for user ${userIdNum}`);
             }
             this.userSockets.get(userIdNum).add(client.id);
-
-            this.logger.log(`Client connected: ${client.id}, User: ${userIdNum}`);
+            this.logger.log(`   Total connections for user ${userIdNum}: ${this.userSockets.get(userIdNum).size}`);
 
             // Join user to their personal room
             client.join(`user:${userIdNum}`);
+            this.logger.log(`   ✅ Joined personal room: user:${userIdNum}`);
 
             // Mark user as online in Redis
             await this.presenceService.setOnline(userIdNum);
+            this.logger.log(`   ✅ Marked as ONLINE in Redis`);
 
             // Notify all clients that user is online
             this.server.emit(SOCKET_EVENTS.USER_ONLINE, {
@@ -92,8 +103,13 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
                 status: 'online',
                 last_seen: new Date().toISOString(),
             });
+            this.logger.log(`   ✅ Broadcasted USER_ONLINE event`);
+
+            this.logger.log(`✅ [CONNECTION] Client connected successfully: ${client.id}, User: ${userIdNum}`);
+            this.logger.log('='.repeat(60));
         } catch (error) {
-            this.logger.error('Connection error:', error);
+            this.logger.error('❌ [CONNECTION] Error:', error);
+            this.logger.log('='.repeat(60));
         }
     }
 
@@ -135,136 +151,120 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     /**
-     * Handle sending a message
-     * Validates, saves to DB via microservice, and emits to recipients
+     * Handle sending messages with Frontend-first approach
+     * Frontend broadcasts via Socket.IO first, then saves to DB via REST API
+     * This handler only broadcasts the message to other clients in real-time
      */
-    @SubscribeMessage(SOCKET_EVENTS.SEND_MESSAGE)
+    @SubscribeMessage('message:send')
     @UsePipes(new ValidationPipe({ transform: true }))
     async handleSendMessage(
-        @MessageBody() sendMessageDto: SendMessageDto,
+        @MessageBody() messageData: any, // Already formatted message from frontend
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            this.logger.log('Received message:', sendMessageDto);
+            this.logger.log('='.repeat(60));
+            this.logger.log('📨 [SEND_MESSAGE] Received message for broadcast');
+            this.logger.log(`   Socket ID: ${client.id}`);
+            this.logger.log(`   Message data:`, JSON.stringify(messageData, null, 2));
 
             // Extract authenticated userId from socket
             const authenticatedUserId = parseInt(client.handshake.query.userId as string, 10);
+            this.logger.log(`   Authenticated User ID: ${authenticatedUserId}`);
 
             // Security: Verify sender_id matches authenticated user
-            if (sendMessageDto.sender_id !== authenticatedUserId) {
-                client.emit(SOCKET_EVENTS.MESSAGE_ERROR, {
-                    message: 'Unauthorized: sender_id does not match authenticated user',
-                    code: 'UNAUTHORIZED',
-                    details: { client_id: sendMessageDto.client_id },
-                });
+            if (messageData.sender_id !== authenticatedUserId) {
+                this.logger.warn(`⚠️ [SECURITY] Unauthorized broadcast attempt!`);
+                this.logger.warn(`   Expected sender: ${authenticatedUserId}, Got: ${messageData.sender_id}`);
+                this.logger.log('='.repeat(60));
                 return;
             }
 
-            // Convert DTO to CreateMessageDto for service
-            const createMessageDto: CreateMessageDto = {
-                sender_id: sendMessageDto.sender_id,
-                conversation_id: sendMessageDto.conversation_id,
-                content: sendMessageDto.content,
-                message_type: sendMessageDto.message_type as any || 'text' as any,
-            };
+            const conversationId = messageData.conversation_id;
+            const senderId = messageData.sender_id;
+            this.logger.log(`   Conversation ID: ${conversationId}`);
+            this.logger.log(`   Sender ID: ${senderId}`);
 
-            // Send message to chats-service via RPC
-            const result = await firstValueFrom(
-                this.chatsService.send('messages.create', createMessageDto)
-            );
-
-            if (!result.success) {
-                // Emit error to sender
-                client.emit(SOCKET_EVENTS.MESSAGE_ERROR, {
-                    message: result.message || 'Failed to send message',
-                    code: 'SEND_FAILED',
-                    details: { client_id: sendMessageDto.client_id },
-                });
-                return;
-            }
-
-            const message = result.data;
-
-            // Get conversation details to find recipient
+            // Verify conversation exists (security check)
+            this.logger.log(`   🔍 Verifying conversation exists...`);
             const conversation = await firstValueFrom(
                 this.chatsService.send('conversations.find_one', {
-                    id: sendMessageDto.conversation_id,
+                    id: conversationId,
                     includeMessages: false,
                 })
             );
 
             if (!conversation.success) {
-                client.emit(SOCKET_EVENTS.MESSAGE_ERROR, {
-                    message: 'Conversation not found',
-                    code: 'CONVERSATION_NOT_FOUND',
-                    details: { client_id: sendMessageDto.client_id },
-                });
+                this.logger.error(`❌ [SEND_MESSAGE] Conversation ${conversationId} NOT FOUND`);
+                this.logger.log('='.repeat(60));
                 return;
             }
+            this.logger.log(`   ✅ Conversation found`);
 
+            // Verify user is part of this conversation
             const conversationData = conversation.data;
+            this.logger.log(`   Conversation participants: sender=${conversationData.sender_id}, receiver=${conversationData.receiver_id}`);
 
-            // Determine recipient (the other user in the conversation)
-            const recipientId = conversationData.sender_id === sendMessageDto.sender_id
-                ? conversationData.receiver_id
-                : conversationData.sender_id;
+            const isParticipant = conversationData.sender_id === senderId || conversationData.receiver_id === senderId;
 
-            // Prepare message response
-            const messageResponse = {
-                ...message,
-                client_id: sendMessageDto.client_id,
-                status: MessageStatus.SENT,
-                conversation: conversationData,
-            };
+            if (!isParticipant) {
+                this.logger.warn(`⚠️ [SECURITY] User ${senderId} is NOT part of conversation ${conversationId}`);
+                this.logger.log('='.repeat(60));
+                return;
+            }
+            this.logger.log(`   ✅ User is participant`);
 
-            // Emit to conversation room (for multi-device support)
+            // Get room info
+            const roomName = `conversation:${conversationId}`;
+            const roomSockets = await this.server.in(roomName).fetchSockets();
+            this.logger.log(`   📡 Broadcasting to room: ${roomName}`);
+            this.logger.log(`   👥 Sockets in room: ${roomSockets.length}`);
+            roomSockets.forEach((s, i) => {
+                this.logger.log(`      [${i + 1}] Socket ${s.id}`);
+            });
+
+            // ===== BROADCAST TO CONVERSATION ROOM ONLY =====
             this.server
-                .to(`conversation:${sendMessageDto.conversation_id}`)
-                .emit(SOCKET_EVENTS.MESSAGE_RECEIVED, messageResponse);
+                .to(roomName)
+                .emit(SOCKET_EVENTS.MESSAGE_RECEIVED, messageData);
 
-            // Emit directly to recipient's personal room
-            this.server
-                .to(`user:${recipientId}`)
-                .emit(SOCKET_EVENTS.MESSAGE_RECEIVED, messageResponse);
-
-            // Confirm to sender with MESSAGE_SENT event
-            client.emit(SOCKET_EVENTS.MESSAGE_SENT, messageResponse);
-
-            this.logger.log(`Message sent: ${message.id} from user ${sendMessageDto.sender_id}`);
+            this.logger.log(`   ✅ Message broadcasted successfully`);
+            this.logger.log(`   Event: ${SOCKET_EVENTS.MESSAGE_RECEIVED}`);
+            this.logger.log('='.repeat(60));
 
             return {
                 success: true,
-                data: message,
+                message: 'Broadcasted to room',
             };
         } catch (error) {
-            this.logger.error('Error sending message:', error);
-
-            client.emit(SOCKET_EVENTS.MESSAGE_ERROR, {
-                message: error.message || 'Failed to send message',
-                code: 'INTERNAL_ERROR',
-                details: { client_id: sendMessageDto.client_id },
-            });
-
+            this.logger.error('='.repeat(60));
+            this.logger.error('❌ [SEND_MESSAGE] Error broadcasting message:', error);
+            this.logger.error('='.repeat(60));
             return {
                 success: false,
                 error: error.message,
             };
         }
-    }
-
-    /**
+    }    /**
      * Handle user joining a conversation room
      */
-    @SubscribeMessage(SOCKET_EVENTS.JOIN_CONVERSATION)
+    @SubscribeMessage('conversation:join')
     @UsePipes(new ValidationPipe({ transform: true }))
     async handleJoinConversation(
         @MessageBody() joinDto: JoinConversationDto,
         @ConnectedSocket() client: Socket,
     ) {
         try {
+            this.logger.log('='.repeat(60));
+            this.logger.log('🚪 [JOIN_CONVERSATION] User joining conversation');
+            this.logger.log(`   Socket ID: ${client.id}`);
+            this.logger.log(`   Join data:`, joinDto);
+
             const { conversation_id, user_id } = joinDto;
+            this.logger.log(`   Conversation ID: ${conversation_id}`);
+            this.logger.log(`   User ID: ${user_id}`);
 
             // Verify user is part of this conversation
+            this.logger.log(`   🔍 Verifying conversation exists...`);
             const conversation = await firstValueFrom(
                 this.chatsService.send('conversations.find_one', {
                     id: conversation_id,
@@ -273,22 +273,36 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             );
 
             if (!conversation.success) {
+                this.logger.error(`   ❌ Conversation ${conversation_id} NOT FOUND`);
                 client.emit(SOCKET_EVENTS.ERROR, { message: 'Conversation not found' });
+                this.logger.log('='.repeat(60));
                 return;
             }
+            this.logger.log(`   ✅ Conversation found`);
 
             const conversationData = conversation.data;
+            this.logger.log(`   Participants: sender=${conversationData.sender_id}, receiver=${conversationData.receiver_id}`);
 
             // Check if user is part of conversation
             if (conversationData.sender_id !== user_id && conversationData.receiver_id !== user_id) {
+                this.logger.warn(`   ⚠️ User ${user_id} NOT authorized for conversation ${conversation_id}`);
                 client.emit(SOCKET_EVENTS.ERROR, { message: 'Unauthorized to join this conversation' });
+                this.logger.log('='.repeat(60));
                 return;
             }
+            this.logger.log(`   ✅ User is authorized`);
 
             // Join conversation room
-            client.join(`conversation:${conversation_id}`);
+            const roomName = `conversation:${conversation_id}`;
+            client.join(roomName);
+            this.logger.log(`   ✅ Joined room: ${roomName}`);
 
-            this.logger.log(`User ${user_id} joined conversation ${conversation_id}`);
+            // Get room info after join
+            const roomSockets = await this.server.in(roomName).fetchSockets();
+            this.logger.log(`   👥 Total sockets in room now: ${roomSockets.length}`);
+            roomSockets.forEach((s, i) => {
+                this.logger.log(`      [${i + 1}] Socket ${s.id}`);
+            });
 
             // Get online participants
             const otherUserId = conversationData.sender_id === user_id
@@ -298,20 +312,30 @@ export class ChatsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             const onlineParticipants = [];
             if (this.userSockets.has(user_id)) onlineParticipants.push(user_id);
             if (this.userSockets.has(otherUserId)) onlineParticipants.push(otherUserId);
+            this.logger.log(`   Online participants:`, onlineParticipants);
 
-            client.emit(SOCKET_EVENTS.CONVERSATION_JOINED, {
+            const response = {
                 conversation_id,
                 success: true,
                 participants: [conversationData.sender_id, conversationData.receiver_id],
                 online_participants: onlineParticipants,
-            });
+            };
+
+            client.emit(SOCKET_EVENTS.CONVERSATION_JOINED, response);
+            this.logger.log(`   ✅ Emitted CONVERSATION_JOINED to client`);
+            this.logger.log(`   Response:`, response);
+
+            this.logger.log(`✅ [JOIN_CONVERSATION] User ${user_id} successfully joined conversation ${conversation_id}`);
+            this.logger.log('='.repeat(60));
 
             return {
                 success: true,
                 conversation_id,
             };
         } catch (error) {
-            this.logger.error('Error joining conversation:', error);
+            this.logger.error('='.repeat(60));
+            this.logger.error('❌ [JOIN_CONVERSATION] Error:', error);
+            this.logger.error('='.repeat(60));
             client.emit(SOCKET_EVENTS.ERROR, { message: error.message });
 
             return {

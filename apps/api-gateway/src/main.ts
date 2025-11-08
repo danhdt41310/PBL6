@@ -26,12 +26,6 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix('api');
 
-  // Setup Redis WebSocket Adapter for horizontal scaling
-  const redisClient = app.get<Redis>('REDIS_CLIENT');
-  const redisIoAdapter = new RedisIoAdapter(app, redisClient);
-  await redisIoAdapter.connectToRedis();
-  app.useWebSocketAdapter(redisIoAdapter);
-
   // Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('API Gateway Documentation')

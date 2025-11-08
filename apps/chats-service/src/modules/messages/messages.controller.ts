@@ -47,6 +47,7 @@ export class MessagesController {
    */
   @MessagePattern('messages.find_one')
   async findOne(@Payload() payload: { id: number }) {
+    console.log("🔍 Finding message with ID:", payload.id);
     const message = await this.messagesService.findOne(payload.id);
     return {
       success: true,

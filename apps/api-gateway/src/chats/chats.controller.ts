@@ -57,7 +57,6 @@ export class ChatsController {
   @ApiResponse({ status: 408, description: 'Request timeout' })
   async createMessage(@Body(ValidationPipe) createMessageDto: CreateMessageDto) {
     try {
-      console.log('Creating message with data:', createMessageDto);
       return await firstValueFrom( // Sử dụng firstValueFrom
         this.chatsService
           .send('messages.create', createMessageDto)
@@ -87,6 +86,7 @@ export class ChatsController {
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   async getMessage(@Param('id', ParseIntPipe) id: number) {
+    console.log("🔍 getMessage called with ID:", id);
     try {
       return await firstValueFrom( // Sử dụng firstValueFrom
         this.chatsService
@@ -359,7 +359,6 @@ export class ChatsController {
           );
 
           const users = usersResponse?.users || usersResponse?.data?.users || [];
-          console.log('Fetched user info:', users);
           usersMap = users.reduce((acc: any, user: any) => {
             acc[user.user_id] = user;
             return acc;
@@ -372,7 +371,6 @@ export class ChatsController {
       // Populate user info into conversations
       const populatedConversations = conversations.map((conv: any) => {
         const receiverInfo = usersMap[conv.receiver_id];
-        console.log('Populating conversation for receiver ID:', conv.receiver_id);
         return {
           ...conv,
           receiver_name: receiverInfo?.full_name || receiverInfo?.email || `User #${conv.receiver_id}`,
