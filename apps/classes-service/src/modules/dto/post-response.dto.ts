@@ -15,11 +15,3 @@ export class AddPostResponseDto{
     message: string;
     data: PostResponseDto;
 }
-
-export class PostsDto{
-    class_id:number;
-    parent_id?:number;
-    title?:string;
-    message?: string;
-    sender_id:number;
-}

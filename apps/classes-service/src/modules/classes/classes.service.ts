@@ -6,6 +6,8 @@ import { ClassEnrollmentMapper } from '../mapper/classEnrollment.mapper';
 import {promises as fs}from 'fs'
 import { join } from 'path';
 import { FileHelper } from '../utils/FileHelper.utils';
+import { FileInfo } from '../dto/material-response.dto';
+import { MaterialMapper } from '../mapper/meterials.mapper';
 @Injectable()
 export class ClassesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -220,7 +222,7 @@ export class ClassesService {
 
   }
 
-  async uploadPostWithFiles(class_id: number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number, title: string, message:string){
+  async uploadPostWithFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number, title: string, message:string){
     const uploadDir = this.UPLOAD_DIR;
     await fs.mkdir(uploadDir, { recursive: true });
 
@@ -233,52 +235,24 @@ export class ClassesService {
       }
     });
 
-    for (let uploadFile of uploadFiles){
-      const filePath = join(uploadDir, uploadFile.originalname);
-      const buffer = Buffer.from(uploadFile.buffer, 'base64');
-      await fs.writeFile(filePath, buffer);
-      const fstatus = await fs.stat(filePath);
-      this.prisma.material.create({
-        data:{
-          file_url: filePath,
-          title: uploadFile.originalname,
-          file_size: fstatus.size,
-          type: FileHelper.getFileTypeFromMime(uploadFile.mimetype, uploadFile.originalname),
-          uploaded_by: uploader_id,
-          post_id: newPost.id,
-        }
-      })
-    }
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id, newPost.id)
+    this.prisma.material.createMany({
+      data: data_for_save
+    })
 
-    return {
-      message: 'Post uploaded successfully!',
-    };
+    return MaterialMapper.toUploadPostWithFilesDto(`Uploads Post successfully with ${data_for_save.length} files`, class_id, data_for_save, title, message)
   }
 
-  async uploadFiles(class_id: number, uploadFiles:{originalname:string, mimetype:string, buffer:string}[], uploader_id:number){
+  async uploadFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number){
     const uploadDir = this.UPLOAD_DIR;
     await fs.mkdir(uploadDir, { recursive: true });
 
   
-    for (let uploadFile of uploadFiles){
-      const filePath = join(uploadDir, uploadFile.originalname);
-      const buffer = Buffer.from(uploadFile.buffer, 'base64');
-      await fs.writeFile(filePath, buffer);
-      const fstatus = await fs.stat(filePath);
-      this.prisma.material.create({
-        data:{
-          file_url: filePath,
-          title: uploadFile.originalname,
-          file_size: fstatus.size,
-          type: FileHelper.getFileTypeFromMime(uploadFile.mimetype, uploadFile.originalname),
-          uploaded_by: uploader_id,
-          post_id: null,
-        }
-      })
-    }
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
+    this.prisma.material.createMany({
+      data: data_for_save
+    })
 
-    return {
-      message: 'Files uploaded successfully!',
-    };
+    return MaterialMapper.toUploadFilesOnlyDto(`Uploads successfully ${data_for_save.length} files`, class_id, data_for_save)
   }
 }

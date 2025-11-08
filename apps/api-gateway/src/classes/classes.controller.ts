@@ -7,6 +7,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } 
 import { PostsDTO } from 'src/dto/post.dto';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { title } from 'process';
+import { FilesOnlyDto, PostCreateDto, PostWithFilesDto } from 'src/dto/material.dto';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
@@ -307,58 +308,27 @@ export class ClassesController {
     }  
   }
 
-  @Post('add-new-post')
-  @ApiOperation({ summary: 'Add new post and reply', description: 'Retrieve classes by user role and ID' })
-  @ApiResponse({ status: 200, description: 'Messages for adding and data for new post added' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 408, description: 'Request timeout' })
-  async addNewPost(@Body() body:PostsDTO){
-    try {
-      const result = await this.classesService.send(`posts.add_new_post`, body)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            if (err instanceof TimeoutError) {
-              return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
-            }
-            return throwError(new HttpException('Failed to add post', HttpStatus.BAD_REQUEST));
-          }),
-        )
-        .toPromise();
-
-      if (!result) {
-        throw new HttpException('Failed to add post', HttpStatus.NOT_FOUND);
-      }
-
-      return result;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException('Failed to add post', HttpStatus.INTERNAL_SERVER_ERROR);
-    }  
-  }
-
   @Post(':id/upload-post-with-files')
-  @ApiOperation({ summary: 'Upload file in a class', description: 'Upload file for class' })
+  @ApiOperation({ summary: 'Upload post with files in a class', description: 'Upload post with files for class' })
   @ApiParam({ name: 'id', type: 'integer', description: 'ID of the class' })
   @ApiResponse({ status: 200, description: 'Messages for upload files successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   @UseInterceptors(FilesInterceptor('files'))
-  async uplaodPostWithFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id, @Body('title') title, @Body('message') message){
+  async uploadPostWithFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id, @Body() postCreateDto: PostCreateDto){
     try {
       const uploadFiles = files.map((file)=>({
         originalname: file.originalname,
         mimetype: file.mimetype,
         buffer: file.buffer.toString('base64'), 
+        size: file.size, 
       }));
-      const data = {
-        uploader_id,
+      const data:PostWithFilesDto = {
+        uploader_id: postCreateDto.uploader_id,
         class_id,
         uploadFiles,
-        title,
-        message
+        title: postCreateDto.title,
+        message: postCreateDto.message,
       }
       const result = await this.classesService.send('classes.upload_post_with_files', data)
           .pipe(
@@ -367,13 +337,13 @@ export class ClassesController {
               if (err instanceof TimeoutError) {
                 return throwError(new HttpException('Classes service timeout', HttpStatus.REQUEST_TIMEOUT));
               }
-              return throwError(new HttpException('Failed to upload files', HttpStatus.BAD_REQUEST));
+              return throwError(new HttpException('Failed to upload post with files', HttpStatus.BAD_REQUEST));
             }),
           )
         .toPromise();
       
       if (!result) {
-        throw new HttpException('Failed to upload files', HttpStatus.NOT_FOUND);
+        throw new HttpException('Failed to upload post with files', HttpStatus.NOT_FOUND);
       }
 
       return result;
@@ -398,8 +368,9 @@ export class ClassesController {
         originalname: file.originalname,
         mimetype: file.mimetype,
         buffer: file.buffer.toString('base64'), 
+        size: file.size,
       }));
-      const data = {
+      const data:FilesOnlyDto = {
         uploader_id,
         class_id,
         uploadFiles
