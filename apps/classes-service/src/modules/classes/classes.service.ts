@@ -235,7 +235,7 @@ export class ClassesService {
     });
 
     const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id, newPost.id)
-    this.prisma.material.createMany({
+    await this.prisma.material.createMany({
       data: data_for_save
     })
 
@@ -247,10 +247,17 @@ export class ClassesService {
 
     console.log(uploadFiles.length)
     const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
-    this.prisma.material.createMany({
-      data: data_for_save
-    })
 
-    return MaterialMapper.toUploadFilesOnlyDto(`Uploads successfully ${data_for_save.length} files`, class_id, data_for_save)
+    try{
+      await this.prisma.material.createMany({
+        data: data_for_save
+      })
+
+      return MaterialMapper.toUploadFilesOnlyDto(`Uploads successfully ${data_for_save.length} files`, class_id, data_for_save)
+    }
+    catch (error){
+      console.log('Failed to add materials to db',error);
+      throw error;
+    }
   }
 }

@@ -25,7 +25,7 @@ export class FileHelper{
         else return FileType.other
     }
 
-    static async saveUploadFiles(uploadFiles: FileInfo[], class_id: number, uploader_id: number, post_id=null):Promise<Prisma.MaterialCreateManyInput[]>{
+    static async saveUploadFiles(uploadFiles: FileInfo[], class_id: number, uploader_id: number, post_id: number=null):Promise<Prisma.MaterialCreateManyInput[]>{
     
         
         const material_infos:Prisma.MaterialCreateManyInput[] =[]

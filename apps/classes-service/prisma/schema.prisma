@@ -51,7 +51,7 @@ model Post {
 
 model Material {
   material_id Int      @id @default(autoincrement())
-  post_id     Int
+  post_id     Int?
   title       String   @db.VarChar
   file_url    String   @db.VarChar
   uploaded_by Int
@@ -59,7 +59,7 @@ model Material {
   type        FileType @default(other)
   file_size   Int?
   
-  post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  post Post? @relation(fields: [post_id], references: [id], onDelete: Cascade)
 
   @@map("materials")
 }
