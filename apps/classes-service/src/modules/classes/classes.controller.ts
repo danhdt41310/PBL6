@@ -3,6 +3,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ClassesService } from './classes.service';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { UserInfoDto } from '../dto/user.dto';
+import { FilesOnlyMessageDto, PostWithFilesMessageDto } from '../dto/material-response.dto';
 
 @Controller('classes')
 export class ClassesController {
@@ -61,5 +62,15 @@ export class ClassesController {
   @MessagePattern('classes.get_all_classes_of_student')
   async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
+  }
+
+  @MessagePattern('classes.upload_post_with_files')
+  async uploadPostWithFile(@Payload() data: PostWithFilesMessageDto){
+    return await this.classesService.uploadPostWithFiles(data.class_id, data.uploadFiles, data.uploader_id, data.title, data.message)
+  }
+
+  @MessagePattern('classes.upload_files')
+  async uploadFile(@Payload() data: FilesOnlyMessageDto){
+    return await this.classesService.uploadFiles(data.class_id, data.uploadFiles, data.uploader_id)
   }
 }

@@ -23,6 +23,7 @@ COPY packages/ ./packages/
 # Copy meetings-service package.json
 COPY apps/meetings-service/package*.json ./apps/meetings-service/
 COPY apps/meetings-service/prisma ./apps/meetings-service/prisma
+COPY apps/meetings-service/.env ./apps/meetings-service/.env
 
 # Clear npm cache and install dependencies with retry
 RUN npm install

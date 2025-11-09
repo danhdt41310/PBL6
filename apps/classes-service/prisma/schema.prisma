@@ -38,6 +38,7 @@ model Post {
   id         Int        @id @default(autoincrement())
   class_id   Int
   parent_id  Int?
+  title      String?    @db.VarChar
   message    String?    @db.VarChar
   sender_id  Int
   created_at DateTime   @default(now()) @db.Timestamp(6)

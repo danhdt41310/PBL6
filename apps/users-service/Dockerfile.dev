@@ -15,6 +15,8 @@ COPY turbo.json ./
 COPY apps/users-service/package*.json ./apps/users-service/
 COPY apps/users-service/prisma ./apps/users-service/prisma
 COPY packages/ ./packages/
+COPY apps/users-service/.env ./apps/users-service/.env
+
 
 # Install all dependencies (including dev dependencies)
 RUN npm install
