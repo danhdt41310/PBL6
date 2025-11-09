@@ -306,14 +306,6 @@ export class QuestionFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
-
-  @ApiPropertyOptional({ 
-    description: 'Search text in question content',
-    example: 'capital'
-  })
-  @IsOptional()
-  @IsString()
-  search?: string
 }
 
 // ============================================================
@@ -357,7 +349,7 @@ export class QuestionInExamDto {
     { message: 'Points must be a valid number (up to 2 decimal places)' }
   )
   @Min(1, { message: 'Points must be at least 1' })
-  points: number;
+  points: number
 }
 
 export class CreateExamDto {
@@ -582,4 +574,59 @@ export class ExamFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
+}
+
+// ============================================================
+// RANDOM QUESTIONS DTOs
+// ============================================================
+export enum RandomQuestionType {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  ESSAY = 'essay',
+}
+
+export class RandomQuestionCriteriaDto {
+  @ApiPropertyOptional({ 
+    description: 'Category ID to filter questions (optional)',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Category ID must be a number' })
+  @Type(() => Number)
+  category_id?: number
+
+  @ApiProperty({ 
+    description: 'Type of questions to fetch (multiple_choice, true_false, essay)',
+    enum: RandomQuestionType,
+    example: RandomQuestionType.MULTIPLE_CHOICE
+  })
+  @IsNotEmpty({ message: 'Question type is required' })
+  @IsEnum(RandomQuestionType, { message: 'Invalid question type' })
+  type: RandomQuestionType
+
+  @ApiProperty({ 
+    description: 'Number of questions to fetch',
+    example: 10,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Quantity is required' })
+  @IsInt({ message: 'Quantity must be a number' })
+  @Min(1, { message: 'Quantity must be at least 1' })
+  quantity: number
+}
+
+export class GetRandomQuestionsDto {
+  @ApiProperty({ 
+    description: 'Array of criteria for fetching random questions',
+    type: [RandomQuestionCriteriaDto],
+    example: [
+      { category_id: 1, type: 'multiple_choice', quantity: 12 },
+      { category_id: 2, type: 'true_false', quantity: 122 },
+      { type: 'essay', quantity: 5 }
+    ]
+  })
+  @IsArray({ message: 'Criteria must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => RandomQuestionCriteriaDto)
+  criteria: RandomQuestionCriteriaDto[]
 }

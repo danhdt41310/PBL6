@@ -7,7 +7,9 @@ import {
   UpdateQuestionCategoryDto,
   CreateQuestionDto,
   QuestionFilterDto,
-  UpdateQuestionDto
+  UpdateQuestionDto,
+  QuestionCategoryFilterDto,
+  GetRandomQuestionsDto,
 } from 'src/modules/questions/dto'
 
 @Controller('questions')
@@ -26,8 +28,8 @@ export class QuestionsController {
   }
 
   @MessagePattern('questions.categories.findAll')
-  async findAllCategories() {
-    return await this.questionsService.findAllCategories();
+  async findAllCategories(@Payload() filterDto?: QuestionCategoryFilterDto) {
+    return await this.questionsService.findAllCategories(filterDto);
   }
 
   @MessagePattern('questions.categories.findOne')
@@ -98,6 +100,14 @@ export class QuestionsController {
     // Convert array back to Buffer (from TCP serialization)
     const buffer = Buffer.from(data.buffer);
     return await this.questionsImportService.importExcel(buffer, data.createdBy);
+  }
+
+  // ============================================================
+  // RANDOM QUESTIONS ENDPOINT
+  // ============================================================
+  @MessagePattern('questions.random')
+  async getRandomQuestions(@Payload() data: GetRandomQuestionsDto) {
+    return await this.questionsService.getRandomQuestions(data);
   }
 }
 

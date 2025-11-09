@@ -36,6 +36,7 @@ import {
   CreateExamDto,
   UpdateExamDto,
   ExamFilterDto,
+  GetRandomQuestionsDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
@@ -176,12 +177,28 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all question categories',
-    description: 'Get list of all question categories with question count'
+    description: 'Get list of all question categories with question count. Supports search by name.'
   })
-  @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
-  async getAllCategories() {
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by category name (case-insensitive)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Categories retrieved successfully',
+    schema: {
+      example: [
+        {
+          category_id: 1,
+          name: 'Mathematics',
+          description: 'Math questions',
+          created_at: '2024-01-01T00:00:00.000Z',
+          updated_at: '2024-01-01T00:00:00.000Z',
+          question_count: 15
+        }
+      ]
+    }
+  })
+  async getAllCategories(@Query('search') search?: string) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.findAll', {})
+      this.examsService.send('questions.categories.findAll', { search })
     )
   }
 
@@ -237,6 +254,7 @@ export class ExamsController {
   // QUESTIONS
   // ============================================================
   @Post('questions')
+  @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Create a new question',
     description: 'Create a new question (teachers only). Creator ID will be set from JWT token.'
@@ -431,6 +449,64 @@ export class ExamsController {
       this.examsService.send('questions.import.execute', {
         buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
         createdBy,
+      })
+    )
+  }
+
+  // ============================================================
+  // RANDOM QUESTIONS
+  // ============================================================
+  @Post('questions/random')
+  @SkipPermissionCheck()  
+  @ApiOperation({ 
+    summary: 'Get random questions',
+    description: 'Get random questions based on multiple criteria (category, type, quantity). Supports multiple_choice, true_false, and essay types. true_false questions are multiple_choice with is_multiple_answer=false.'
+  })
+  @ApiBody({ type: GetRandomQuestionsDto })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Random questions retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            question_id: 1,
+            content: 'What is OOP?',
+            type: 'multiple_choice',
+            difficulty: 'easy',
+            category_id: 1,
+            is_multiple_answer: false,
+            options: [
+              { id: 'opt_1', content: 'Object Oriented Programming', is_correct: true },
+              { id: 'opt_2', content: 'Online Operating Platform', is_correct: false }
+            ],
+            created_by: 1,
+            is_public: true,
+            created_at: '2024-01-01T00:00:00.000Z',
+            updated_at: '2024-01-01T00:00:00.000Z'
+          }
+        ],
+        total: 50,
+        summary: {
+          requested: 15,
+          fetched: 15,
+          by_criteria: [
+            { category_id: 1, type: 'multiple_choice', requested: 10, fetched: 10 },
+            { type: 'true_false', requested: 5, fetched: 5 }
+          ]
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  async getRandomQuestions(
+    @Body(ValidationPipe) getRandomQuestionsDto: GetRandomQuestionsDto,
+    @Req() req: RequestWithUser
+  ) {
+    return firstValueFrom(
+      this.examsService.send('questions.random', {
+        criteria: getRandomQuestionsDto.criteria,
+        userId: req.user?.userId,
       })
     )
   }
