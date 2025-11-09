@@ -15,6 +15,7 @@ COPY turbo.json ./
 COPY apps/classes-service/package*.json ./apps/classes-service/
 COPY apps/classes-service/prisma ./apps/classes-service/prisma
 COPY packages/ ./packages/
+COPY apps/classes-service/.env ./apps/classes-service/.env
 
 # Install all dependencies (including dev dependencies)
 RUN npm install

@@ -2,12 +2,9 @@ import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, Param
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, firstValueFrom, Observable, throwError, timeout, TimeoutError } from 'rxjs';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
-import { UserInfoDto } from 'src/dto/user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
-import { PostsDTO } from 'src/dto/post.dto';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { title } from 'process';
-import { FilesOnlyDto, PostCreateDto, PostWithFilesDto } from 'src/dto/material.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesOnlyDto, PostCreateDto, PostWithFilesDto } from '../dto/material.dto';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
@@ -315,7 +312,7 @@ export class ClassesController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   @UseInterceptors(FilesInterceptor('files'))
-  async uploadPostWithFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id, @Body() postCreateDto: PostCreateDto){
+  async uploadPostWithFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body() postCreateDto: PostCreateDto){
     try {
       const uploadFiles = files.map((file)=>({
         originalname: file.originalname,
@@ -362,8 +359,9 @@ export class ClassesController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   @UseInterceptors(FilesInterceptor('files'))
-  async uplaodFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploaderId',ParseIntPipe) uploader_id){
+  async uplaodFiles(@Param('id', ParseIntPipe) class_id, @UploadedFiles() files: Express.Multer.File[], @Body('uploader_id',ParseIntPipe) uploader_id){
     try {
+      console.log(files.length)
       const uploadFiles = files.map((file)=>({
         originalname: file.originalname,
         mimetype: file.mimetype,

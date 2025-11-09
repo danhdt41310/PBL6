@@ -15,6 +15,7 @@ COPY turbo.json ./
 COPY apps/chats-service/package*.json ./apps/chats-service/
 COPY apps/chats-service/prisma ./apps/chats-service/prisma
 COPY packages/ ./packages/
+COPY apps/chats-service/.env ./apps/chats-service/.env
 
 # Install all dependencies (including dev dependencies)
 RUN npm install

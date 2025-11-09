@@ -26,11 +26,14 @@ export class FileHelper{
     }
 
     static async saveUploadFiles(uploadFiles: FileInfo[], class_id: number, uploader_id: number, post_id=null):Promise<Prisma.MaterialCreateManyInput[]>{
+    
         
         const material_infos:Prisma.MaterialCreateManyInput[] =[]
         for (let uploadFile of uploadFiles){
             try{
-                const filePath = join(this.UPLOAD_DIR, class_id.toString() , uploader_id.toString(), uploadFile.originalname);
+                const uploadDir = join(this.UPLOAD_DIR, class_id.toString() , uploader_id.toString());
+                await fs.mkdir(uploadDir, {recursive:true})
+                const filePath = join(uploadDir, uploadFile.originalname);
                 const buffer = Buffer.from(uploadFile.buffer, 'base64');
                 await fs.writeFile(filePath, buffer);
 
@@ -45,6 +48,7 @@ export class FileHelper{
             }
             catch (error){
                 console.log('Failed to save file',uploadFile.originalname)
+                console.log('Error',error)
             }
         }
         return material_infos

@@ -223,8 +223,7 @@ export class ClassesService {
   }
 
   async uploadPostWithFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number, title: string, message:string){
-    const uploadDir = this.UPLOAD_DIR;
-    await fs.mkdir(uploadDir, { recursive: true });
+    
 
     const newPost = await this.prisma.post.create({
       data:{
@@ -244,10 +243,9 @@ export class ClassesService {
   }
 
   async uploadFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number){
-    const uploadDir = this.UPLOAD_DIR;
-    await fs.mkdir(uploadDir, { recursive: true });
+    
 
-  
+    console.log(uploadFiles.length)
     const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
     this.prisma.material.createMany({
       data: data_for_save
