@@ -16,5 +16,5 @@ import { UsersController } from './users.controller';
     ]),
   ],
   controllers: [UsersController],
-})
+})  
 export class UsersModule {}

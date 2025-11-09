@@ -1,11 +1,16 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { MessagesService } from './messages.service';
-import { CreateMessageDto, UpdateMessageDto, PaginationDto } from './dto/message.dto';
+import {
+  CreateMessageDto,
+  UpdateMessageDto,
+  PaginationDto,
+  MarkMessagesAsReadDto,
+} from './dto/message.dto';
 
 @Controller('messages')
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) { }
+  constructor(private readonly messagesService: MessagesService) {}
 
   /**
    * Test endpoint
@@ -35,7 +40,7 @@ export class MessagesController {
    */
   @MessagePattern('messages.find_by_conversation')
   async findMessages(
-    @Payload() payload: { conversationId: number; pagination?: PaginationDto }
+    @Payload() payload: { conversationId: number; pagination?: PaginationDto },
   ) {
     const { conversationId, pagination = { page: 1, limit: 20 } } = payload;
     return await this.messagesService.findMessages(conversationId, pagination);
@@ -47,7 +52,7 @@ export class MessagesController {
    */
   @MessagePattern('messages.find_one')
   async findOne(@Payload() payload: { id: number }) {
-    console.log("🔍 Finding message with ID:", payload.id);
+    console.log('🔍 Finding message with ID:', payload.id);
     const message = await this.messagesService.findOne(payload.id);
     return {
       success: true,
@@ -61,9 +66,12 @@ export class MessagesController {
    */
   @MessagePattern('messages.update')
   async updateMessage(
-    @Payload() payload: { id: number; data: UpdateMessageDto }
+    @Payload() payload: { id: number; data: UpdateMessageDto },
   ) {
-    const message = await this.messagesService.updateMessage(payload.id, payload.data);
+    const message = await this.messagesService.updateMessage(
+      payload.id,
+      payload.data,
+    );
     return {
       success: true,
       message: 'Message updated successfully',
@@ -86,9 +94,38 @@ export class MessagesController {
    */
   @MessagePattern('messages.find_by_user')
   async findUserMessages(
-    @Payload() payload: { userId: number; pagination?: PaginationDto }
+    @Payload() payload: { userId: number; pagination?: PaginationDto },
   ) {
     const { userId, pagination = { page: 1, limit: 20 } } = payload;
     return await this.messagesService.findUserMessages(userId, pagination);
+  }
+
+  /**
+   * Mark messages as read
+   * Pattern: messages.mark_as_read
+   */
+  @MessagePattern('messages.mark_as_read')
+  async markAsRead(@Payload() data: MarkMessagesAsReadDto) {
+    return await this.messagesService.markMessagesAsRead(data);
+  }
+
+  /**
+   * Get total unread count for a user
+   * Pattern: messages.get_unread_count
+   */
+  @MessagePattern('messages.get_unread_count')
+  async getUnreadCount(@Payload() payload: { userId: number }) {
+    return await this.messagesService.getUnreadCount(payload.userId);
+  }
+
+  /**
+   * Get unread count by conversation for a user
+   * Pattern: messages.get_unread_by_conversation
+   */
+  @MessagePattern('messages.get_unread_by_conversation')
+  async getUnreadByConversation(@Payload() payload: { userId: number }) {
+    return await this.messagesService.getUnreadCountByConversation(
+      payload.userId,
+    );
   }
 }

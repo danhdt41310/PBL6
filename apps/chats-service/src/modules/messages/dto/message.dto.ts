@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional, IsIn, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsInt,
+  IsOptional,
+  IsIn,
+  IsEnum,
+  IsArray,
+} from 'class-validator';
 import { MessageType } from '@prisma/chats-client';
 
 // Re-export MessageType for convenience
@@ -27,6 +35,9 @@ export class CreateMessageDto {
   @IsString()
   @IsOptional()
   content?: string;
+
+  @IsOptional()
+  is_read?: boolean = false;
 }
 
 /**
@@ -65,7 +76,6 @@ export class PaginationDto {
   limit?: number = 20;
 }
 
-
 // **********************************************
 // ********** Response DTOs *********************
 // **********************************************
@@ -87,6 +97,7 @@ export class MessageResponseDto {
   timestamp: Date;
   message_type: MessageType;
   content?: string;
+  is_read: boolean;
   conversation?: ConversationDetails;
 }
 
@@ -109,4 +120,22 @@ export class MessageActionResponseDto {
   success: boolean;
   message: string;
   data?: MessageResponseDto;
+}
+
+/**
+ * DTO for marking messages as read
+ */
+export class MarkMessagesAsReadDto {
+  @IsInt()
+  @IsNotEmpty()
+  conversation_id: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  user_id: number;
+
+  @IsArray()
+  @IsInt({ each: true })
+  @IsOptional()
+  message_ids?: number[]; // If not provided, mark all messages in conversation as read
 }
