@@ -6,7 +6,10 @@ import {
   UpdateQuestionDto, 
   QuestionFilterDto,
   CreateQuestionCategoryDto,
-  UpdateQuestionCategoryDto 
+  UpdateQuestionCategoryDto,
+  QuestionCategoryFilterDto,
+  GetRandomQuestionsDto,
+  RandomQuestionType,
 } from './dto/question.dto'
 import { TransactionClient } from 'src/prisma/prisma.type'
 
@@ -38,9 +41,20 @@ export class QuestionsService {
     }
   }
 
-  async findAllCategories() {
+  async findAllCategories(filterDto?: QuestionCategoryFilterDto) {
     try {
+      const where: any = {}
+
+      // Add search filter if provided
+      if (filterDto?.search) {
+        where.name = {
+          contains: filterDto.search,
+          mode: 'insensitive',
+        }
+      }
+
       const categories = await this.prisma.questionCategory.findMany({
+        where,
         orderBy: {
           name: 'asc',
         },
@@ -50,7 +64,12 @@ export class QuestionsService {
           },
         },
       })
-      return categories
+
+      // Transform response to include question count
+      return categories.map(category => ({
+        ...category,
+        question_count: category._count.questions,
+      }))
     } catch (error) {
       throw new BadRequestException('Failed to fetch categories: ' + error.message)
     }
@@ -387,5 +406,114 @@ export class QuestionsService {
         },
       },
     })
+  }
+
+  /**
+   * Get random questions based on multiple criteria
+   * Supports multiple_choice, true_false (which is multiple_choice with is_multiple_answer=false), and essay
+   */
+  async getRandomQuestions(data: GetRandomQuestionsDto) {
+    try {
+      const { criteria, userId } = data
+      const allQuestions = []
+      const summary = {
+        requested: 0,
+        fetched: 0,
+        by_criteria: [],
+      }
+
+      // Process each criterion
+      for (const criterion of criteria) {
+        const { category_id, type, quantity } = criterion
+        summary.requested += quantity
+
+        // Build the where clause
+        const where: any = {}
+
+        // Map frontend type to database type and conditions
+        if (type === RandomQuestionType.TRUE_FALSE) {
+          // true_false = multiple_choice with is_multiple_answer = false
+          where.type = 'multiple_choice'
+          where.is_multiple_answer = false
+        } else if (type === RandomQuestionType.MULTIPLE_CHOICE) {
+          // regular multiple choice (can have is_multiple_answer = true or false)
+          where.type = 'multiple_choice'
+          where.is_multiple_answer = true
+        } else if (type === RandomQuestionType.ESSAY) {
+          where.type = 'essay'
+        }
+
+        // Add category filter if provided
+        if (category_id) {
+          where.category_id = category_id
+        }
+
+        // Only fetch public questions or questions created by the user
+        if (userId) {
+          where.OR = [
+            { is_public: true },
+            { created_by: userId }
+          ]
+        } else {
+          where.is_public = true
+        }
+
+        // Get total count for this criterion
+        const totalAvailable = await this.prisma.question.count({ where })
+        const randomOffset = Math.floor(Math.random() * (totalAvailable - quantity))
+
+        // Fetch random questions with all data including options (answers)
+        const questions = await this.prisma.question.findMany({
+          where,
+          skip: randomOffset > 0 ? randomOffset : 0,
+          take: Math.min(quantity, totalAvailable),
+          include: {
+            category: true,
+          },
+          orderBy: {
+            question_id: 'asc',
+          },
+        })
+
+
+        // Shuffle the results to get random selection
+        const shuffled = this.shuffleArray(questions)
+        const selected = shuffled.slice(0, quantity)
+
+        allQuestions.push(...selected)
+        
+        summary.fetched += selected.length
+        summary.by_criteria.push({
+          category_id: category_id || null,
+          type,
+          requested: quantity,
+          fetched: selected.length,
+          available: totalAvailable,
+        })
+      }
+
+      // Shuffle the final combined list
+      const finalQuestions = this.shuffleArray(allQuestions)
+
+      return {
+        data: finalQuestions,
+        total: finalQuestions.length,
+        summary,
+      }
+    } catch (error) {
+      throw new BadRequestException('Failed to fetch random questions: ' + error.message)
+    }
+  }
+
+  /**
+   * Fisher-Yates shuffle algorithm
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
   }
 }
