@@ -8,12 +8,15 @@ import {
   Param, 
   Query, 
   Inject, 
-  ParseIntPipe, 
-  UseGuards, 
+  ParseIntPipe,
   Req,
   ValidationPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { 
   ApiTags, 
   ApiOperation, 
@@ -22,6 +25,7 @@ import {
   ApiParam, 
   ApiQuery,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger'
 import { 
   CreateQuestionDto, 
@@ -32,8 +36,11 @@ import {
   CreateExamDto,
   UpdateExamDto,
   ExamFilterDto,
+  GetRandomQuestionsDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
+import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
+import { DefaultFileUploadConfigs } from '../common/types/file.types'
 import { firstValueFrom } from 'rxjs'
 
 interface RequestWithUser extends Request {
@@ -81,14 +88,14 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all exams',
-    description: 'Get paginated list of exams with filters. Returns exams with question counts and submission counts.'
+    description: 'Get paginated list of exams with filters. Returns exams that have start_time and end_time within the specified range.'
   })
-  @ApiQuery({ name: 'class_id', required: false, type: Number, description: 'Filter by class ID' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
   @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled'], description: 'Filter by exam status' })
-  @ApiQuery({ name: 'created_by', required: false, type: Number, description: 'Filter by creator user ID' })
+  @ApiQuery({ name: 'start_time', required: false, type: String, description: 'Filter exams with start_time >= this value (ISO 8601)' })
+  @ApiQuery({ name: 'end_time', required: false, type: String, description: 'Filter exams with end_time <= this value (ISO 8601)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
   @ApiResponse({ status: 200, description: 'Exams retrieved successfully' })
   async getAllExams(@Query(ValidationPipe) filterDto: ExamFilterDto) {
     return firstValueFrom(
@@ -170,12 +177,28 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all question categories',
-    description: 'Get list of all question categories with question count'
+    description: 'Get list of all question categories with question count. Supports search by name.'
   })
-  @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
-  async getAllCategories() {
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by category name (case-insensitive)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Categories retrieved successfully',
+    schema: {
+      example: [
+        {
+          category_id: 1,
+          name: 'Mathematics',
+          description: 'Math questions',
+          created_at: '2024-01-01T00:00:00.000Z',
+          updated_at: '2024-01-01T00:00:00.000Z',
+          question_count: 15
+        }
+      ]
+    }
+  })
+  async getAllCategories(@Query('search') search?: string) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.findAll', {})
+      this.examsService.send('questions.categories.findAll', { search })
     )
   }
 
@@ -231,6 +254,7 @@ export class ExamsController {
   // QUESTIONS
   // ============================================================
   @Post('questions')
+  @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Create a new question',
     description: 'Create a new question (teachers only). Creator ID will be set from JWT token.'
@@ -329,6 +353,161 @@ export class ExamsController {
   async deleteQuestion(@Param('id', ParseIntPipe) id: number) {
     return firstValueFrom(
       this.examsService.send('questions.delete', { id })
+    )
+  }
+
+  // ============================================================
+  // IMPORT EXCEL
+  // ============================================================
+  @Post('questions/import/preview')
+  @SkipPermissionCheck()
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiOperation({ 
+    summary: 'Preview Excel import',
+    description: 'Preview questions from Excel file before importing. Returns first 10 rows by default.'
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Excel file (.xlsx or .xls)'
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of rows to preview (default: 10)'
+        }
+      },
+      required: ['file']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Preview generated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file or format' })
+  async previewExcelImport(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('limit') limit?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.preview', {
+        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
+        limit: limit ? parseInt(limit) : 10,
+      })
+    )
+  }
+
+  @Post('questions/import/execute')
+  @SkipPermissionCheck()
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiOperation({ 
+    summary: 'Import questions from Excel',
+    description: 'Import questions from Excel file. Creator ID will be set from JWT token. Returns import results with errors if any.'
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Excel file (.xlsx or .xls)'
+        }
+      },
+      required: ['file']
+    }
+  })
+  @ApiResponse({ status: 200, description: 'Import completed (check response for errors)' })
+  @ApiResponse({ status: 400, description: 'Invalid file or format' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
+  async importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: RequestWithUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required')
+    }
+
+    const createdBy = req.user?.userId
+    if (!createdBy) {
+      throw new BadRequestException('User ID not found in token')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.execute', {
+        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
+        createdBy,
+      })
+    )
+  }
+
+  // ============================================================
+  // RANDOM QUESTIONS
+  // ============================================================
+  @Post('questions/random')
+  @SkipPermissionCheck()  
+  @ApiOperation({ 
+    summary: 'Get random questions',
+    description: 'Get random questions based on multiple criteria (category, type, quantity). Supports multiple_choice, true_false, and essay types. true_false questions are multiple_choice with is_multiple_answer=false.'
+  })
+  @ApiBody({ type: GetRandomQuestionsDto })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Random questions retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            question_id: 1,
+            content: 'What is OOP?',
+            type: 'multiple_choice',
+            difficulty: 'easy',
+            category_id: 1,
+            is_multiple_answer: false,
+            options: [
+              { id: 'opt_1', content: 'Object Oriented Programming', is_correct: true },
+              { id: 'opt_2', content: 'Online Operating Platform', is_correct: false }
+            ],
+            created_by: 1,
+            is_public: true,
+            created_at: '2024-01-01T00:00:00.000Z',
+            updated_at: '2024-01-01T00:00:00.000Z'
+          }
+        ],
+        total: 50,
+        summary: {
+          requested: 15,
+          fetched: 15,
+          by_criteria: [
+            { category_id: 1, type: 'multiple_choice', requested: 10, fetched: 10 },
+            { type: 'true_false', requested: 5, fetched: 5 }
+          ]
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  async getRandomQuestions(
+    @Body(ValidationPipe) getRandomQuestionsDto: GetRandomQuestionsDto,
+    @Req() req: RequestWithUser
+  ) {
+    return firstValueFrom(
+      this.examsService.send('questions.random', {
+        criteria: getRandomQuestionsDto.criteria,
+        userId: req.user?.userId,
+      })
     )
   }
 }

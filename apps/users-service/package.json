@@ -21,7 +21,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:seed":"ts-node src/modules/db/seeddata.db.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

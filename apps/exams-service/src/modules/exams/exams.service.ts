@@ -205,7 +205,14 @@ export class ExamsService {
    */
   async findAll(filterDto?: ExamFilterDto) {
     try {
-      const { page = 1, limit = 10, search, class_id, status, created_by } = filterDto || {};
+      const { 
+        page = 1, 
+        limit = 10, 
+        search, 
+        status,
+        start_time,
+        end_time
+      } = filterDto || {};
       
       const skip = (page - 1) * limit;
       const take = Math.min(limit, 100); // Max 100 items per page
@@ -213,14 +220,26 @@ export class ExamsService {
       // Build where clause
       const where: any = {};
       
-      if (class_id) where.class_id = class_id;
-      if (status) where.status = status;
-      if (created_by) where.created_by = created_by;
+      // Filter by status
+      if (status) {
+        where.status = status;
+      }
+
+      // Search in title or description
       if (search) {
         where.OR = [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
         ];
+      }
+
+      // Filter by time range: exam's start_time >= start_time AND exam's end_time <= end_time
+      if (start_time) {
+        where.start_time = { gte: new Date(start_time) };
+      }
+
+      if (end_time) {
+        where.end_time = { lte: new Date(end_time) };
       }
 
       // Get total count

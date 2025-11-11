@@ -37,6 +37,7 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/mjml": "^4.7.4",
+    "@types/multer": "^2.0.0",
     "@types/pg": "^8.10.0",
     "prettier": "^3.5.0",
     "turbo": "^2.4.4",

@@ -1,17 +1,23 @@
 import { Controller } from '@nestjs/common'
 import { MessagePattern, Payload } from '@nestjs/microservices'
 import { QuestionsService } from './questions.service'
+import { QuestionsImportService } from './questions-import.service'
 import {
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto,
   CreateQuestionDto,
   QuestionFilterDto,
-  UpdateQuestionDto
+  UpdateQuestionDto,
+  QuestionCategoryFilterDto,
+  GetRandomQuestionsDto,
 } from 'src/modules/questions/dto'
 
 @Controller('questions')
 export class QuestionsController {
-  constructor(private readonly questionsService: QuestionsService) {}
+  constructor(
+    private readonly questionsService: QuestionsService,
+    private readonly questionsImportService: QuestionsImportService,
+  ) {}
 
   // ============================================================
   // CATEGORY ENDPOINTS
@@ -22,8 +28,8 @@ export class QuestionsController {
   }
 
   @MessagePattern('questions.categories.findAll')
-  async findAllCategories() {
-    return await this.questionsService.findAllCategories();
+  async findAllCategories(@Payload() filterDto?: QuestionCategoryFilterDto) {
+    return await this.questionsService.findAllCategories(filterDto);
   }
 
   @MessagePattern('questions.categories.findOne')
@@ -77,6 +83,31 @@ export class QuestionsController {
   @MessagePattern('questions.findByExam')
   async findQuestionsByExam(@Payload() data: { examId: number }) {
     return await this.questionsService.findQuestionsByExam(data.examId);
+  }
+
+  // ============================================================
+  // IMPORT EXCEL ENDPOINTS
+  // ============================================================
+  @MessagePattern('questions.import.preview')
+  async previewExcel(@Payload() data: { buffer: number[]; limit?: number }) {
+    // Convert array back to Buffer (from TCP serialization)
+    const buffer = Buffer.from(data.buffer);
+    return await this.questionsImportService.previewExcel(buffer, data.limit || 10);
+  }
+
+  @MessagePattern('questions.import.execute')
+  async importExcel(@Payload() data: { buffer: number[]; createdBy: number }) {
+    // Convert array back to Buffer (from TCP serialization)
+    const buffer = Buffer.from(data.buffer);
+    return await this.questionsImportService.importExcel(buffer, data.createdBy);
+  }
+
+  // ============================================================
+  // RANDOM QUESTIONS ENDPOINT
+  // ============================================================
+  @MessagePattern('questions.random')
+  async getRandomQuestions(@Payload() data: GetRandomQuestionsDto) {
+    return await this.questionsService.getRandomQuestions(data);
   }
 }
 

@@ -33,18 +33,18 @@ export class AuthMiddleware implements NestMiddleware {
         try {
           const payload = this.jwt.verify(access_jwt);
 
-          req.user = payload;
-          //   console.log('Access token hợp lệ:', payload);
-          return next();
-        } catch (error) {
-          if (error instanceof TokenExpiredError) {
-            console.log('Access token hết hạn, thử refresh token...');
-          } else {
-            console.log('Access token không hợp lệ:', error.message);
+                  req.user = payload;
+                  console.log('Access token hợp lệ:', payload);  // thảo đáng iu nhất số  hành tinh 
+                  return next();
+              } catch (error) {
+                  if (error instanceof TokenExpiredError) {
+                      console.log('Access token hết hạn, thử refresh token...');
+                  } else {
+                      console.log('Access token không hợp lệ:', error.message);
+                  }
+              }
           }
-        }
-      }
-      console.log(access_jwt);
+          console.log(access_jwt);
 
       if (refresh_jwt) {
         try {

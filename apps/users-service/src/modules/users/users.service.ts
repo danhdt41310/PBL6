@@ -19,6 +19,7 @@ import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
 import { QueryBuilderUtil, SearchFilter } from 'src/shared/utils/query-builder.util';
+import { Prisma } from '@prisma/users-client'
 
 @Injectable()
 export class UsersService {
@@ -40,18 +41,29 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
     const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
+    
+    // Prepare user data - only include dateOfBirth if valid
+    const userData: Prisma.UserCreateInput = {
+      full_name: fullName,
+      email,
+      password: hashedPassword,
+      status: status || 'active',
+    };
 
+    // Add optional fields only if they have valid values
+    if (phone) userData.phone = phone;
+    if (gender) userData.gender = gender;
+    if (dateOfBirth) {
+      const parsedDate = new Date(dateOfBirth);
+      // Only add date if it's valid
+      if (!isNaN(parsedDate.getTime())) {
+        userData.date_of_birth = parsedDate;
+      }
+    }
+    
     // Create user without role first
     const newUser = await this.prisma.user.create({
-      data: {
-        full_name: fullName,
-        email,
-        password: hashedPassword,
-        status: status || 'active',
-        phone,
-        date_of_birth: new Date(dateOfBirth),
-        gender,
-      },
+      data: userData,
     });
 
     // Find the role by name and assign it to the user
@@ -100,24 +112,15 @@ export class UsersService {
     });
 
     if (!user) {
-      return {
-        message: 'Invalid email or password',
-        success: false,
-      };
+      throw new RpcException(new UnauthorizedException('Invalid email or password'))
     }
     if (user.status === 'blocked') {
-      return {
-        message: 'Your account has been blocked. Please contact support.',
-        success: false,
-      };
+      throw new RpcException(new UnauthorizedException('Your account has been blocked. Please contact support.'))
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
-      return {
-        message: 'Invalid email or password',
-        success: false,
-      };
+      throw new RpcException(new UnauthorizedException('Invalid email or password'))
     }
 
     // Get user's primary role (first role if multiple)
@@ -319,17 +322,24 @@ export class UsersService {
   }
 
   /**
-   * Initiates the password reset process by sending a verification code to the user's email
-   * TODO: Write Filter to catch http errors, throw error without try catch
+   * Initiates the password reset process by sending a verification code to the user's email.
+   * Validates email format and user existence.
    */
   async forgotPassword(email: string): Promise<ForgotPasswordResponseDto> {
+    // Validate email format
+    if (!email || !email.includes('@')) {
+      throw new RpcException(new BadRequestException('Invalid email format'));
+    }
+
     // Find the user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return {
-        message: 'If your email is registered, you will receive a password reset code.',
-        success: true,
-      };
+      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+    }
+
+    // Check if user is blocked
+    if (user.status === 'blocked') {
+      throw new RpcException(new BadRequestException('Tài khoản của bạn đã bị khóa'));
     }
 
     // Generate a 6-digit code
@@ -365,26 +375,33 @@ export class UsersService {
     );
 
     if (!emailSent) {
-      return {
-        message: 'Failed to send password reset email. Please try again later.',
-        success: false,
-      };
+      throw new RpcException(new BadRequestException('Không thể gửi email. Vui lòng thử lại sau.'));
     }
 
     return {
-      message: 'Password reset code has been sent to your email.',
+      message: 'Mã xác thực đã được gửi đến email của bạn.',
       success: true,
     };
   }
 
   /**
    * Verifies the code sent to the user's email
-   * TODO: Write Filter to catch http errors, throw error without try catch
+   * Validates email, code format, and checks if code is valid and not expired
    */
   async verifyCode(email: string, code: string): Promise<VerifyCodeResponseDto> {
+    // Validate email format
+    if (!email || !email.includes('@')) {
+      throw new RpcException(new BadRequestException('Email không hợp lệ'));
+    }
+
+    // Validate code format
+    if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+    }
+
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('User not found'))
+      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
     }
 
     // Find the verification code
@@ -401,11 +418,11 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new BadRequestException('Invalid or expired verification code.'))
+      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
     }
 
     return {
-      message: 'Verification code is valid.',
+      message: 'Mã xác thực hợp lệ',
       success: true,
       isValid: true,
     };
@@ -413,12 +430,29 @@ export class UsersService {
 
   /**
    * Resets the user's password using a verification code
+   * Validates all inputs and ensures code is valid before resetting password
    */
   async resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResponseDto> {
     console.log('resetPassword called', { email, code });
+
+    // Validate email format
+    if (!email || !email.includes('@')) {
+      throw new RpcException(new BadRequestException('Email không hợp lệ'));
+    }
+
+    // Validate code format
+    if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+    }
+
+    // Validate password length
+    if (!newPassword || newPassword.length < 6) {
+      throw new RpcException(new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự'));
+    }
+
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('User not found'));
+      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
     }
 
     // Find and validate the verification code
@@ -435,7 +469,7 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new NotFoundException('Invalid or expired verification code.'));
+      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
     }
 
     // Hash the new password before saving
@@ -457,7 +491,7 @@ export class UsersService {
     });
 
     return {
-      message: 'Password has been reset successfully.',
+      message: 'Đặt lại mật khẩu thành công',
       success: true,
     };
   }
@@ -614,6 +648,25 @@ export class UsersService {
     }
   }
 
+  async getListProfileMatchEmail(emailPattern: string): Promise<UserListByEmailsOrIdsResponseDto>{
+    const records = await this.prisma.user.findMany({
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+      where: {
+        email:{contains: emailPattern},
+      },
+      take: 100,
+    })
+
+    return {
+      users: UserMapper.toResponseDtoArray(records),
+    }
+  }
   /**
    * Assign permissions to a role
    * Both the role and permissions must already exist in the database

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength } from 'class-validator'
+import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
@@ -306,14 +306,6 @@ export class QuestionFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
-
-  @ApiPropertyOptional({ 
-    description: 'Search text in question content',
-    example: 'capital'
-  })
-  @IsOptional()
-  @IsString()
-  search?: string
 }
 
 // ============================================================
@@ -352,7 +344,10 @@ export class QuestionInExamDto {
     minimum: 1
   })
   @IsNotEmpty({ message: 'Points are required' })
-  @IsInt({ message: 'Points must be a number' })
+  @IsNumber(
+    { allowNaN: false, maxDecimalPlaces: 2 },
+    { message: 'Points must be a valid number (up to 2 decimal places)' }
+  )
   @Min(1, { message: 'Points must be at least 1' })
   points: number
 }
@@ -522,13 +517,12 @@ export class UpdateExamDto {
 
 export class ExamFilterDto {
   @ApiPropertyOptional({ 
-    description: 'Filter by class ID',
-    example: 1
+    description: 'Search text in exam title or description',
+    example: 'midterm'
   })
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  class_id?: number
+  @IsString()
+  search?: string
 
   @ApiPropertyOptional({ 
     description: 'Filter by exam status',
@@ -540,13 +534,20 @@ export class ExamFilterDto {
   status?: ExamStatus
 
   @ApiPropertyOptional({ 
-    description: 'Filter by creator user ID',
-    example: 1
+    description: 'Filter start time - exams with start_time >= this value (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z'
   })
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  created_by?: number
+  @IsString()
+  start_time?: string
+
+  @ApiPropertyOptional({ 
+    description: 'Filter end time - exams with end_time <= this value (ISO 8601 format)',
+    example: '2024-12-31T23:59:59Z'
+  })
+  @IsOptional()
+  @IsString()
+  end_time?: string
 
   @ApiPropertyOptional({ 
     description: 'Page number for pagination',
@@ -573,12 +574,59 @@ export class ExamFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
+}
 
+// ============================================================
+// RANDOM QUESTIONS DTOs
+// ============================================================
+export enum RandomQuestionType {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  ESSAY = 'essay',
+}
+
+export class RandomQuestionCriteriaDto {
   @ApiPropertyOptional({ 
-    description: 'Search text in exam title or description',
-    example: 'midterm'
+    description: 'Category ID to filter questions (optional)',
+    example: 1
   })
   @IsOptional()
-  @IsString()
-  search?: string
+  @IsInt({ message: 'Category ID must be a number' })
+  @Type(() => Number)
+  category_id?: number
+
+  @ApiProperty({ 
+    description: 'Type of questions to fetch (multiple_choice, true_false, essay)',
+    enum: RandomQuestionType,
+    example: RandomQuestionType.MULTIPLE_CHOICE
+  })
+  @IsNotEmpty({ message: 'Question type is required' })
+  @IsEnum(RandomQuestionType, { message: 'Invalid question type' })
+  type: RandomQuestionType
+
+  @ApiProperty({ 
+    description: 'Number of questions to fetch',
+    example: 10,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Quantity is required' })
+  @IsInt({ message: 'Quantity must be a number' })
+  @Min(1, { message: 'Quantity must be at least 1' })
+  quantity: number
+}
+
+export class GetRandomQuestionsDto {
+  @ApiProperty({ 
+    description: 'Array of criteria for fetching random questions',
+    type: [RandomQuestionCriteriaDto],
+    example: [
+      { category_id: 1, type: 'multiple_choice', quantity: 12 },
+      { category_id: 2, type: 'true_false', quantity: 122 },
+      { type: 'essay', quantity: 5 }
+    ]
+  })
+  @IsArray({ message: 'Criteria must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => RandomQuestionCriteriaDto)
+  criteria: RandomQuestionCriteriaDto[]
 }

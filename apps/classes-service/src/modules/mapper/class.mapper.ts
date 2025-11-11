@@ -37,6 +37,7 @@ export class ClassMapper {
         id: post.id,
         class_id: post.class_id,
         parent_id: post.parent_id,
+        title: post.title,
         message: post.message,
         sender_id: post.sender_id,
         created_at: post.created_at,
