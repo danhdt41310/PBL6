@@ -27,6 +27,7 @@ import {
   AddStudentsDto,
   CreateClassDto,
   UpdateClassDto,
+  JoinClassByCodeDto,
 } from '../dto/class.dto';
 import { PostsDTO } from '../dto/post.dto';
 import {
@@ -43,12 +44,16 @@ import {
   PostCreateDto,
   PostWithFilesDto,
 } from '../dto/material.dto';
+import { ChatsGateway } from '../chats/chats.gateway';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
 @Controller('classes')
 export class ClassesController {
-  constructor(@Inject('CLASSES_SERVICE') private classesService: ClientProxy) {}
+  constructor(
+    @Inject('CLASSES_SERVICE') private classesService: ClientProxy,
+    private readonly chatsGateway: ChatsGateway,
+  ) {}
 
   @Get('hello')
   @ApiOperation({
@@ -93,6 +98,27 @@ export class ClassesController {
           }),
         )
         .toPromise();
+
+      // Emit socket event to notify all users in the class
+      if (result?.data) {
+        const postData = {
+          id: result.data.id,
+          class_id: postDto.class_id,
+          sender_id: postDto.sender_id,
+          title: postDto.title || '',
+          message: postDto.message || '',
+          created_at: result.data.created_at,
+          parent_id: postDto.parent_id || null,
+        };
+
+        if (postDto.parent_id) {
+          // It's a reply
+          await this.chatsGateway.notifyNewReply(postData);
+        } else {
+          // It's a new post
+          await this.chatsGateway.notifyNewPost(postData);
+        }
+      }
 
       return result;
     } catch (error) {
@@ -144,6 +170,50 @@ export class ClassesController {
       }
       throw new HttpException(
         'Failed to create class',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('join-by-code')
+  @ApiOperation({
+    summary: 'Join class by code',
+    description: 'Join a class using class code',
+  })
+  @ApiBody({ type: JoinClassByCodeDto })
+  @ApiResponse({ status: 200, description: 'Successfully joined class' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'Class not found' })
+  @ApiResponse({ status: 408, description: 'Request timeout' })
+  async joinByCode(@Body(ValidationPipe) joinDto: JoinClassByCodeDto) {
+    try {
+      const result = await this.classesService
+        .send('classes.join_by_code', joinDto)
+        .pipe(
+          timeout(5000),
+          catchError((err) => {
+            if (err instanceof TimeoutError) {
+              return throwError(
+                new HttpException(
+                  'Classes service timeout',
+                  HttpStatus.REQUEST_TIMEOUT,
+                ),
+              );
+            }
+            return throwError(
+              new HttpException('Failed to join class', HttpStatus.BAD_REQUEST),
+            );
+          }),
+        )
+        .toPromise();
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to join class',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -694,6 +764,21 @@ export class ClassesController {
           'Failed to upload post with files',
           HttpStatus.NOT_FOUND,
         );
+      }
+
+      // Emit socket event for post with files
+      if (result?.data) {
+        const postData = {
+          id: result.data.id,
+          class_id: class_id,
+          sender_id: postCreateDto.uploader_id,
+          title: postCreateDto.title || '',
+          message: postCreateDto.message || '',
+          created_at: result.data.created_at,
+          parent_id: null, // File posts are always top-level posts
+        };
+
+        await this.chatsGateway.notifyNewPost(postData);
       }
 
       return result;

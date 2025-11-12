@@ -65,6 +65,14 @@ export class ClassesController {
     );
   }
 
+  @MessagePattern("classes.join_by_code")
+  async joinByCode(@Payload() data: { user_id: number; class_code: string }) {
+    return await this.classesService.addStudentClassCode(
+      data.user_id,
+      data.class_code
+    );
+  }
+
   @MessagePattern("classes.remove_student")
   async removeStudent(@Payload() data: { class_id: number; user_id: number }) {
     return await this.classesService.removeStudent(data.class_id, data.user_id);

@@ -21,11 +21,11 @@ const redisClientProvider = {
     });
 
     client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+      // Redis client error
     });
 
     client.on('connect', () => {
-      console.log('✅ Redis Client connected');
+      // Redis client connected
     });
 
     return client;
@@ -57,4 +57,4 @@ const redisClientProvider = {
   providers: [ChatsGateway, PresenceService, redisClientProvider],
   exports: [ChatsGateway, PresenceService],
 })
-export class ChatsModule { }
+export class ChatsModule {}

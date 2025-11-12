@@ -58,3 +58,15 @@ export class UpdateClassDto {
   @IsOptional()
   teacher_id?: number;
 }
+
+export class JoinClassByCodeDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  class_code: string;
+
+  @Transform(({ value }) => parseInt(value))
+  @IsInt()
+  @IsNotEmpty()
+  user_id: number;
+}

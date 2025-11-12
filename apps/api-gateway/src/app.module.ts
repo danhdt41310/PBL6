@@ -1,4 +1,9 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { APP_GUARD } from '@nestjs/core';
@@ -15,7 +20,10 @@ import { AuthMiddleware } from './middleware/auth.middleware';
 import { CommonModule } from './common/common.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
-import { GatewayResponseInterceptor, RpcErrorInterceptor } from './common/interceptors';
+import {
+  GatewayResponseInterceptor,
+  RpcErrorInterceptor,
+} from './common/interceptors';
 import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
 
 @Module({
@@ -81,10 +89,10 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
   controllers: [AppController],
   providers: [
     AppService,
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: PermissionsGuard,
-    // },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: RpcErrorInterceptor, // Convert RpcException → HttpException
@@ -115,7 +123,7 @@ export class AppModule implements NestModule {
         { path: 'users/reset-password', method: RequestMethod.POST },
         { path: '/', method: RequestMethod.GET },
         { path: 'users/hello', method: RequestMethod.GET },
-        { path: 'admin/*', method: RequestMethod.ALL }
+        { path: 'admin/*', method: RequestMethod.ALL },
       )
       .forRoutes('*');
   }

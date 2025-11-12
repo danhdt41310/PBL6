@@ -27,6 +27,11 @@ import {
   MessageReadDto,
   JoinConversationDto,
   MessageStatus,
+  JoinClassDto,
+  CreatePostDto,
+  CreateReplyDto,
+  PostCreatedResponse,
+  ClassJoinedResponse,
 } from './dto/socket-events.dto';
 
 /**
@@ -59,9 +64,7 @@ export class ChatsGateway
    * Called when WebSocket server is initialized
    */
   async afterInit(server: Server) {
-    this.logger.log('🔌 WebSocket Gateway initialized');
-    this.logger.log(`📍 Namespace: /chat`);
-    this.logger.log(`🌐 CORS enabled for all origins`);
+    // WebSocket server initialized
   }
 
   /**
@@ -69,44 +72,30 @@ export class ChatsGateway
    */
   async handleConnection(client: Socket) {
     try {
-      this.logger.log(`  [CONNECTION]  Socket ID: ${client.id}`);
-
-      // Extract userId from query params or auth token
       const userId = client.handshake.query.userId as string;
 
       if (!userId) {
-        this.logger.warn(
-          `❌ [CONNECTION] Client ${client.id} connected WITHOUT userId`,
-        );
-        this.logger.log('='.repeat(60));
         return;
       }
 
       const userIdNum = parseInt(userId, 10);
-      this.logger.log(`   User ID: ${userIdNum}`);
 
-      // Store socket connection for this user
       if (!this.userSockets.has(userIdNum)) {
         this.userSockets.set(userIdNum, new Set());
-        this.logger.log(`   Created new socket set for user ${userIdNum}`);
       }
       this.userSockets.get(userIdNum).add(client.id);
 
-      // Join user to their personal room
       client.join(`user:${userIdNum}`);
-      this.logger.log(`   ✅ Joined personal room: user:${userIdNum}`);
 
-      // Mark user as online in Redis
       await this.presenceService.setOnline(userIdNum);
 
-      // Notify all clients that user is online
       this.server.emit(SOCKET_EVENTS.USER_ONLINE, {
         user_id: userIdNum,
         status: 'online',
         last_seen: new Date().toISOString(),
       });
     } catch (error) {
-      this.logger.error('❌ [CONNECTION] Error:', error);
+      // Connection error
     }
   }
 
@@ -124,14 +113,10 @@ export class ChatsGateway
         if (sockets) {
           sockets.delete(client.id);
 
-          // If user has no more active connections, mark as offline
           if (sockets.size === 0) {
             this.userSockets.delete(userIdNum);
-
-            // Mark user as offline in Redis
             await this.presenceService.setOffline(userIdNum);
 
-            // Notify all clients that user is offline
             this.server.emit(SOCKET_EVENTS.USER_OFFLINE, {
               user_id: userIdNum,
               status: 'offline',
@@ -140,10 +125,8 @@ export class ChatsGateway
           }
         }
       }
-
-      this.logger.log(`Client disconnected: ${client.id}`);
     } catch (error) {
-      this.logger.error('Disconnect error:', error);
+      // Disconnect error
     }
   }
 
@@ -155,36 +138,22 @@ export class ChatsGateway
   @SubscribeMessage('message:send')
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleSendMessage(
-    @MessageBody() messageData: any, // Already formatted message from frontend
+    @MessageBody() messageData: any,
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      this.logger.log('📨 [SEND_MESSAGE] Received message for broadcast');
-      this.logger.log(`   Socket ID: ${client.id}`);
-      this.logger.log(`   Message data:`, JSON.stringify(messageData, null, 2));
-
-      // Extract authenticated userId from socket
       const authenticatedUserId = parseInt(
         client.handshake.query.userId as string,
         10,
       );
-      this.logger.log(`   Authenticated User ID: ${authenticatedUserId}`);
 
-      // Security: Verify sender_id matches authenticated user
       if (messageData.sender_id !== authenticatedUserId) {
-        this.logger.warn(`⚠️ [SECURITY] Unauthorized broadcast attempt!`);
-        this.logger.warn(
-          `   Expected sender: ${authenticatedUserId}, Got: ${messageData.sender_id}`,
-        );
         return;
       }
 
       const conversationId = messageData.conversation_id;
       const senderId = messageData.sender_id;
-      this.logger.log(`   Conversation ID: ${conversationId}`);
-      this.logger.log(`   Sender ID: ${senderId}`);
 
-      // Verify conversation exists (security check)
       const conversation = await firstValueFrom(
         this.chatsService.send('conversations.find_one', {
           id: conversationId,
@@ -193,13 +162,9 @@ export class ChatsGateway
       );
 
       if (!conversation.success) {
-        this.logger.error(
-          `❌ [SEND_MESSAGE] Conversation ${conversationId} NOT FOUND`,
-        );
         return;
       }
 
-      // Verify user is part of this conversation
       const conversationData = conversation.data;
 
       const isParticipant =
@@ -207,28 +172,19 @@ export class ChatsGateway
         conversationData.receiver_id === senderId;
 
       if (!isParticipant) {
-        this.logger.warn(
-          `⚠️ [SECURITY] User ${senderId} is NOT part of conversation ${conversationId}`,
-        );
         return;
       }
 
-      // Get room info
       const roomName = `conversation:${conversationId}`;
-      const roomSockets = await this.server.in(roomName).fetchSockets();
-
-      // Get receiver ID (the other participant)
       const receiverId =
         conversationData.sender_id === senderId
           ? conversationData.receiver_id
           : conversationData.sender_id;
 
-      // ===== BROADCAST TO CONVERSATION ROOM =====
       this.server
         .to(roomName)
         .emit(SOCKET_EVENTS.MESSAGE_RECEIVED, messageData);
 
-      // ===== ALSO BROADCAST TO RECEIVER'S USER ROOM (for global notifications) =====
       this.server
         .to(`user:${receiverId}`)
         .emit(SOCKET_EVENTS.MESSAGE_RECEIVED, messageData);
@@ -358,15 +314,10 @@ export class ChatsGateway
     try {
       const { message_id, user_id, delivered_at } = deliveredDto;
 
-      // Validate message_id
       if (!message_id || message_id <= 0) {
-        this.logger.warn(`Invalid message_id: ${message_id}`);
         return { success: false, error: 'Invalid message_id' };
       }
 
-      this.logger.log(`Message ${message_id} delivered to user ${user_id}`);
-
-      // Get message to find sender
       const messageResult = await firstValueFrom(
         this.chatsService.send('messages.find_one', message_id),
       );
@@ -377,7 +328,6 @@ export class ChatsGateway
 
       const message = messageResult.data;
 
-      // Emit status update to sender
       this.server
         .to(`user:${message.sender_id}`)
         .emit(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, {
@@ -386,16 +336,8 @@ export class ChatsGateway
           delivered_at,
         });
 
-      // TODO: Update message status in database
-      // await this.chatsService.send('messages.update_status', {
-      //     message_id,
-      //     status: 'delivered',
-      //     delivered_at,
-      // });
-
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling message delivered:', error);
       return { success: false, error: error.message };
     }
   }
@@ -412,7 +354,7 @@ export class ChatsGateway
     try {
       const { conversation_id, user_id, last_read_message_id, read_at } =
         readDto;
-      // Get conversation to find the other user
+
       const conversation = await firstValueFrom(
         this.chatsService.send('conversations.find_one', {
           id: conversation_id,
@@ -430,16 +372,14 @@ export class ChatsGateway
           ? conversationData.receiver_id
           : conversationData.sender_id;
 
-      // Update messages in database via RPC
       const markReadResult = await firstValueFrom(
         this.chatsService.send('messages.mark_as_read', {
           conversation_id,
           user_id,
-          message_ids: undefined, // Mark all unread messages
+          message_ids: undefined,
         }),
       );
 
-      // Emit status update to the other user
       this.server
         .to(`user:${otherUserId}`)
         .emit(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, {
@@ -450,7 +390,6 @@ export class ChatsGateway
           read_by: user_id,
         });
 
-      // Emit messages:read event to conversation room for unread count updates
       this.server.to(`conversation:${conversation_id}`).emit('messages:read', {
         conversation_id,
         user_id,
@@ -459,7 +398,6 @@ export class ChatsGateway
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling message read:', error);
       return { success: false, error: error.message };
     }
   }
@@ -478,7 +416,6 @@ export class ChatsGateway
 
       await this.presenceService.updateStatus(user_id, status as any);
 
-      // Broadcast to all clients
       this.server.emit(SOCKET_EVENTS.USER_PRESENCE, {
         user_id,
         status,
@@ -487,7 +424,6 @@ export class ChatsGateway
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error updating presence:', error);
       return { success: false, error: error.message };
     }
   }
@@ -511,7 +447,6 @@ export class ChatsGateway
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error requesting presence:', error);
       return { success: false, error: error.message };
     }
   }
@@ -528,5 +463,75 @@ export class ChatsGateway
    */
   emitToUser(userId: number, event: string, data: any) {
     this.server.to(`user:${userId}`).emit(event, data);
+  }
+
+  /**
+   * Emit a message to specific class (used by service layer)
+   */
+  emitToClass(classId: number, event: string, data: any) {
+    this.server.to(`class:${classId}`).emit(event, data);
+  }
+
+  // ==================== POST EVENTS ====================
+
+  /**
+   * Join a class room for real-time post updates
+   */
+  @SubscribeMessage(SOCKET_EVENTS.JOIN_CLASS)
+  async handleJoinClass(
+    @MessageBody() data: JoinClassDto,
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const { class_id, user_id } = data;
+
+      client.join(`class:${class_id}`);
+
+      const room = this.server.sockets.adapter.rooms.get(`class:${class_id}`);
+      const membersCount = room ? room.size : 1;
+
+      const response: ClassJoinedResponse = {
+        class_id,
+        success: true,
+        members_count: membersCount,
+      };
+
+      client.emit(SOCKET_EVENTS.CLASS_JOINED, response);
+    } catch (error) {
+      client.emit(SOCKET_EVENTS.ERROR, {
+        message: 'Failed to join class',
+        code: 'JOIN_CLASS_ERROR',
+      });
+    }
+  }
+
+  /**
+   * Leave a class room
+   */
+  @SubscribeMessage(SOCKET_EVENTS.LEAVE_CLASS)
+  async handleLeaveClass(
+    @MessageBody() data: JoinClassDto,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { class_id } = data;
+    client.leave(`class:${class_id}`);
+  }
+
+  /**
+   * Handle new post creation (called from controller)
+   */
+  async notifyNewPost(postData: PostCreatedResponse) {
+    this.emitToClass(postData.class_id, SOCKET_EVENTS.POST_CREATED, postData);
+  }
+
+  /**
+   * Handle new reply creation (called from controller)
+   */
+  async notifyNewReply(replyData: PostCreatedResponse) {
+    this.emitToClass(
+      replyData.class_id,
+      SOCKET_EVENTS.REPLY_CREATED,
+      replyData,
+    );
   }
 }

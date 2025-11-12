@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   UserResponseDto,
   UserListResponseDto,
@@ -7,41 +13,68 @@ import {
   CreateUserResponseDto,
   ChangePasswordResponseDto,
   RolePermissionResponseDto,
-  UserListByEmailsOrIdsResponseDto
+  UserListByEmailsOrIdsResponseDto,
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
-import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserEmailsDto, UserStatus, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  LoginDto,
+  UpdateProfileDto,
+  UpdateUserDto,
+  UserEmailsDto,
+  UserStatus,
+  RolePermissionDto,
+  CreateRoleDto,
+  CreatePermissionDto,
+  UserIdsDto,
+} from './dto/user.dto';
 import { User } from './interfaces/user.interface';
 import * as bcrypt from 'bcrypt';
-import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponseDto } from './dto/auth-response.dto';
+import {
+  ForgotPasswordResponseDto,
+  VerifyCodeResponseDto,
+  ResetPasswordResponseDto,
+} from './dto/auth-response.dto';
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
-import { QueryBuilderUtil, SearchFilter } from 'src/shared/utils/query-builder.util';
-import { Prisma } from '@prisma/users-client'
+import {
+  QueryBuilderUtil,
+  SearchFilter,
+} from 'src/shared/utils/query-builder.util';
+import { Prisma } from '@prisma/users-client';
 
 @Injectable()
 export class UsersService {
-  private readonly salt_round = 10
-  private readonly verificationCodeExpiryMinutes = 5
+  private readonly salt_round = 10;
+  private readonly verificationCodeExpiryMinutes = 5;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-    private readonly jwtService: JwtService
-  ) { }
+    private readonly jwtService: JwtService,
+  ) {}
   /**
    * Create a new User in the system
    *
    * @param createUserDto - Data Transfer Object containing the user information
    * @returns Promise<User> - The newly created user (including id, email, role, status...)
-   * 
+   *
    **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
+    const {
+      fullName,
+      email,
+      password,
+      role,
+      status,
+      phone,
+      dateOfBirth,
+      gender,
+    } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
-    
+
     // Prepare user data - only include dateOfBirth if valid
     const userData: Prisma.UserCreateInput = {
       full_name: fullName,
@@ -60,7 +93,7 @@ export class UsersService {
         userData.date_of_birth = parsedDate;
       }
     }
-    
+
     // Create user without role first
     const newUser = await this.prisma.user.create({
       data: userData,
@@ -112,15 +145,23 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new RpcException(new UnauthorizedException('Invalid email or password'))
+      throw new RpcException(
+        new UnauthorizedException('Invalid email or password'),
+      );
     }
     if (user.status === 'blocked') {
-      throw new RpcException(new UnauthorizedException('Your account has been blocked. Please contact support.'))
+      throw new RpcException(
+        new UnauthorizedException(
+          'Your account has been blocked. Please contact support.',
+        ),
+      );
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new RpcException(new UnauthorizedException('Invalid email or password'))
+      throw new RpcException(
+        new UnauthorizedException('Invalid email or password'),
+      );
     }
 
     // Get user's primary role (first role if multiple)
@@ -158,13 +199,19 @@ export class UsersService {
     };
   }
 
-
-  async findAll(page: number, limit: number, filters?: SearchFilter): Promise<UserListResponseDto> {
+  async findAll(
+    page: number,
+    limit: number,
+    filters?: SearchFilter,
+  ): Promise<UserListResponseDto> {
     // Build the where clause using the query builder
     const where = QueryBuilderUtil.buildUserSearchQuery(filters || {});
 
     // Build pagination options
-    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(page, limit);
+    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(
+      page,
+      limit,
+    );
 
     // Execute queries in parallel
     const [users, total] = await Promise.all([
@@ -186,7 +233,7 @@ export class UsersService {
     ]);
 
     // Add role to each user for compatibility
-    const usersWithRoles = users.map(user => ({
+    const usersWithRoles = users.map((user) => ({
       ...user,
       role: user.userRoles[0]?.role?.name || 'user',
     }));
@@ -218,7 +265,7 @@ export class UsersService {
     return {
       data: data,
       success: true,
-    }
+    };
   }
 
   /**
@@ -250,7 +297,7 @@ export class UsersService {
     }
 
     // Extract roles
-    const roles = user.userRoles.map(ur => ({
+    const roles = user.userRoles.map((ur) => ({
       role_id: ur.role.role_id,
       name: ur.role.name,
       description: ur.role.description,
@@ -258,8 +305,8 @@ export class UsersService {
 
     // Extract unique permissions from all roles
     const permissionsMap = new Map();
-    user.userRoles.forEach(ur => {
-      ur.role.rolePermissions.forEach(rp => {
+    user.userRoles.forEach((ur) => {
+      ur.role.rolePermissions.forEach((rp) => {
         const permission = rp.permission;
         if (!permissionsMap.has(permission.permission_id)) {
           permissionsMap.set(permission.permission_id, {
@@ -294,9 +341,13 @@ export class UsersService {
     };
   }
 
-  async changePass(user_id: number, current_password: string, new_password: string): Promise<ChangePasswordResponseDto> {
+  async changePass(
+    user_id: number,
+    current_password: string,
+    new_password: string,
+  ): Promise<ChangePasswordResponseDto> {
     const user = await this.prisma.user.findUnique({
-      where: { user_id }
+      where: { user_id },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -317,7 +368,7 @@ export class UsersService {
     });
 
     return {
-      message: 'Password changed successfully'
+      message: 'Password changed successfully',
     };
   }
 
@@ -334,20 +385,28 @@ export class UsersService {
     // Find the user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Check if user is blocked
     if (user.status === 'blocked') {
-      throw new RpcException(new BadRequestException('Tài khoản của bạn đã bị khóa'));
+      throw new RpcException(
+        new BadRequestException('Tài khoản của bạn đã bị khóa'),
+      );
     }
 
     // Generate a 6-digit code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
 
     // Calculate expiration time (5 minutes from now)
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + this.verificationCodeExpiryMinutes);
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + this.verificationCodeExpiryMinutes,
+    );
 
     // Delete any existing password reset codes for this user
     await this.prisma.verificationCode.deleteMany({
@@ -371,11 +430,13 @@ export class UsersService {
     const emailSent = await this.emailService.sendPasswordResetEmail(
       user.email,
       verificationCode,
-      user.full_name
+      user.full_name,
     );
 
     if (!emailSent) {
-      throw new RpcException(new BadRequestException('Không thể gửi email. Vui lòng thử lại sau.'));
+      throw new RpcException(
+        new BadRequestException('Không thể gửi email. Vui lòng thử lại sau.'),
+      );
     }
 
     return {
@@ -388,7 +449,10 @@ export class UsersService {
    * Verifies the code sent to the user's email
    * Validates email, code format, and checks if code is valid and not expired
    */
-  async verifyCode(email: string, code: string): Promise<VerifyCodeResponseDto> {
+  async verifyCode(
+    email: string,
+    code: string,
+  ): Promise<VerifyCodeResponseDto> {
     // Validate email format
     if (!email || !email.includes('@')) {
       throw new RpcException(new BadRequestException('Email không hợp lệ'));
@@ -396,12 +460,16 @@ export class UsersService {
 
     // Validate code format
     if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực phải là 6 chữ số'),
+      );
     }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Find the verification code
@@ -418,7 +486,9 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'),
+      );
     }
 
     return {
@@ -432,7 +502,11 @@ export class UsersService {
    * Resets the user's password using a verification code
    * Validates all inputs and ensures code is valid before resetting password
    */
-  async resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResponseDto> {
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ResetPasswordResponseDto> {
     console.log('resetPassword called', { email, code });
 
     // Validate email format
@@ -442,17 +516,23 @@ export class UsersService {
 
     // Validate code format
     if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực phải là 6 chữ số'),
+      );
     }
 
     // Validate password length
     if (!newPassword || newPassword.length < 6) {
-      throw new RpcException(new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự'));
+      throw new RpcException(
+        new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự'),
+      );
     }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Find and validate the verification code
@@ -469,7 +549,9 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'),
+      );
     }
 
     // Hash the new password before saving
@@ -499,13 +581,16 @@ export class UsersService {
   /**
    * Updates user's status (block/unblock) - Admin only
    */
-  async updateUserStatus(userId: number, status: UserStatus): Promise<AdminActionResponseDto> {
+  async updateUserStatus(
+    userId: number,
+    status: UserStatus,
+  ): Promise<AdminActionResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id: userId },
     });
 
     if (!user) {
-      throw new RpcException(new NotFoundException('User not found'))
+      throw new RpcException(new NotFoundException('User not found'));
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -528,7 +613,10 @@ export class UsersService {
   /**
    * Updates user profile information
    */
-  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<UserResponseDto> {
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id: userId },
       include: {
@@ -589,7 +677,9 @@ export class UsersService {
     return UserMapper.toResponseDto(userWithRole);
   }
 
-  async getListProfileByEmails(userEmails: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto> {
+  async getListProfileByEmails(
+    userEmails: UserEmailsDto,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
     const records = [];
     for (let email of userEmails.userEmails) {
       let user = await this.prisma.user.findUnique({
@@ -615,10 +705,12 @@ export class UsersService {
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
 
-  async getListProfileByIds(userIds: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto> {
+  async getListProfileByIds(
+    userIds: UserIdsDto,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
     console.log('getListProfileByIds called with:', userIds);
     const records = [];
     for (let userId of userIds.userIds) {
@@ -645,10 +737,40 @@ export class UsersService {
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
 
-  async getListProfileMatchEmail(emailPattern: string): Promise<UserListByEmailsOrIdsResponseDto>{
+  async getProfileByEmail(email: string): Promise<any> {
+    console.log('getProfileByEmail called with:', email);
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    // Add role for compatibility
+    const userWithRole = {
+      ...user,
+      role: user.userRoles[0]?.role?.name || 'user',
+    };
+
+    return {
+      user: UserMapper.toResponseDto(userWithRole),
+    };
+  }
+
+  async getListProfileMatchEmail(
+    emailPattern: string,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
     const records = await this.prisma.user.findMany({
       include: {
         userRoles: {
@@ -658,36 +780,42 @@ export class UsersService {
         },
       },
       where: {
-        email:{contains: emailPattern},
+        email: { contains: emailPattern },
       },
       take: 100,
-    })
+    });
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
   /**
    * Assign permissions to a role
    * Both the role and permissions must already exist in the database
    * @throws NotFoundException if role or any permission doesn't exist
    */
-  async assignRolePermissions(rolePermissionDto: RolePermissionDto): Promise<RolePermissionResponseDto> {
+  async assignRolePermissions(
+    rolePermissionDto: RolePermissionDto,
+  ): Promise<RolePermissionResponseDto> {
     const { roleName, permissionNames } = rolePermissionDto;
 
-    console.log(`Starting role permission assignment for role: ${roleName}, permissions: ${JSON.stringify(permissionNames)}`);
+    console.log(
+      `Starting role permission assignment for role: ${roleName}, permissions: ${JSON.stringify(permissionNames)}`,
+    );
 
     try {
       // Use a transaction to ensure consistency
       return await this.prisma.$transaction(async (tx) => {
         // Find the role (must exist)
         const role = await tx.role.findUnique({
-          where: { name: roleName }
+          where: { name: roleName },
         });
 
         if (!role) {
           console.log(`Role not found: ${roleName}`);
-          throw new NotFoundException(`Role '${roleName}' not found. Please create the role first.`);
+          throw new NotFoundException(
+            `Role '${roleName}' not found. Please create the role first.`,
+          );
         } else {
           console.log(`Found existing role with ID: ${role.role_id}`);
         }
@@ -700,23 +828,29 @@ export class UsersService {
 
           // Find the permission (must exist)
           const permission = await tx.permission.findUnique({
-            where: { key: permissionName }
+            where: { key: permissionName },
           });
 
           if (!permission) {
             console.log(`Permission not found: ${permissionName}`);
-            throw new NotFoundException(`Permission '${permissionName}' not found. Please create the permission first.`);
+            throw new NotFoundException(
+              `Permission '${permissionName}' not found. Please create the permission first.`,
+            );
           } else {
-            console.log(`Found existing permission with ID: ${permission.permission_id}`);
+            console.log(
+              `Found existing permission with ID: ${permission.permission_id}`,
+            );
           }
 
           // Check if role-permission relationship already exists
-          console.log(`Checking for existing relationship between role ${role.role_id} and permission ${permission.permission_id}`);
+          console.log(
+            `Checking for existing relationship between role ${role.role_id} and permission ${permission.permission_id}`,
+          );
           const existingRolePermission = await tx.rolePermission.findFirst({
             where: {
               role_id: role.role_id,
-              permission_id: permission.permission_id
-            }
+              permission_id: permission.permission_id,
+            },
           });
 
           // Create the relationship only if it doesn't exist
@@ -725,12 +859,16 @@ export class UsersService {
             const newRolePermission = await tx.rolePermission.create({
               data: {
                 role_id: role.role_id,
-                permission_id: permission.permission_id
-              }
+                permission_id: permission.permission_id,
+              },
             });
-            console.log(`Successfully created role-permission relationship with ID: ${newRolePermission.role_permission_id}`);
+            console.log(
+              `Successfully created role-permission relationship with ID: ${newRolePermission.role_permission_id}`,
+            );
           } else {
-            console.log(`Role-permission relationship already exists with ID: ${existingRolePermission.role_permission_id}`);
+            console.log(
+              `Role-permission relationship already exists with ID: ${existingRolePermission.role_permission_id}`,
+            );
           }
 
           assignedPermissions.push(permissionName);
@@ -740,13 +878,14 @@ export class UsersService {
           message: `Successfully assigned ${assignedPermissions.length} permissions to role '${roleName}'`,
           success: true,
           roleName: roleName,
-          permissionsAssigned: assignedPermissions
+          permissionsAssigned: assignedPermissions,
         };
       });
-
     } catch (error) {
       console.error('Error assigning permissions to role:', error);
-      throw new BadRequestException(`Failed to assign permissions to role: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to assign permissions to role: ${error.message}`,
+      );
     }
   }
 
@@ -759,31 +898,31 @@ export class UsersService {
         include: {
           rolePermissions: {
             include: {
-              permission: true
-            }
-          }
+              permission: true,
+            },
+          },
         },
         orderBy: {
-          name: 'asc'
-        }
+          name: 'asc',
+        },
       });
 
       return {
         message: 'Roles fetched successfully',
-        roles: roles.map(role => ({
+        roles: roles.map((role) => ({
           role_id: role.role_id,
           name: role.name,
           description: role.description,
           created_at: role.created_at,
-          permissions: role.rolePermissions.map(rp => ({
+          permissions: role.rolePermissions.map((rp) => ({
             permission_id: rp.permission.permission_id,
             key: rp.permission.key,
             name: rp.permission.name,
             description: rp.permission.description,
             resource: rp.permission.resource,
-            action: rp.permission.action
-          }))
-        }))
+            action: rp.permission.action,
+          })),
+        })),
       };
     } catch (error) {
       console.error('Error fetching roles with permissions:', error);
@@ -798,25 +937,27 @@ export class UsersService {
     try {
       const permissions = await this.prisma.permission.findMany({
         orderBy: {
-          key: 'asc'
-        }
+          key: 'asc',
+        },
       });
 
       return {
         message: 'Permissions fetched successfully',
-        permissions: permissions.map(permission => ({
+        permissions: permissions.map((permission) => ({
           permission_id: permission.permission_id,
           key: permission.key,
           name: permission.name,
           description: permission.description,
           resource: permission.resource,
           action: permission.action,
-          created_at: permission.created_at
-        }))
+          created_at: permission.created_at,
+        })),
       };
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      throw new BadRequestException(`Failed to fetch permissions: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch permissions: ${error.message}`,
+      );
     }
   }
 
@@ -827,7 +968,7 @@ export class UsersService {
     try {
       // Check if role already exists
       const existingRole = await this.prisma.role.findUnique({
-        where: { name }
+        where: { name },
       });
 
       if (existingRole) {
@@ -837,8 +978,8 @@ export class UsersService {
       const role = await this.prisma.role.create({
         data: {
           name,
-          description: description || `Role: ${name}`
-        }
+          description: description || `Role: ${name}`,
+        },
       });
 
       return {
@@ -848,8 +989,8 @@ export class UsersService {
           role_id: role.role_id,
           name: role.name,
           description: role.description,
-          created_at: role.created_at
-        }
+          created_at: role.created_at,
+        },
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -863,11 +1004,17 @@ export class UsersService {
   /**
    * Create a new permission
    */
-  async createPermission(key: string, name?: string, description?: string, resource?: string, action?: string): Promise<any> {
+  async createPermission(
+    key: string,
+    name?: string,
+    description?: string,
+    resource?: string,
+    action?: string,
+  ): Promise<any> {
     try {
       // Check if permission already exists
       const existingPermission = await this.prisma.permission.findUnique({
-        where: { key }
+        where: { key },
       });
 
       if (existingPermission) {
@@ -887,11 +1034,13 @@ export class UsersService {
       const permission = await this.prisma.permission.create({
         data: {
           key,
-          name: name || key.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          name:
+            name ||
+            key.replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
           description: description || `Permission: ${key}`,
           resource: finalResource,
-          action: finalAction
-        }
+          action: finalAction,
+        },
       });
 
       return {
@@ -904,15 +1053,17 @@ export class UsersService {
           description: permission.description,
           resource: permission.resource,
           action: permission.action,
-          created_at: permission.created_at
-        }
+          created_at: permission.created_at,
+        },
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
       console.error('Error creating permission:', error);
-      throw new BadRequestException(`Failed to create permission: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to create permission: ${error.message}`,
+      );
     }
   }
 }

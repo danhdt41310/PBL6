@@ -41,4 +41,3 @@ model Message {
 
   @@map("messages")
 }
-

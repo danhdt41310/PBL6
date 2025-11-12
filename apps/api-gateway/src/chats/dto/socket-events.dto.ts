@@ -155,7 +155,7 @@ export class PresenceUpdateDto {
  * Socket Event Names - Type-safe event names
  */
 export const SOCKET_EVENTS = {
-  // Client -> Server
+  // Client -> Server (Messages)
   SEND_MESSAGE: 'message:send',
   JOIN_CONVERSATION: 'conversation:join',
   LEAVE_CONVERSATION: 'conversation:leave',
@@ -166,7 +166,13 @@ export const SOCKET_EVENTS = {
   PRESENCE_UPDATE: 'presence:update',
   REQUEST_PRESENCE: 'presence:request',
 
-  // Server -> Client
+  // Client -> Server (Posts)
+  JOIN_CLASS: 'class:join',
+  LEAVE_CLASS: 'class:leave',
+  CREATE_POST: 'post:create',
+  CREATE_REPLY: 'post:reply',
+
+  // Server -> Client (Messages)
   MESSAGE_RECEIVED: 'message:received',
   MESSAGE_SENT: 'message:sent',
   MESSAGE_STATUS_UPDATED: 'message:status',
@@ -179,6 +185,11 @@ export const SOCKET_EVENTS = {
   PRESENCE_LIST: 'presence:list',
   ERROR: 'error',
   RECONNECTED: 'reconnected',
+
+  // Server -> Client (Posts)
+  CLASS_JOINED: 'class:joined',
+  POST_CREATED: 'post:created',
+  REPLY_CREATED: 'reply:created',
 } as const;
 
 /**
@@ -222,4 +233,42 @@ export interface ErrorResponse {
   message: string;
   code?: string;
   details?: any;
+}
+
+/**
+ * Post-related DTOs
+ */
+export interface JoinClassDto {
+  class_id: number;
+  user_id: number;
+}
+
+export interface CreatePostDto {
+  class_id: number;
+  sender_id: number;
+  title: string;
+  message: string;
+}
+
+export interface CreateReplyDto {
+  class_id: number;
+  parent_id: number;
+  sender_id: number;
+  message: string;
+}
+
+export interface PostCreatedResponse {
+  id: number;
+  class_id: number;
+  sender_id: number;
+  title: string;
+  message: string;
+  created_at: string;
+  parent_id: number | null;
+}
+
+export interface ClassJoinedResponse {
+  class_id: number;
+  success: boolean;
+  members_count: number;
 }

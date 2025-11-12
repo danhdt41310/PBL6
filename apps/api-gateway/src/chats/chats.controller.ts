@@ -219,75 +219,6 @@ export class ChatsController {
     }
   }
 
-  // Endpoint bị lồng đã được tách ra và sửa
-  @Get('users/:userId/messages')
-  @ApiOperation({
-    summary: 'Get all messages for a user',
-    description: 'Retrieve all messages for a specific user with pagination',
-  })
-  @ApiParam({ name: 'userId', description: 'User ID', type: Number })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page',
-    example: 20,
-  })
-  @ApiResponse({ status: 200, description: 'Messages retrieved successfully' })
-  @ApiResponse({ status: 408, description: 'Request timeout' })
-  async getUserMessages(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Query(new ValidationPipe({ transform: true }))
-    pagination: PaginationQueryDto,
-  ) {
-    try {
-      return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService
-          .send('messages.find_by_user', {
-            userId,
-            pagination,
-          })
-          .pipe(
-            timeout(5000),
-            catchError((err) => {
-              if (err instanceof TimeoutError) {
-                return throwError(
-                  () =>
-                    new HttpException(
-                      'Request timed out',
-                      HttpStatus.REQUEST_TIMEOUT,
-                    ),
-                );
-              }
-              return throwError(
-                () =>
-                  new HttpException(
-                    'Failed to fetch user messages',
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                  ),
-              );
-            }),
-          ),
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to fetch user messages',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
   @Put('messages/:id')
   @ApiOperation({
     summary: 'Update a message',
@@ -454,8 +385,9 @@ export class ChatsController {
   })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   async getUnreadCount(@Param('userId', ParseIntPipe) userId: number) {
+    console.log('📊 Get unread count for user:', userId);
     try {
-      return await firstValueFrom(
+      const result = await firstValueFrom(
         this.chatsService.send('messages.get_unread_count', { userId }).pipe(
           timeout(5000),
           catchError((err) => {
@@ -478,6 +410,15 @@ export class ChatsController {
           }),
         ),
       );
+
+      console.log('📊 Unread count result:', result);
+
+      // Format response to match frontend expectation
+      return {
+        success: true,
+        data: result.count || 0,
+        message: 'Unread count retrieved successfully',
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -501,8 +442,9 @@ export class ChatsController {
   })
   @ApiResponse({ status: 408, description: 'Request timeout' })
   async getUnreadByConversation(@Param('userId', ParseIntPipe) userId: number) {
+    console.log('📊 Get unread by conversation for user:', userId);
     try {
-      return await firstValueFrom(
+      const result = await firstValueFrom(
         this.chatsService
           .send('messages.get_unread_by_conversation', { userId })
           .pipe(
@@ -527,6 +469,15 @@ export class ChatsController {
             }),
           ),
       );
+
+      console.log('📊 Unread by conversation result:', result);
+
+      // Format response to match frontend expectation
+      return {
+        success: true,
+        data: result,
+        message: 'Unread counts retrieved successfully',
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -559,6 +510,23 @@ export class ChatsController {
   async createConversation(
     @Body(ValidationPipe) createConversationDto: CreateConversationDto,
   ) {
+    console.log(
+      '📝 Create conversation request received:',
+      createConversationDto,
+    );
+    console.log(
+      'sender_id type:',
+      typeof createConversationDto.sender_id,
+      'value:',
+      createConversationDto.sender_id,
+    );
+    console.log(
+      'receiver_id type:',
+      typeof createConversationDto.receiver_id,
+      'value:',
+      createConversationDto.receiver_id,
+    );
+
     try {
       return await firstValueFrom(
         // Sử dụng firstValueFrom
@@ -710,19 +678,22 @@ export class ChatsController {
         try {
           const usersResponse: any = await firstValueFrom(
             this.usersService
-              .send('user.get_list_profile_by_ids', { userIds })
+              .send('users.get_list_profile_by_ids', { userIds })
               .pipe(
                 timeout(3000),
                 catchError(() => throwError(() => [])),
               ),
           );
 
+          console.log('📝 Users response:', usersResponse);
           const users =
             usersResponse?.users || usersResponse?.data?.users || [];
+          console.log('📝 Extracted users:', users);
           usersMap = users.reduce((acc: any, user: any) => {
             acc[user.user_id] = user;
             return acc;
           }, {});
+          console.log('📝 Users map:', usersMap);
         } catch (err) {
           console.error('Failed to fetch user info:', err.message);
         }
@@ -856,57 +827,6 @@ export class ChatsController {
       }
       throw new HttpException(
         'Failed to delete conversation',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  // Endpoint bị lồng đã được tách ra và sửa
-  @Get('users/:userId/conversations/stats')
-  @ApiOperation({
-    summary: 'Get conversation statistics',
-    description: 'Get statistics about user conversations and messages',
-  })
-  @ApiParam({ name: 'userId', description: 'User ID', type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Statistics retrieved successfully',
-  })
-  @ApiResponse({ status: 408, description: 'Request timeout' })
-  async getUserConversationStats(
-    @Param('userId', ParseIntPipe) userId: number,
-  ) {
-    try {
-      return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService.send('conversations.stats', { userId }).pipe(
-          timeout(5000),
-          catchError((err) => {
-            if (err instanceof TimeoutError) {
-              return throwError(
-                () =>
-                  new HttpException(
-                    'Request timed out',
-                    HttpStatus.REQUEST_TIMEOUT,
-                  ),
-              );
-            }
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to fetch statistics',
-                  HttpStatus.INTERNAL_SERVER_ERROR,
-                ),
-            );
-          }),
-        ),
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to fetch conversation statistics',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
