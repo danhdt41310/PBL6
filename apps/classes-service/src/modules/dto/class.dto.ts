@@ -1,5 +1,13 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
-import { Transform } from "class-transformer";
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsArray,
+  ValidateNested,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
 import { UserInfoDto } from "./user.dto";
 
 export class CreateClassDto {
@@ -23,12 +31,15 @@ export class CreateClassDto {
 }
 
 export class AddStudentsDto {
-    
-    students: UserInfoDto[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserInfoDto)
+  @IsNotEmpty()
+  students: UserInfoDto[];
 
-    @IsInt()
-    class_id: number;
-
+  @IsInt()
+  @IsNotEmpty()
+  class_id: number;
 }
 
 export class UpdateClassDto {

@@ -98,13 +98,13 @@ export class UsersController {
     return await this.usersService.login(loginDto);
   }
 
-  @MessagePattern('user.get_list_profile_by_emails')
+  @MessagePattern('users.get_list_profile_by_emails')
   async getListProfileByEmails(@Payload() userEmailsDto: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto> {
     console.log('User get list profile by emails:', userEmailsDto);
     return await this.usersService.getListProfileByEmails(userEmailsDto);
   }
 
-  @MessagePattern('user.get_list_profile_by_ids')
+  @MessagePattern('users.get_list_profile_by_ids')
   async getListProfileByIds(@Payload() userIdsDto: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto> {
     console.log('User get list profile by ids:', userIdsDto);
     return await this.usersService.getListProfileByIds(userIdsDto);

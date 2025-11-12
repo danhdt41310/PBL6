@@ -1,76 +1,107 @@
-import { Controller, Get, Inject } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { ClassesService } from './classes.service';
-import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
-import { UserInfoDto } from '../dto/user.dto';
-import { FilesOnlyMessageDto, PostWithFilesMessageDto } from '../dto/material-response.dto';
+import { Controller, Get, Inject } from "@nestjs/common";
+import { MessagePattern, Payload } from "@nestjs/microservices";
+import { ClassesService } from "./classes.service";
+import {
+  AddStudentsDto,
+  CreateClassDto,
+  UpdateClassDto,
+} from "../dto/class.dto";
+import { UserInfoDto } from "../dto/user.dto";
+import {
+  FilesOnlyMessageDto,
+  PostWithFilesMessageDto,
+} from "../dto/material-response.dto";
 
-@Controller('classes')
+@Controller("classes")
 export class ClassesController {
-  constructor(@Inject(ClassesService) private readonly classesService: ClassesService) {}
+  constructor(
+    @Inject(ClassesService) private readonly classesService: ClassesService
+  ) {}
 
-  @MessagePattern('classes.get_hello')
+  @MessagePattern("classes.get_hello")
   getHello(): string {
-    return 'Hello from Classes Controller!';
+    return "Hello from Classes Controller!";
   }
 
-  @MessagePattern('classes.create_class')
+  @MessagePattern("classes.create_class")
   async createClass(@Payload() createClassDto: CreateClassDto) {
     return await this.classesService.create(createClassDto);
   }
 
-  @MessagePattern('classes.find_one')
+  @MessagePattern("classes.find_one")
   async findOneClass(@Payload() class_id: number) {
     return await this.classesService.findOne(class_id);
   }
 
-  @MessagePattern('classes.update_class')
-  async updateClass(@Payload() data: { class_id: number; updateClassDto: UpdateClassDto }) {
+  @MessagePattern("classes.update_class")
+  async updateClass(
+    @Payload() data: { class_id: number; updateClassDto: UpdateClassDto }
+  ) {
     return await this.classesService.update(data.class_id, data.updateClassDto);
   }
 
-  @MessagePattern('classes.delete_class')
+  @MessagePattern("classes.delete_class")
   async deleteClass(@Payload() class_id: number) {
     return await this.classesService.remove(class_id);
   }
 
-  @MessagePattern('classes.find_all')
+  @MessagePattern("classes.find_all")
   async findAllClasses() {
     return await this.classesService.findAll();
   }
 
-  @MessagePattern('classes.add_students')
-  async addStudents(@Payload() addStudentsDto: AddStudentsDto){
+  @MessagePattern("classes.add_students")
+  async addStudents(@Payload() addStudentsDto: AddStudentsDto) {
     return await this.classesService.addStudents(addStudentsDto);
   }
 
-  @MessagePattern('classes.add_student_class_code')
-  async addStudentClassCode(@Payload() data: {user_id: number, class_code: string}){
-    return await this.classesService.addStudentClassCode(data.user_id, data.class_code);
+  @MessagePattern("classes.add_student_class_code")
+  async addStudentClassCode(
+    @Payload() data: { user_id: number; class_code: string }
+  ) {
+    return await this.classesService.addStudentClassCode(
+      data.user_id,
+      data.class_code
+    );
   }
 
-  @MessagePattern('classes.remove_student')
+  @MessagePattern("classes.remove_student")
   async removeStudent(@Payload() data: { class_id: number; user_id: number }) {
     return await this.classesService.removeStudent(data.class_id, data.user_id);
   }
 
-  @MessagePattern('classes.get_all_classes_of_student')
-  async getAllClassesOfStudent(@Payload() data : {user_id: number}){
+  @MessagePattern("classes.get_all_classes_of_student")
+  async getAllClassesOfStudent(@Payload() data: { user_id: number }) {
     return await this.classesService.getAllClassesOfStudent(data.user_id);
   }
 
-  @MessagePattern('classes.get_all_classes_of_student')
-  async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
+  @MessagePattern("classes.get_all_classes_of_teacher")
+  async getAllClassesOfTeacher(@Payload() data: { user_id: number }) {
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
   }
 
-  @MessagePattern('classes.upload_post_with_files')
-  async uploadPostWithFile(@Payload() data: PostWithFilesMessageDto){
-    return await this.classesService.uploadPostWithFiles(data.class_id, data.uploadFiles, data.uploader_id, data.title, data.message)
+  @MessagePattern("classes.get_students_of_class")
+  async getStudentsOfClass(@Payload() data: { class_id: number }) {
+    return await this.classesService.getStudentsOfClass(data.class_id);
   }
 
-  @MessagePattern('classes.upload_files')
-  async uploadFile(@Payload() data: FilesOnlyMessageDto){
-    return await this.classesService.uploadFiles(data.class_id, data.uploadFiles, data.uploader_id)
+  @MessagePattern("classes.upload_post_with_files")
+  async uploadPostWithFile(@Payload() data: PostWithFilesMessageDto) {
+    return await this.classesService.uploadPostWithFiles(
+      data.class_id,
+      data.uploadFiles,
+      data.uploader_id,
+      data.title,
+      data.message
+    );
+  }
+
+  @MessagePattern("classes.upload_files")
+  async uploadFile(@Payload() data: FilesOnlyMessageDto) {
+    return await this.classesService.uploadFiles(
+      data.class_id,
+      data.uploadFiles,
+      data.uploader_id
+    );
   }
 }

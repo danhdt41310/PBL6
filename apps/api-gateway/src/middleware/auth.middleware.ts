@@ -34,7 +34,7 @@ export class AuthMiddleware implements NestMiddleware {
           const payload = this.jwt.verify(access_jwt);
 
                   req.user = payload;
-                  console.log('Access token hợp lệ:', payload);  // thảo đáng iu nhất số  hành tinh 
+             //     console.log('Access token hợp lệ:', payload);  // thảo đáng iu nhất số  hành tinh 
                   return next();
               } catch (error) {
                   if (error instanceof TokenExpiredError) {

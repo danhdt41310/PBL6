@@ -1,6 +1,12 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
-import { Transform } from "class-transformer";
-import { UserInfoDto } from "./user.dto";
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { UserInfoDto } from './user.dto';
 
 export class CreateClassDto {
   @IsString()
@@ -24,14 +30,12 @@ export class CreateClassDto {
 }
 
 export class AddStudentsDto {
-    
-    students: UserInfoDto[];
+  @IsNotEmpty()
+  students: UserInfoDto[];
 
-    @Transform(({value}) => parseInt(value))
-    @IsInt()
-    class_id: number;
-
-
+  @Transform(({ value }) => parseInt(value))
+  @IsInt()
+  class_id: number;
 }
 
 export class UpdateClassDto {

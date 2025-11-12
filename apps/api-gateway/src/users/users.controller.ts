@@ -402,7 +402,7 @@ export class UsersController {
     console.log('getListProfileById called with:', userIdsDto);
     try {
       return await this.usersClient
-        .send('user.get_list_profile_by_ids', userIdsDto)
+        .send('users.get_list_profile_by_ids', userIdsDto)
         .pipe(
           timeout(5000),
           catchError(err => {
