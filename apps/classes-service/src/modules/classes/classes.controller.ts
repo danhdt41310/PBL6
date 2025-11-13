@@ -64,6 +64,11 @@ export class ClassesController {
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
   }
 
+  @MessagePattern('classes.enrollments.findByStudent')
+  async getEnrollmentsByStudent(@Payload() data: { student_id: number }) {
+    return await this.classesService.getEnrollmentsByStudentId(data.student_id);
+  }
+
   @MessagePattern('classes.upload_post_with_files')
   async uploadPostWithFile(@Payload() data: PostWithFilesMessageDto){
     return await this.classesService.uploadPostWithFiles(data.class_id, data.uploadFiles, data.uploader_id, data.title, data.message)
