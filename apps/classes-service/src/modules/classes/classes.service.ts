@@ -3,10 +3,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto';
 import { ClassMapper } from '../mapper/class.mapper';
 import { ClassEnrollmentMapper } from '../mapper/classEnrollment.mapper';
-
+import {promises as fs}from 'fs'
+import { join } from 'path';
+import { FileHelper } from '../utils/FileHelper.utils';
+import { FileInfo } from '../dto/material-response.dto';
+import { MaterialMapper } from '../mapper/meterials.mapper';
 @Injectable()
 export class ClassesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly UPLOAD_DIR = '';
 
   async create(createClassDto: CreateClassDto) {
     try {
@@ -232,5 +238,37 @@ export class ClassesService {
     } catch (error) {
       throw new BadRequestException('Failed to get student enrollments');
     }
+  }
+
+  async uploadPostWithFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number, title: string, message:string){
+    
+
+    const newPost = await this.prisma.post.create({
+      data:{
+        sender_id:uploader_id,
+        class_id,
+        message,
+        title
+      }
+    });
+
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id, newPost.id)
+    this.prisma.material.createMany({
+      data: data_for_save
+    })
+
+    return MaterialMapper.toUploadPostWithFilesDto(`Uploads Post successfully with ${data_for_save.length} files`, class_id, data_for_save, title, message)
+  }
+
+  async uploadFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number){
+    
+
+    console.log(uploadFiles.length)
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
+    this.prisma.material.createMany({
+      data: data_for_save
+    })
+
+    return MaterialMapper.toUploadFilesOnlyDto(`Uploads successfully ${data_for_save.length} files`, class_id, data_for_save)
   }
 }
