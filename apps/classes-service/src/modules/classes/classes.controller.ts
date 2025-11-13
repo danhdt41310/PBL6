@@ -62,4 +62,9 @@ export class ClassesController {
   async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
   }
+
+  @MessagePattern('classes.enrollments.findByStudent')
+  async getEnrollmentsByStudent(@Payload() data: { student_id: number }) {
+    return await this.classesService.getEnrollmentsByStudentId(data.student_id);
+  }
 }

@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExamDto, UpdateExamDto, ExamFilterDto, ExamStatus } from './dto/create-exam.dto';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class ExamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject('CLASSES_SERVICE') private readonly classesService: ClientProxy,
+  ) {}
 
   /**
    * Create a new exam with questions
@@ -309,5 +314,128 @@ export class ExamsService {
     }
     
     return exam;
+  }
+
+  /**
+   * Get exams that a student can access based on their enrolled classes
+   */
+  async findExamsByStudentId(studentId: number, filterDto?: ExamFilterDto) {
+    try {
+      // Get all classes that the student is enrolled in from classes-service
+      const enrollments = await firstValueFrom(
+        this.classesService.send('classes.enrollments.findByStudent', { student_id: studentId })
+      );
+
+      if (!enrollments || enrollments.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            total: 0,
+            page: filterDto?.page || 1,
+            limit: filterDto?.limit || 10,
+            totalPages: 0,
+          },
+        };
+      }
+
+      // Extract class IDs from enrollments
+      const classIds = enrollments.map((enrollment: any) => enrollment.class_id);
+
+      const { 
+        page = 1, 
+        limit = 10, 
+        search, 
+        status,
+        start_time,
+        end_time
+      } = filterDto || {};
+      
+      const skip = (page - 1) * limit;
+      const take = Math.min(limit, 100);
+
+      // Build where clause
+      const where: any = {
+        class_id: { in: classIds }, // Only exams from enrolled classes
+      };
+      
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ];
+      }
+
+      if (start_time) {
+        where.start_time = { gte: new Date(start_time) };
+      }
+
+      if (end_time) {
+        where.end_time = { lte: new Date(end_time) };
+      }
+
+      // Get total count
+      const total = await this.prisma.exam.count({ where });
+
+      // Get paginated results
+      const exams = await this.prisma.exam.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+          created_at: 'desc',
+        },
+        include: {
+          question_exams: {
+            include: {
+              question: {
+                select: {
+                  question_id: true,
+                  content: true,
+                  type: true,
+                  difficulty: true,
+                },
+              },
+            },
+            orderBy: {
+              order: 'asc',
+            },
+          },
+          submissions: {
+            where: {
+              student_id: studentId,
+            },
+            select: {
+              submission_id: true,
+              status: true,
+              score: true,
+              submitted_at: true,
+              remaining_time: true,
+              current_question_order: true,
+            },
+          },
+          _count: {
+            select: {
+              submissions: true,
+            },
+          },
+        },
+      });
+
+      return {
+        data: exams,
+        pagination: {
+          total,
+          page,
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException('Failed to fetch student exams: ' + error.message);
+    }
   }
 }

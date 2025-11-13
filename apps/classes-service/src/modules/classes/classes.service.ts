@@ -213,6 +213,24 @@ export class ClassesService {
       }
       throw new BadRequestException('Failed to get all class of teacher');
     }
+  }
 
+  async getEnrollmentsByStudentId(studentId: number) {
+    try {
+      return await this.prisma.classEnrollment.findMany({
+        where: {
+          student_id: studentId,
+          deleted_at: null, // Only active enrollments
+        },
+        select: {
+          enrollment_id: true,
+          class_id: true,
+          student_id: true,
+          enrolled_at: true,
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException('Failed to get student enrollments');
+    }
   }
 }

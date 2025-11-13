@@ -113,6 +113,8 @@ model Submission {
   submission_id     Int                @id @default(autoincrement())
   exam_id           Int
   student_id        Int
+  current_question_order Int            @default(1)
+  remaining_time    Int?               // in seconds
   submitted_at      DateTime           @default(now()) @db.Timestamp(6)
   score             Decimal?           @db.Decimal(5, 2) // Score out of total points
   teacher_feedback  String?            @db.Text

@@ -630,3 +630,36 @@ export class GetRandomQuestionsDto {
   @Type(() => RandomQuestionCriteriaDto)
   criteria: RandomQuestionCriteriaDto[]
 }
+
+// ============================================================
+// SUBMISSION DTOs (for exam taking)
+// ============================================================
+export class SubmitAnswerDto {
+  @ApiProperty({ 
+    description: 'Question ID',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Question ID is required' })
+  @IsInt({ message: 'Question ID must be a number' })
+  question_id: number
+
+  @ApiProperty({ 
+    description: 'Answer content (JSON string for multiple choice, plain text for essay)',
+    example: '["opt_1"]'
+  })
+  @IsNotEmpty({ message: 'Answer content is required' })
+  @IsString()
+  answer_content: string
+}
+
+export class UpdateRemainingTimeDto {
+  @ApiProperty({ 
+    description: 'Remaining time in seconds',
+    example: 3600,
+    minimum: 0
+  })
+  @IsNotEmpty({ message: 'Remaining time is required' })
+  @IsInt({ message: 'Remaining time must be a number' })
+  @Min(0, { message: 'Remaining time cannot be negative' })
+  remaining_time: number
+}
