@@ -163,5 +163,4 @@ export class UsersController {
     console.log('Deleting role:', payload.role_id);
     return await this.usersService.deleteRole(payload.role_id);
   }
-
 }
