@@ -470,7 +470,7 @@ export class UsersController {
   @SkipPermissionCheck()
   async getAllRoles() {
     try {
-      return await firstValueFrom(
+      const result = await firstValueFrom(
         this.usersClient
           .send('users.get_all_roles', {})
           .pipe(
@@ -480,6 +480,7 @@ export class UsersController {
             }),
           )
       );
+      return result;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -588,7 +589,8 @@ export class UsersController {
   }
 
   /**
-   * Delete a role (only if it has no permissions)
+   * Delete a role (only if it has no users assigned)
+   * Cascade deletes all rolePermission records
    */
   @Delete('admin/roles/:roleId')
   async deleteRole(@Param('roleId') roleId: string) {

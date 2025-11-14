@@ -681,65 +681,83 @@ export class UsersService {
       return await this.prisma.$transaction(async (tx) => {
         // Find the role (must exist)
         const role = await tx.role.findUnique({
-          where: { name: roleName }
+          where: { name: roleName },
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true
+              }
+            }
+          }
         });
 
         if (!role) {
           console.log(`Role not found: ${roleName}`);
           throw new NotFoundException(`Role '${roleName}' not found. Please create the role first.`);
-        } else {
-          console.log(`Found existing role with ID: ${role.role_id}`);
         }
 
-        const assignedPermissions: string[] = [];
+        console.log(`Found existing role with ID: ${role.role_id}`);
 
-        // Process each permission
-        for (const permissionName of permissionNames) {
-          console.log(`Processing permission: ${permissionName}`);
-          
-          // Find the permission (must exist)
+        // Get current permission keys
+        const currentPermissionKeys = role.rolePermissions.map(rp => rp.permission.key);
+        console.log(`Current permissions: ${JSON.stringify(currentPermissionKeys)}`);
+
+        // Calculate diff
+        const permissionsToAdd = permissionNames.filter(key => !currentPermissionKeys.includes(key));
+        const permissionsToRemove = currentPermissionKeys.filter(key => !permissionNames.includes(key));
+
+        console.log(`Permissions to ADD: ${JSON.stringify(permissionsToAdd)}`);
+        console.log(`Permissions to REMOVE: ${JSON.stringify(permissionsToRemove)}`);
+
+        // Remove permissions that are no longer selected
+        if (permissionsToRemove.length > 0) {
+          const permissionIdsToRemove = role.rolePermissions
+            .filter(rp => permissionsToRemove.includes(rp.permission.key))
+            .map(rp => rp.permission.permission_id);
+
+          await tx.rolePermission.deleteMany({
+            where: {
+              role_id: role.role_id,
+              permission_id: {
+                in: permissionIdsToRemove
+              }
+            }
+          });
+          console.log(`Removed ${permissionsToRemove.length} permissions`);
+        }
+
+        // Add new permissions
+        const addedPermissions: string[] = [];
+        for (const permissionKey of permissionsToAdd) {
           const permission = await tx.permission.findUnique({
-            where: { key: permissionName }
+            where: { key: permissionKey }
           });
 
           if (!permission) {
-            console.log(`Permission not found: ${permissionName}`);
-            throw new NotFoundException(`Permission '${permissionName}' not found. Please create the permission first.`);
-          } else {
-            console.log(`Found existing permission with ID: ${permission.permission_id}`);
+            console.log(`Permission not found: ${permissionKey}`);
+            throw new NotFoundException(`Permission '${permissionKey}' not found. Please create the permission first.`);
           }
 
-          // Check if role-permission relationship already exists
-          console.log(`Checking for existing relationship between role ${role.role_id} and permission ${permission.permission_id}`);
-          const existingRolePermission = await tx.rolePermission.findFirst({
-            where: {
+          await tx.rolePermission.create({
+            data: {
               role_id: role.role_id,
               permission_id: permission.permission_id
             }
           });
-
-          // Create the relationship only if it doesn't exist
-          if (!existingRolePermission) {
-            console.log(`Creating new role-permission relationship`);
-            const newRolePermission = await tx.rolePermission.create({
-              data: {
-                role_id: role.role_id,
-                permission_id: permission.permission_id
-              }
-            });
-            console.log(`Successfully created role-permission relationship with ID: ${newRolePermission.role_permission_id}`);
-          } else {
-            console.log(`Role-permission relationship already exists with ID: ${existingRolePermission.role_permission_id}`);
-          }
-
-          assignedPermissions.push(permissionName);
+          addedPermissions.push(permissionKey);
+          console.log(`Added permission: ${permissionKey}`);
         }
 
         return {
-          message: `Successfully assigned ${assignedPermissions.length} permissions to role '${roleName}'`,
+          message: `Successfully updated permissions for role '${roleName}'. Added: ${permissionsToAdd.length}, Removed: ${permissionsToRemove.length}`,
           success: true,
           roleName: roleName,
-          permissionsAssigned: assignedPermissions
+          permissionsAssigned: permissionNames,
+          stats: {
+            added: permissionsToAdd.length,
+            removed: permissionsToRemove.length,
+            total: permissionNames.length
+          }
         };
       });
 
@@ -760,6 +778,17 @@ export class UsersService {
             include: {
               permission: true
             }
+          },
+          userRoles: {
+            include: {
+              user: {
+                select: {
+                  user_id: true,
+                  full_name: true,
+                  email: true
+                }
+              }
+            }
           }
         },
         orderBy: {
@@ -767,22 +796,41 @@ export class UsersService {
         }
       });
 
+      console.log('Users Service - Roles from DB:', roles.map(r => ({ 
+        name: r.name, 
+        userRolesCount: r.userRoles.length,
+        userRoles: r.userRoles 
+      })));
+
+      const mappedRoles = roles.map(role => ({
+        role_id: role.role_id,
+        name: role.name,
+        description: role.description,
+        created_at: role.created_at,
+        permissions: role.rolePermissions.map(rp => ({
+          permission_id: rp.permission.permission_id,
+          key: rp.permission.key,
+          name: rp.permission.name,
+          description: rp.permission.description,
+          resource: rp.permission.resource,
+          action: rp.permission.action
+        })),
+        userRoles: role.userRoles.map(ur => ({
+          user_role_id: ur.user_role_id,
+          user_id: ur.user_id,
+          role_id: ur.role_id,
+          user: ur.user
+        }))
+      }));
+
+      console.log('Users Service - Mapped roles:', mappedRoles.map(r => ({ 
+        name: r.name, 
+        userRolesCount: r.userRoles.length 
+      })));
+
       return {
         message: 'Roles fetched successfully',
-        roles: roles.map(role => ({
-          role_id: role.role_id,
-          name: role.name,
-          description: role.description,
-          created_at: role.created_at,
-          permissions: role.rolePermissions.map(rp => ({
-            permission_id: rp.permission.permission_id,
-            key: rp.permission.key,
-            name: rp.permission.name,
-            description: rp.permission.description,
-            resource: rp.permission.resource,
-            action: rp.permission.action
-          }))
-        }))
+        roles: mappedRoles
       };
     } catch (error) {
       console.error('Error fetching roles with permissions:', error);
@@ -971,44 +1019,64 @@ export class UsersService {
   }
 
   /**
-   * Delete a role (only if it has no permissions assigned)
+   * Delete a role (only if it has no users assigned)
+   * Cascade delete all rolePermission records associated with this role
    */
   async deleteRole(roleId: number): Promise<any> {
     try {
-      // Check if role exists
       const role = await this.prisma.role.findUnique({
         where: { role_id: roleId },
         include: {
-          rolePermissions: true
+          rolePermissions: true,
+          userRoles: {
+            include: {
+              user: {
+                select: {
+                  user_id: true,
+                  full_name: true,
+                  email: true
+                }
+              }
+            }
+          }
         }
-      });
+      })
 
       if (!role) {
-        throw new BadRequestException(`Role with ID ${roleId} not found`);
+        throw new BadRequestException(`Role with ID ${roleId} not found`)
       }
 
-      // Check if role has any permissions
-      if (role.rolePermissions && role.rolePermissions.length > 0) {
+      // Check if role has any users assigned
+      if (role.userRoles && role.userRoles.length > 0) {
+        const userCount = role.userRoles.length
+        
         throw new BadRequestException(
-          `Cannot delete role '${role.name}' because it has ${role.rolePermissions.length} permission(s) assigned. Please remove all permissions first.`
-        );
+          `Cannot delete role '${role.name}' because it is assigned to ${userCount} user(s). Please remove all users from this role first.`
+        )
+      }
+
+      // Delete rolePermission records first (cascade)
+      if (role.rolePermissions && role.rolePermissions.length > 0) {
+        await this.prisma.rolePermission.deleteMany({
+          where: { role_id: roleId }
+        })
       }
 
       // Delete the role
       await this.prisma.role.delete({
         where: { role_id: roleId }
-      });
+      })
 
       return {
         message: `Role '${role.name}' deleted successfully`,
         success: true
-      };
+      }
     } catch (error) {
       if (error instanceof BadRequestException) {
-        throw error;
+        throw error
       }
-      console.error('Error deleting role:', error);
-      throw new BadRequestException(`Failed to delete role: ${error.message}`);
+      console.error('Error deleting role:', error)
+      throw new BadRequestException(`Failed to delete role: ${error.message}`)
     }
   }
 }
