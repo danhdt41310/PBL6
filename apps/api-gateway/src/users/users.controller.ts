@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Inject, HttpStatus, HttpException, ParseIntPipe, Query, UseGuards, RequestTimeoutException, InternalServerErrorException, Req, Put, UseInterceptors, UseFilters } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';  import { CreateUserDto, UpdateUserDto, LoginDto, ForgotPasswordDto, VerifyCodeDto, ResetPasswordDto, UpdateProfileDto, ChangePasswordDto, UserEmailsDto, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
-import { throwError, TimeoutError } from 'rxjs';
+import { throwError, TimeoutError, firstValueFrom } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
 import { Request } from 'express';
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
@@ -445,15 +445,16 @@ export class UsersController {
   @SkipPermissionCheck()
   async assignPermissionsToRole(@Body(ValidationPipe) rolePermissionDto: RolePermissionDto) {
     try {
-      return await this.usersClient
-        .send('users.assign_role_permissions', rolePermissionDto)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('Failed to assign permissions', HttpStatus.BAD_REQUEST));
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.assign_role_permissions', rolePermissionDto)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException('Failed to assign permissions', HttpStatus.BAD_REQUEST));
+            }),
+          )
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -469,15 +470,16 @@ export class UsersController {
   @SkipPermissionCheck()
   async getAllRoles() {
     try {
-      return await this.usersClient
-        .send('users.get_all_roles', {})
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('Failed to fetch roles', HttpStatus.INTERNAL_SERVER_ERROR));
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.get_all_roles', {})
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException('Failed to fetch roles', HttpStatus.INTERNAL_SERVER_ERROR));
+            }),
+          )
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -492,15 +494,16 @@ export class UsersController {
   @Get('admin/permissions')
   async getAllPermissions() {
     try {
-      return await this.usersClient
-        .send('users.get_all_permissions', {})
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('Failed to fetch permissions', HttpStatus.INTERNAL_SERVER_ERROR));
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.get_all_permissions', {})
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException('Failed to fetch permissions', HttpStatus.INTERNAL_SERVER_ERROR));
+            }),
+          )
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -515,15 +518,16 @@ export class UsersController {
   @Post('admin/roles/create')
   async createRole(@Body(ValidationPipe) createRoleDto: CreateRoleDto) {
     try {
-      return await this.usersClient
-        .send('users.create_role', createRoleDto)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('Failed to create role', HttpStatus.BAD_REQUEST));
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.create_role', createRoleDto)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException('Failed to create role', HttpStatus.BAD_REQUEST));
+            }),
+          )
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -538,20 +542,75 @@ export class UsersController {
   @Post('admin/permissions/create')
   async createPermission(@Body(ValidationPipe) createPermissionDto: CreatePermissionDto) {
     try {
-      return await this.usersClient
-        .send('users.create_permission', createPermissionDto)
-        .pipe(
-          timeout(5000),
-          catchError(err => {
-            return throwError(() => new HttpException('Failed to create permission', HttpStatus.BAD_REQUEST));
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.create_permission', createPermissionDto)
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException('Failed to create permission', HttpStatus.BAD_REQUEST));
+            }),
+          )
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException('Failed to create permission', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Update a role (name and/or description)
+   */
+  @Put('admin/roles/:roleId')
+  async updateRole(@Param('roleId') roleId: string, @Body() updateData: { name?: string; description?: string }) {
+    try {
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.update_role', { role_id: parseInt(roleId, 10), ...updateData })
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException(
+                err?.message || 'Failed to update role', 
+                err?.statusCode || HttpStatus.BAD_REQUEST
+              ));
+            }),
+          )
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to update role', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Delete a role (only if it has no permissions)
+   */
+  @Delete('admin/roles/:roleId')
+  async deleteRole(@Param('roleId') roleId: string) {
+    try {
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.delete_role', { role_id: parseInt(roleId, 10) })
+          .pipe(
+            timeout(5000),
+            catchError(err => {
+              return throwError(() => new HttpException(
+                err?.message || 'Failed to delete role', 
+                err?.statusCode || HttpStatus.BAD_REQUEST
+              ));
+            }),
+          )
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Failed to delete role', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

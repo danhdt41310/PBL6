@@ -914,4 +914,101 @@ export class UsersService {
       throw new BadRequestException(`Failed to create permission: ${error.message}`);
     }
   }
+
+  /**
+   * Update a role (name and/or description)
+   */
+  async updateRole(roleId: number, updateData: { name?: string; description?: string }): Promise<any> {
+    try {
+      // Check if role exists
+      const role = await this.prisma.role.findUnique({
+        where: { role_id: roleId }
+      });
+
+      if (!role) {
+        throw new BadRequestException(`Role with ID ${roleId} not found`);
+      }
+
+      // If updating name, check for duplicates
+      if (updateData.name && updateData.name !== role.name) {
+        const existingRole = await this.prisma.role.findUnique({
+          where: { name: updateData.name }
+        });
+
+        if (existingRole) {
+          throw new BadRequestException(`Role with name '${updateData.name}' already exists`);
+        }
+      }
+
+      // Update the role
+      const updatedRole = await this.prisma.role.update({
+        where: { role_id: roleId },
+        data: {
+          ...(updateData.name && { name: updateData.name }),
+          ...(updateData.description !== undefined && { description: updateData.description })
+        },
+        include: {
+          rolePermissions: {
+            include: {
+              permission: true
+            }
+          }
+        }
+      });
+
+      return {
+        message: `Role '${updatedRole.name}' updated successfully`,
+        success: true,
+        data: updatedRole
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Error updating role:', error);
+      throw new BadRequestException(`Failed to update role: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a role (only if it has no permissions assigned)
+   */
+  async deleteRole(roleId: number): Promise<any> {
+    try {
+      // Check if role exists
+      const role = await this.prisma.role.findUnique({
+        where: { role_id: roleId },
+        include: {
+          rolePermissions: true
+        }
+      });
+
+      if (!role) {
+        throw new BadRequestException(`Role with ID ${roleId} not found`);
+      }
+
+      // Check if role has any permissions
+      if (role.rolePermissions && role.rolePermissions.length > 0) {
+        throw new BadRequestException(
+          `Cannot delete role '${role.name}' because it has ${role.rolePermissions.length} permission(s) assigned. Please remove all permissions first.`
+        );
+      }
+
+      // Delete the role
+      await this.prisma.role.delete({
+        where: { role_id: roleId }
+      });
+
+      return {
+        message: `Role '${role.name}' deleted successfully`,
+        success: true
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Error deleting role:', error);
+      throw new BadRequestException(`Failed to delete role: ${error.message}`);
+    }
+  }
 }

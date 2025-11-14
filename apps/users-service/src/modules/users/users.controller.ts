@@ -152,4 +152,16 @@ export class UsersController {
     );
   }
 
+  @MessagePattern('users.update_role')
+  async updateRole(@Payload() payload: { role_id: number; name?: string; description?: string }): Promise<any> {
+    console.log('Updating role:', payload);
+    return await this.usersService.updateRole(payload.role_id, { name: payload.name, description: payload.description });
+  }
+
+  @MessagePattern('users.delete_role')
+  async deleteRole(@Payload() payload: { role_id: number }): Promise<any> {
+    console.log('Deleting role:', payload.role_id);
+    return await this.usersService.deleteRole(payload.role_id);
+  }
+
 }
