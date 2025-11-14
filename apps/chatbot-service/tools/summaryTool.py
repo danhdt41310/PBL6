@@ -3,13 +3,12 @@ load_dotenv()
 import os
 import traceback
 from langchain.tools import tool
-from agents.EduAgent import model
+from agents.Model import model
 from tools.type.InputScheme import SummaryFileInput
 from tools.type.OutputScheme import SummaryFileOutput
 from langchain_community.document_loaders import UnstructuredExcelLoader, Docx2txtLoader, UnstructuredPowerPointLoader, UnstructuredPDFLoader
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_community.document_loaders.text import TextLoader
-from langchain.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 MESSAGE = '''

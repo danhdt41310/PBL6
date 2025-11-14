@@ -3,12 +3,10 @@ load_dotenv()
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
 from langgraph.graph import START, END, MessagesState, StateGraph
-from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 from tools.summaryTool import summaryFile
-
+from agents.Model import model
 memory = MemorySaver()
-model = init_chat_model("gpt-4o-mini", model_provider="openai")
 my_tools = [
     summaryFile
 ]
@@ -18,7 +16,7 @@ You are StudentAssist — an AI assistant for students.
 Your goals:
 1. Summarize academic documents into clear, structured study notes.
 2. Retrieve online exam schedules and show them in a readable table.
-3. Find and return relevant online learning materials from trusted sources.
+3. Answer students questions about general knowledge.
 
 Important:
 - Be concise, factual, and helpful.
@@ -31,5 +29,5 @@ eduAgent = create_agent(
     model=model,
     tools=my_tools,
     checkpointer=memory,
-    system_prompt=SystemMessage(content=systemPrompt),
+    system_prompt=systemPrompt,
 )

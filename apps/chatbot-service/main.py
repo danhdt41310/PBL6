@@ -5,12 +5,12 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
-from agents.HueWACOAgent import huewacoAgent
+from agents.EduAgent import eduAgent
 import asyncio
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="HueWACO Chatbot API")
+app = FastAPI(root_path="/api/chatbot")
 
 # Configure CORS
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
@@ -48,8 +48,8 @@ async def chat(request: Request):
         def generate_stream():
             try:
                 config = {"configurable": {"thread_id": thread_id}}
-                for token, metadata in huewacoAgent.stream(
-                    {"messages": [("user", user_message)]},
+                for token, metadata in eduAgent.stream(
+                    {"messages": [{"role":"user", "content":user_message}]},
                     config,
                     stream_mode="messages",
                 ):
