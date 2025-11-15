@@ -37,7 +37,7 @@ import {
   UserIdsDto,
 } from '../dto/user.dto';
 import { timeout, catchError } from 'rxjs/operators';
-import { throwError, TimeoutError } from 'rxjs';
+import { throwError, TimeoutError, firstValueFrom } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
 import { Request } from 'express';
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
@@ -747,21 +747,22 @@ export class UsersController {
     @Body(ValidationPipe) rolePermissionDto: RolePermissionDto,
   ) {
     try {
-      return await this.usersClient
-        .send('users.assign_role_permissions', rolePermissionDto)
-        .pipe(
-          timeout(5000),
-          catchError((err) => {
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to assign permissions',
-                  HttpStatus.BAD_REQUEST,
-                ),
-            );
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.assign_role_permissions', rolePermissionDto)
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              return throwError(
+                () =>
+                  new HttpException(
+                    'Failed to assign permissions',
+                    HttpStatus.BAD_REQUEST,
+                  ),
+              );
+            }),
+          ),
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -780,9 +781,8 @@ export class UsersController {
   @SkipPermissionCheck()
   async getAllRoles() {
     try {
-      return await this.usersClient
-        .send('users.get_all_roles', {})
-        .pipe(
+      const result = await firstValueFrom(
+        this.usersClient.send('users.get_all_roles', {}).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -793,8 +793,9 @@ export class UsersController {
                 ),
             );
           }),
-        )
-        .toPromise();
+        ),
+      );
+      return result;
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -812,9 +813,8 @@ export class UsersController {
   @Get('admin/permissions')
   async getAllPermissions() {
     try {
-      return await this.usersClient
-        .send('users.get_all_permissions', {})
-        .pipe(
+      return await firstValueFrom(
+        this.usersClient.send('users.get_all_permissions', {}).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -825,8 +825,8 @@ export class UsersController {
                 ),
             );
           }),
-        )
-        .toPromise();
+        ),
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -844,9 +844,8 @@ export class UsersController {
   @Post('admin/roles/create')
   async createRole(@Body(ValidationPipe) createRoleDto: CreateRoleDto) {
     try {
-      return await this.usersClient
-        .send('users.create_role', createRoleDto)
-        .pipe(
+      return await firstValueFrom(
+        this.usersClient.send('users.create_role', createRoleDto).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -857,8 +856,8 @@ export class UsersController {
                 ),
             );
           }),
-        )
-        .toPromise();
+        ),
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -878,21 +877,22 @@ export class UsersController {
     @Body(ValidationPipe) createPermissionDto: CreatePermissionDto,
   ) {
     try {
-      return await this.usersClient
-        .send('users.create_permission', createPermissionDto)
-        .pipe(
-          timeout(5000),
-          catchError((err) => {
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to create permission',
-                  HttpStatus.BAD_REQUEST,
-                ),
-            );
-          }),
-        )
-        .toPromise();
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.create_permission', createPermissionDto)
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              return throwError(
+                () =>
+                  new HttpException(
+                    'Failed to create permission',
+                    HttpStatus.BAD_REQUEST,
+                  ),
+              );
+            }),
+          ),
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
