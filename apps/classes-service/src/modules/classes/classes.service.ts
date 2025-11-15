@@ -259,6 +259,24 @@ export class ClassesService {
     }
   }
 
+  async getEnrollmentsByStudentId(studentId: number) {
+    try {
+      return await this.prisma.classEnrollment.findMany({
+        where: {
+          student_id: studentId,
+          deleted_at: null, // Only active enrollments
+        },
+        select: {
+          enrollment_id: true,
+          class_id: true,
+          student_id: true,
+          enrolled_at: true,
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException('Failed to get student enrollments');
+    }  }
+
   async getStudentsOfClass(classId: number) {
     try {
       const enrollments = await this.prisma.classEnrollment.findMany({
@@ -298,15 +316,10 @@ export class ClassesService {
       },
     });
 
-    const data_for_save = await FileHelper.saveUploadFiles(
-      uploadFiles,
-      class_id,
-      uploader_id,
-      newPost.id
-    );
-    this.prisma.material.createMany({
-      data: data_for_save,
-    });
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id, newPost.id)
+    await this.prisma.material.createMany({
+      data: data_for_save
+    })
 
     return MaterialMapper.toUploadPostWithFilesDto(
       `Uploads Post successfully with ${data_for_save.length} files`,
@@ -317,20 +330,16 @@ export class ClassesService {
     );
   }
 
-  async uploadFiles(
-    class_id: number,
-    uploadFiles: FileInfo[],
-    uploader_id: number
-  ) {
-    console.log(uploadFiles.length);
-    const data_for_save = await FileHelper.saveUploadFiles(
-      uploadFiles,
-      class_id,
-      uploader_id
-    );
-    this.prisma.material.createMany({
-      data: data_for_save,
-    });
+  async uploadFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number){
+    
+
+    console.log(uploadFiles.length)
+    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
+
+    try{
+      await this.prisma.material.createMany({
+        data: data_for_save
+      })
 
     return MaterialMapper.toUploadFilesOnlyDto(
       `Uploads successfully ${data_for_save.length} files`,

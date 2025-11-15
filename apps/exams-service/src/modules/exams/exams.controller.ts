@@ -32,6 +32,11 @@ export class ExamsController {
     return await this.examsService.deleteExam(data.id);
   }
 
+  @MessagePattern('exams.findByStudentId')
+  async findExamsByStudentId(@Payload() data: { studentId: number; filterDto?: any }) {
+    return await this.examsService.findExamsByStudentId(data.studentId, data.filterDto);
+  }
+
   @MessagePattern('exams.get_hello')
   async getExamHelloWord(@Payload() data: { examId: number }) {
     return `Hello from exam ${data.examId}`;

@@ -2,7 +2,8 @@ import {
   Controller, 
   Get, 
   Post, 
-  Put, 
+  Put,
+  Patch, 
   Delete, 
   Body, 
   Param, 
@@ -37,6 +38,8 @@ import {
   UpdateExamDto,
   ExamFilterDto,
   GetRandomQuestionsDto,
+  SubmitAnswerDto,
+  UpdateRemainingTimeDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
@@ -101,6 +104,75 @@ export class ExamsController {
     return firstValueFrom(
       this.examsService.send('exams.findAll', filterDto)
     )
+  }
+
+  @Get('students/exams')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get exams for current student',
+    description: 'Get paginated list of exams that the current student can access based on their enrolled classes. Includes submission status if student has started the exam.'
+  })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
+  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled'], description: 'Filter by exam status' })
+  @ApiQuery({ name: 'start_time', required: false, type: String, description: 'Filter exams with start_time >= this value (ISO 8601)' })
+  @ApiQuery({ name: 'end_time', required: false, type: String, description: 'Filter exams with end_time <= this value (ISO 8601)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Student exams retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            exam_id: 1,
+            class_id: 1,
+            title: 'Midterm Exam',
+            start_time: '2024-01-15T09:00:00.000Z',
+            end_time: '2024-01-15T11:00:00.000Z',
+            total_time: 120,
+            description: 'Midterm examination',
+            status: 'published',
+            created_by: 1,
+            created_at: '2024-01-01T00:00:00.000Z',
+            question_exams: [],
+            submissions: [
+              {
+                submission_id: 1,
+                status: 'in_progress',
+                score: null,
+                submitted_at: '2024-01-15T09:05:00.000Z',
+                remaining_time: 6900,
+                current_question_order: 3
+              }
+            ],
+            _count: {
+              submissions: 5
+            }
+          }
+        ],
+        pagination: {
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid parameters' })
+  async getStudentExams(
+    @Query(ValidationPipe) filterDto: ExamFilterDto,
+    @Req() req: RequestWithUser
+  ) {
+    const studentId = req.user?.userId;
+    if (!studentId) {
+      throw new BadRequestException('Student ID not found in token');
+    }
+    
+    return firstValueFrom(
+      this.examsService.send('exams.findByStudentId', { studentId, filterDto })
+    );
   }
 
   @Get('exams/:id')
@@ -509,5 +581,278 @@ export class ExamsController {
         userId: req.user?.userId,
       })
     )
+  }
+
+  // ============================================================
+  // EXAM SUBMISSION / TAKING ENDPOINTS
+  // ============================================================
+
+  @Post('exams/:exam_id/start')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Start an exam',
+    description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token.'
+  })
+  @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Exam started successfully or existing submission returned',
+    schema: {
+      example: {
+        submission_id: 1,
+        exam_id: 1,
+        exam_title: 'Midterm Exam',
+        student_id: 1,
+        current_question_order: 1,
+        remaining_time: 3600,
+        total_questions: 20,
+        question: {
+          question_id: 1,
+          order: 1,
+          points: 1.00,
+          content: 'What is OOP?',
+          type: 'multiple_choice',
+          difficulty: 'easy',
+          is_multiple_answer: false,
+          options: [
+            { id: 'opt_1', content: 'Object Oriented Programming', is_correct: true }
+          ],
+          category: { category_id: 1, name: 'Programming' }
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  @ApiResponse({ status: 400, description: 'Bad request - exam has no questions or already submitted' })
+  async startExam(
+    @Param('exam_id', ParseIntPipe) exam_id: number,
+    @Req() req: RequestWithUser
+  ) {
+    const studentId = req.user?.userId;
+    if (!studentId) {
+      throw new BadRequestException('User ID not found in token');
+    }
+
+    return firstValueFrom(
+      this.examsService.send('submissions.start_exam', {
+        exam_id,
+        student_id: studentId,
+      })
+    );
+  }
+
+  @Get('submissions/:submission_id/questions/:order')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get question by order',
+    description: 'Get a specific question by order number for a submission. Returns question details and existing answer if available.'
+  })
+  @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
+  @ApiParam({ name: 'order', type: 'number', description: 'Question order number (starts from 1)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Question retrieved successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        current_question_order: 2,
+        remaining_time: 3500,
+        total_questions: 20,
+        question: {
+          question_id: 2,
+          order: 2,
+          points: 2.00,
+          content: 'Explain inheritance',
+          type: 'essay',
+          difficulty: 'medium',
+          is_multiple_answer: false,
+          options: null,
+          category: { category_id: 1, name: 'Programming' }
+        },
+        existing_answer: {
+          answer_id: 5,
+          answer_content: 'Inheritance is...'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission or question not found' })
+  async getQuestionByOrder(
+    @Param('submission_id', ParseIntPipe) submission_id: number,
+    @Param('order', ParseIntPipe) order: number
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.get_question_by_order', {
+        submission_id,
+        order,
+      })
+    );
+  }
+
+  @Post('submissions/:submission_id/answers')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Submit or update an answer',
+    description: 'Create or update a SubmissionAnswer record. If an answer already exists for the question, it will be updated.'
+  })
+  @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        question_id: { type: 'number', description: 'Question ID' },
+        answer_content: { type: 'string', description: 'Answer content (JSON string for multiple choice, text for essay)' }
+      },
+      required: ['question_id', 'answer_content']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Answer submitted or updated successfully',
+    schema: {
+      example: {
+        answer_id: 5,
+        question_id: 2,
+        answer_content: 'My answer...',
+        message: 'Answer submitted successfully'
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 400, description: 'Bad request - submission not in progress or question not in exam' })
+  async submitAnswer(
+    @Param('submission_id', ParseIntPipe) submission_id: number,
+    @Body(ValidationPipe) submitAnswerDto: SubmitAnswerDto
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.submit_answer', {
+        submission_id,
+        question_id: submitAnswerDto.question_id,
+        answer_content: submitAnswerDto.answer_content,
+      })
+    );
+  }
+
+  @Get('submissions/:submission_id/resume')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Resume exam',
+    description: 'Resume an exam at the current question (based on current_question_order). Returns current question and remaining time.'
+  })
+  @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Current question retrieved successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        exam_id: 1,
+        exam_title: 'Midterm Exam',
+        student_id: 1,
+        current_question_order: 5,
+        remaining_time: 3200,
+        total_questions: 20,
+        answered_count: 4,
+        question: {
+          question_id: 5,
+          order: 5,
+          points: 1.50,
+          content: 'What is polymorphism?',
+          type: 'multiple_choice',
+          difficulty: 'medium',
+          is_multiple_answer: false,
+          options: [],
+          category: { category_id: 1, name: 'Programming' }
+        },
+        existing_answer: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission or question not found' })
+  @ApiResponse({ status: 400, description: 'Exam already submitted' })
+  async resumeExam(
+    @Param('submission_id', ParseIntPipe) submission_id: number
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.resume_exam', {
+        submission_id,
+      })
+    );
+  }
+
+  @Post('submissions/:submission_id/submit')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Submit exam',
+    description: 'Mark submission as "submitted". After this, no more answers can be added/updated.'
+  })
+  @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Exam submitted successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        exam_id: 1,
+        student_id: 1,
+        status: 'submitted',
+        submitted_at: '2024-01-15T10:30:00.000Z',
+        total_questions: 20,
+        answered_questions: 18,
+        message: 'Exam submitted successfully'
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 400, description: 'Exam already submitted' })
+  async submitExam(
+    @Param('submission_id', ParseIntPipe) submission_id: number
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.submit_exam', {
+        submission_id,
+      })
+    );
+  }
+
+  @Patch('submissions/:submission_id/time')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Update remaining time',
+    description: 'Update the remaining time for a submission. Used to sync time as student takes the exam.'
+  })
+  @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        remaining_time: { type: 'number', description: 'Remaining time in seconds' }
+      },
+      required: ['remaining_time']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Remaining time updated successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        remaining_time: 3000,
+        message: 'Remaining time updated successfully'
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 400, description: 'Submission not in progress' })
+  async updateRemainingTime(
+    @Param('submission_id', ParseIntPipe) submission_id: number,
+    @Body(ValidationPipe) updateTimeDto: UpdateRemainingTimeDto
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.update_time', {
+        submission_id,
+        remaining_time: updateTimeDto.remaining_time,
+      })
+    );
   }
 }
