@@ -277,6 +277,21 @@ services:
     networks:
       - microservices-network
 
+  # Chatbot Service
+  chatbot-service:
+    build:
+      context: .
+      dockerfile: apps/chatbot-service/dockerfile
+    restart: unless-stopped
+    environment:
+      - SERVER_PORT=9876
+    ports:
+      - "9876:9876"
+    volumes:
+      - ./apps/chatbot-service/uploaded-documents:/app/uploaded-documents
+    networks:
+      - microservices-network
+
   # API Gateway
   api-gateway:
     build:
@@ -302,6 +317,8 @@ services:
       - EXAMS_SERVICE_PORT=3006
       - CLASSES_SERVICE_HOST=classes-service
       - CLASSES_SERVICE_PORT=3007
+      - CHATBOT_SERVICE_HOST=chatbot-service
+      - CHATBOT_SERVICE_PORT=9876
     ports:
       - "3000:3000"
     depends_on:
@@ -313,6 +330,7 @@ services:
       - chats-service
       - exams-service
       - classes-service
+      - chatbot-service
     networks:
       - microservices-network
 
