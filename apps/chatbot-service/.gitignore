@@ -1,0 +1,5 @@
+index.py
+test.py
+uploaded-documents/**
+**/__pycache__
+**/.env
