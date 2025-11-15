@@ -6,7 +6,7 @@ from langchain.tools import tool
 from agents.Model import model
 from tools.type.InputScheme import SummaryFileInput
 from tools.type.OutputScheme import SummaryFileOutput
-from langchain_community.document_loaders import UnstructuredExcelLoader, Docx2txtLoader, UnstructuredPowerPointLoader, UnstructuredPDFLoader
+from langchain_community.document_loaders import UnstructuredExcelLoader, Docx2txtLoader, UnstructuredPowerPointLoader, PyPDFLoader
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_community.document_loaders.text import TextLoader
 from langchain_core.prompts import ChatPromptTemplate
@@ -25,7 +25,7 @@ def fileReader(path:str):
 
     match exten:
         case '.pdf':
-            loader = UnstructuredPDFLoader(path)
+            loader = PyPDFLoader(path)
             doc = loader.load()
         case '.docx'|'.doc':
             loader = Docx2txtLoader(path)
@@ -54,8 +54,10 @@ def fileReader(path:str):
     args_schema=SummaryFileInput,
     description='Use this tool to summary content of file'
 )
-def summaryFile( file_name: str, user_id: int, class_id: int|None = None)->SummaryFileOutput:
-    file_path = rf'{os.environ['UPLOAD_DIR']}/{class_id if class_id else 'temp'}/{user_id}/{file_name}'
+# def summaryFile( file_name: str, user_id: int, class_id: int|None = None)->SummaryFileOutput:
+def summaryFile( file_name: str)->SummaryFileOutput:
+    # file_path = rf'{os.environ['UPLOAD_DIR']}/{class_id if class_id else 'temp'}/{user_id}/{file_name}'
+    file_path = rf'{os.environ['UPLOAD_DIR']}/temp/{file_name}'
     try:
         doc = fileReader(file_path)
         format_message = MESSAGE_TEMPLATE.format_messages(content=doc)
@@ -77,3 +79,4 @@ def summaryFile( file_name: str, user_id: int, class_id: int|None = None)->Summa
 def test():
     res = summaryFile.invoke({'file_name':'VitOn.docx','user_id':19,'class_id':1})
     print(res)
+    
