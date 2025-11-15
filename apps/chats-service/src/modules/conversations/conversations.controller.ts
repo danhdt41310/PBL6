@@ -1,14 +1,94 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ConversationsService } from './conversations.service';
-import { CreateConversationDto, UpdateConversationDto } from './dto/conversation.dto';
+import { CreateConversationDto, PaginationDto } from './dto/conversation.dto';
 
 @Controller('conversations')
 export class ConversationsController {
-  constructor(private readonly conversationsService: ConversationsService) {}
+  constructor(private readonly conversationsService: ConversationsService) { }
 
-  @MessagePattern('get_conversations_hello')
+  /**
+   * Test endpoint
+   */
+  @MessagePattern('conversations.get_hello')
   getHello(@Payload() data: { name: string }) {
     return `Hello, ${data.name}! Welcome to the Chats Service - Conversations.`;
+  }
+
+  /**
+   * Create a new conversation
+   * Pattern: conversations.create
+   */
+  @MessagePattern('conversations.create')
+  async createConversation(@Payload() createConversationDto: CreateConversationDto) {
+    console.log('Creating conversation with data:', createConversationDto);
+    const conversation = await this.conversationsService.createConversation(createConversationDto);
+    return {
+      success: true,
+      message: 'Conversation created successfully',
+      data: conversation,
+    };
+  }
+
+  /**
+   * Get a conversation by ID
+   * Pattern: conversations.find_one
+   */
+  @MessagePattern('conversations.find_one')
+  async findOne(@Payload() payload: { id: number; includeMessages?: boolean }) {
+    const conversation = await this.conversationsService.findOne(
+      payload.id,
+      payload.includeMessages || false
+    );
+    return {
+      success: true,
+      data: conversation,
+    };
+  }
+
+  /**
+   * Find conversation between two users
+   * Pattern: conversations.find_by_users
+   */
+  @MessagePattern('conversations.find_by_users')
+  async findByUsers(@Payload() payload: { userId1: number; userId2: number }) {
+    const conversation = await this.conversationsService.findByUsers(
+      payload.userId1,
+      payload.userId2
+    );
+    return {
+      success: true,
+      data: conversation,
+    };
+  }
+
+  /**
+   * Get all conversations for a user
+   * Pattern: conversations.find_by_user
+   */
+  @MessagePattern('conversations.find_by_user')
+  async findUserConversations(
+    @Payload() payload: { userId: number; pagination?: PaginationDto }
+  ) {
+    const { userId, pagination = { page: 1, limit: 20 } } = payload;
+    return await this.conversationsService.findUserConversations(userId, pagination);
+  }
+
+  /**
+   * Delete a conversation
+   * Pattern: conversations.delete
+   */
+  @MessagePattern('conversations.delete')
+  async deleteConversation(@Payload() payload: { id: number }) {
+    return await this.conversationsService.deleteConversation(payload.id);
+  }
+
+  /**
+   * Get conversation statistics for a user
+   * Pattern: conversations.stats
+   */
+  @MessagePattern('conversations.stats')
+  async getUserStats(@Payload() payload: { userId: number }) {
+    return await this.conversationsService.getUserConversationStats(payload.userId);
   }
 }

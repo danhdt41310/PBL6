@@ -195,21 +195,19 @@ export class UpdateProfileDto {
   @IsString({ message: 'Status must be a string' })
   @IsOptional()
   status?: string;
-  
+
 }
 
-export class UserEmailsDto{
+export class UserEmailsDto {
   @ApiProperty({ description: 'Array of user email addresses', example: ['user1@example.com', 'user2@example.com'], type: [String] })
-  @IsEmail({},{each:true})
+  @IsEmail({}, { each: true })
   userEmails: string[];
 }
 
-export class UserIdsDto{
+export class UserIdsDto {
   @ApiProperty({ description: 'Array of user IDs', example: [1, 2, 3], type: [Number] })
-  @Transform(({value})=>{
-    value.map((id:string)=>parseInt(id))
-  })
-  @IsInt({each:true})
+  @Transform(({ value }) => value.map((id: any) => parseInt(id, 10)))
+  @IsInt({ each: true })
   userIds: number[];
 }
 

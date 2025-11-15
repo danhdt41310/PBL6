@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   UserResponseDto,
   UserListResponseDto,
@@ -7,41 +13,68 @@ import {
   CreateUserResponseDto,
   ChangePasswordResponseDto,
   RolePermissionResponseDto,
-  UserListByEmailsOrIdsResponseDto
+  UserListByEmailsOrIdsResponseDto,
 } from './dto/user-response.dto';
 import { UserMapper } from './mapper/user.mapper';
-import { CreateUserDto, LoginDto, UpdateProfileDto, UpdateUserDto, UserEmailsDto, UserStatus, RolePermissionDto, CreateRoleDto, CreatePermissionDto, UserIdsDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  LoginDto,
+  UpdateProfileDto,
+  UpdateUserDto,
+  UserEmailsDto,
+  UserStatus,
+  RolePermissionDto,
+  CreateRoleDto,
+  CreatePermissionDto,
+  UserIdsDto,
+} from './dto/user.dto';
 import { User } from './interfaces/user.interface';
 import * as bcrypt from 'bcrypt';
-import { ForgotPasswordResponseDto, VerifyCodeResponseDto, ResetPasswordResponseDto } from './dto/auth-response.dto';
+import {
+  ForgotPasswordResponseDto,
+  VerifyCodeResponseDto,
+  ResetPasswordResponseDto,
+} from './dto/auth-response.dto';
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
-import { QueryBuilderUtil, SearchFilter } from 'src/shared/utils/query-builder.util';
-import { Prisma } from '@prisma/users-client'
+import {
+  QueryBuilderUtil,
+  SearchFilter,
+} from 'src/shared/utils/query-builder.util';
+import { Prisma } from '@prisma/users-client';
 
 @Injectable()
 export class UsersService {
-  private readonly salt_round = 10
-  private readonly verificationCodeExpiryMinutes = 5
+  private readonly salt_round = 10;
+  private readonly verificationCodeExpiryMinutes = 5;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
   ) {}
   /**
    * Create a new User in the system
    *
    * @param createUserDto - Data Transfer Object containing the user information
    * @returns Promise<User> - The newly created user (including id, email, role, status...)
-   * 
+   *
    **/
   async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
-    const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
+    const {
+      fullName,
+      email,
+      password,
+      role,
+      status,
+      phone,
+      dateOfBirth,
+      gender,
+    } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, this.salt_round);
-    
+
     // Prepare user data - only include dateOfBirth if valid
     const userData: Prisma.UserCreateInput = {
       full_name: fullName,
@@ -60,7 +93,7 @@ export class UsersService {
         userData.date_of_birth = parsedDate;
       }
     }
-    
+
     // Create user without role first
     const newUser = await this.prisma.user.create({
       data: userData,
@@ -110,17 +143,25 @@ export class UsersService {
         },
       },
     });
-    
+
     if (!user) {
-      throw new RpcException(new UnauthorizedException('Invalid email or password'))
+      throw new RpcException(
+        new UnauthorizedException('Invalid email or password'),
+      );
     }
     if (user.status === 'blocked') {
-      throw new RpcException(new UnauthorizedException('Your account has been blocked. Please contact support.'))
+      throw new RpcException(
+        new UnauthorizedException(
+          'Your account has been blocked. Please contact support.',
+        ),
+      );
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new RpcException(new UnauthorizedException('Invalid email or password'))
+      throw new RpcException(
+        new UnauthorizedException('Invalid email or password'),
+      );
     }
 
     // Get user's primary role (first role if multiple)
@@ -158,13 +199,19 @@ export class UsersService {
     };
   }
 
-
-  async findAll(page: number, limit: number, filters?: SearchFilter): Promise<UserListResponseDto> {
+  async findAll(
+    page: number,
+    limit: number,
+    filters?: SearchFilter,
+  ): Promise<UserListResponseDto> {
     // Build the where clause using the query builder
     const where = QueryBuilderUtil.buildUserSearchQuery(filters || {});
 
     // Build pagination options
-    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(page, limit);
+    const paginationOptions = QueryBuilderUtil.buildPaginationOptions(
+      page,
+      limit,
+    );
 
     // Execute queries in parallel
     const [users, total] = await Promise.all([
@@ -186,7 +233,7 @@ export class UsersService {
     ]);
 
     // Add role to each user for compatibility
-    const usersWithRoles = users.map(user => ({
+    const usersWithRoles = users.map((user) => ({
       ...user,
       role: user.userRoles[0]?.role?.name || 'user',
     }));
@@ -207,18 +254,18 @@ export class UsersService {
     });
 
     if (!user) return null;
-    
+
     // Add role for compatibility
     const userWithRole = {
       ...user,
       role: user.userRoles[0]?.role?.name || 'user',
     };
-    
+
     const data = UserMapper.toResponseDto(userWithRole);
     return {
       data: data,
       success: true,
-    }
+    };
   }
 
   /**
@@ -250,7 +297,7 @@ export class UsersService {
     }
 
     // Extract roles
-    const roles = user.userRoles.map(ur => ({
+    const roles = user.userRoles.map((ur) => ({
       role_id: ur.role.role_id,
       name: ur.role.name,
       description: ur.role.description,
@@ -258,8 +305,8 @@ export class UsersService {
 
     // Extract unique permissions from all roles
     const permissionsMap = new Map();
-    user.userRoles.forEach(ur => {
-      ur.role.rolePermissions.forEach(rp => {
+    user.userRoles.forEach((ur) => {
+      ur.role.rolePermissions.forEach((rp) => {
         const permission = rp.permission;
         if (!permissionsMap.has(permission.permission_id)) {
           permissionsMap.set(permission.permission_id, {
@@ -294,19 +341,23 @@ export class UsersService {
     };
   }
 
-  async changePass(user_id: number, current_password: string, new_password: string): Promise<ChangePasswordResponseDto> {
+  async changePass(
+    user_id: number,
+    current_password: string,
+    new_password: string,
+  ): Promise<ChangePasswordResponseDto> {
     const user = await this.prisma.user.findUnique({
-      where: { user_id }
+      where: { user_id },
     });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) {
       throw new BadRequestException('Current password is incorrect');
     }
-    
+
     const new_hashed_pass = await bcrypt.hash(new_password, this.salt_round);
     const updated_user = await this.prisma.user.update({
       where: { user_id },
@@ -315,9 +366,9 @@ export class UsersService {
         updated_at: new Date(),
       },
     });
-    
+
     return {
-      message: 'Password changed successfully'
+      message: 'Password changed successfully',
     };
   }
 
@@ -334,20 +385,28 @@ export class UsersService {
     // Find the user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Check if user is blocked
     if (user.status === 'blocked') {
-      throw new RpcException(new BadRequestException('Tài khoản của bạn đã bị khóa'));
+      throw new RpcException(
+        new BadRequestException('Tài khoản của bạn đã bị khóa'),
+      );
     }
 
     // Generate a 6-digit code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
 
     // Calculate expiration time (5 minutes from now)
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + this.verificationCodeExpiryMinutes);
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + this.verificationCodeExpiryMinutes,
+    );
 
     // Delete any existing password reset codes for this user
     await this.prisma.verificationCode.deleteMany({
@@ -371,11 +430,13 @@ export class UsersService {
     const emailSent = await this.emailService.sendPasswordResetEmail(
       user.email,
       verificationCode,
-      user.full_name
+      user.full_name,
     );
 
     if (!emailSent) {
-      throw new RpcException(new BadRequestException('Không thể gửi email. Vui lòng thử lại sau.'));
+      throw new RpcException(
+        new BadRequestException('Không thể gửi email. Vui lòng thử lại sau.'),
+      );
     }
 
     return {
@@ -388,7 +449,10 @@ export class UsersService {
    * Verifies the code sent to the user's email
    * Validates email, code format, and checks if code is valid and not expired
    */
-  async verifyCode(email: string, code: string): Promise<VerifyCodeResponseDto> {
+  async verifyCode(
+    email: string,
+    code: string,
+  ): Promise<VerifyCodeResponseDto> {
     // Validate email format
     if (!email || !email.includes('@')) {
       throw new RpcException(new BadRequestException('Email không hợp lệ'));
@@ -396,12 +460,16 @@ export class UsersService {
 
     // Validate code format
     if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực phải là 6 chữ số'),
+      );
     }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Find the verification code
@@ -418,7 +486,9 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'),
+      );
     }
 
     return {
@@ -432,7 +502,11 @@ export class UsersService {
    * Resets the user's password using a verification code
    * Validates all inputs and ensures code is valid before resetting password
    */
-  async resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResponseDto> {
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ResetPasswordResponseDto> {
     console.log('resetPassword called', { email, code });
 
     // Validate email format
@@ -442,17 +516,23 @@ export class UsersService {
 
     // Validate code format
     if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new BadRequestException('Mã xác thực phải là 6 chữ số'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực phải là 6 chữ số'),
+      );
     }
 
     // Validate password length
     if (!newPassword || newPassword.length < 6) {
-      throw new RpcException(new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự'));
+      throw new RpcException(
+        new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự'),
+      );
     }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new RpcException(new NotFoundException('Email không tồn tại trong hệ thống'));
+      throw new RpcException(
+        new NotFoundException('Email không tồn tại trong hệ thống'),
+      );
     }
 
     // Find and validate the verification code
@@ -469,7 +549,9 @@ export class UsersService {
     });
 
     if (!verificationCode) {
-      throw new RpcException(new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'));
+      throw new RpcException(
+        new BadRequestException('Mã xác thực không hợp lệ hoặc đã hết hạn'),
+      );
     }
 
     // Hash the new password before saving
@@ -499,13 +581,16 @@ export class UsersService {
   /**
    * Updates user's status (block/unblock) - Admin only
    */
-  async updateUserStatus(userId: number, status: UserStatus): Promise<AdminActionResponseDto> {
+  async updateUserStatus(
+    userId: number,
+    status: UserStatus,
+  ): Promise<AdminActionResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id: userId },
     });
 
     if (!user) {
-      throw new RpcException(new NotFoundException('User not found'))
+      throw new RpcException(new NotFoundException('User not found'));
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -528,7 +613,10 @@ export class UsersService {
   /**
    * Updates user profile information
    */
-  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<UserResponseDto> {
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { user_id: userId },
       include: {
@@ -561,10 +649,10 @@ export class UsersService {
     if (updateProfileDto.gender !== undefined) {
       updateData.gender = updateProfileDto.gender;
     }
-    if(updateProfileDto.fullName !== undefined) {
+    if (updateProfileDto.fullName !== undefined) {
       updateData.full_name = updateProfileDto.fullName;
     }
-    if(updateProfileDto.status !== undefined) {
+    if (updateProfileDto.status !== undefined) {
       updateData.status = updateProfileDto.status;
     }
 
@@ -588,10 +676,12 @@ export class UsersService {
 
     return UserMapper.toResponseDto(userWithRole);
   }
-  
-  async getListProfileByEmails(userEmails: UserEmailsDto): Promise<UserListByEmailsOrIdsResponseDto>{
+
+  async getListProfileByEmails(
+    userEmails: UserEmailsDto,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
     const records = [];
-    for (let email of userEmails.userEmails){
+    for (let email of userEmails.userEmails) {
       let user = await this.prisma.user.findUnique({
         where: { email: email },
         include: {
@@ -602,7 +692,7 @@ export class UsersService {
           },
         },
       });
-      
+
       if (user) {
         // Add role for compatibility
         const userWithRole = {
@@ -615,12 +705,15 @@ export class UsersService {
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
 
-  async getListProfileByIds(userIds: UserIdsDto): Promise<UserListByEmailsOrIdsResponseDto>{
+  async getListProfileByIds(
+    userIds: UserIdsDto,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
+    console.log('getListProfileByIds called with:', userIds);
     const records = [];
-    for (let userId of userIds.userIds){
+    for (let userId of userIds.userIds) {
       let user = await this.prisma.user.findUnique({
         where: { user_id: userId },
         include: {
@@ -631,7 +724,7 @@ export class UsersService {
           },
         },
       });
-      
+
       if (user) {
         // Add role for compatibility
         const userWithRole = {
@@ -644,10 +737,40 @@ export class UsersService {
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
 
-  async getListProfileMatchEmail(emailPattern: string): Promise<UserListByEmailsOrIdsResponseDto>{
+  async getProfileByEmail(email: string): Promise<any> {
+    console.log('getProfileByEmail called with:', email);
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    // Add role for compatibility
+    const userWithRole = {
+      ...user,
+      role: user.userRoles[0]?.role?.name || 'user',
+    };
+
+    return {
+      user: UserMapper.toResponseDto(userWithRole),
+    };
+  }
+
+  async getListProfileMatchEmail(
+    emailPattern: string,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
     const records = await this.prisma.user.findMany({
       include: {
         userRoles: {
@@ -657,24 +780,28 @@ export class UsersService {
         },
       },
       where: {
-        email:{contains: emailPattern},
+        email: { contains: emailPattern },
       },
       take: 100,
-    })
+    });
 
     return {
       users: UserMapper.toResponseDtoArray(records),
-    }
+    };
   }
   /**
    * Assign permissions to a role
    * Both the role and permissions must already exist in the database
    * @throws NotFoundException if role or any permission doesn't exist
    */
-  async assignRolePermissions(rolePermissionDto: RolePermissionDto): Promise<RolePermissionResponseDto> {
+  async assignRolePermissions(
+    rolePermissionDto: RolePermissionDto,
+  ): Promise<RolePermissionResponseDto> {
     const { roleName, permissionNames } = rolePermissionDto;
 
-    console.log(`Starting role permission assignment for role: ${roleName}, permissions: ${JSON.stringify(permissionNames)}`);
+    console.log(
+      `Starting role permission assignment for role: ${roleName}, permissions: ${JSON.stringify(permissionNames)}`,
+    );
 
     try {
       // Use a transaction to ensure consistency
@@ -685,43 +812,55 @@ export class UsersService {
           include: {
             rolePermissions: {
               include: {
-                permission: true
-              }
-            }
-          }
+                permission: true,
+              },
+            },
+          },
         });
 
         if (!role) {
           console.log(`Role not found: ${roleName}`);
-          throw new NotFoundException(`Role '${roleName}' not found. Please create the role first.`);
+          throw new NotFoundException(
+            `Role '${roleName}' not found. Please create the role first.`,
+          );
         }
 
         console.log(`Found existing role with ID: ${role.role_id}`);
 
         // Get current permission keys
-        const currentPermissionKeys = role.rolePermissions.map(rp => rp.permission.key);
-        console.log(`Current permissions: ${JSON.stringify(currentPermissionKeys)}`);
+        const currentPermissionKeys = role.rolePermissions.map(
+          (rp) => rp.permission.key,
+        );
+        console.log(
+          `Current permissions: ${JSON.stringify(currentPermissionKeys)}`,
+        );
 
         // Calculate diff
-        const permissionsToAdd = permissionNames.filter(key => !currentPermissionKeys.includes(key));
-        const permissionsToRemove = currentPermissionKeys.filter(key => !permissionNames.includes(key));
+        const permissionsToAdd = permissionNames.filter(
+          (key) => !currentPermissionKeys.includes(key),
+        );
+        const permissionsToRemove = currentPermissionKeys.filter(
+          (key) => !permissionNames.includes(key),
+        );
 
         console.log(`Permissions to ADD: ${JSON.stringify(permissionsToAdd)}`);
-        console.log(`Permissions to REMOVE: ${JSON.stringify(permissionsToRemove)}`);
+        console.log(
+          `Permissions to REMOVE: ${JSON.stringify(permissionsToRemove)}`,
+        );
 
         // Remove permissions that are no longer selected
         if (permissionsToRemove.length > 0) {
           const permissionIdsToRemove = role.rolePermissions
-            .filter(rp => permissionsToRemove.includes(rp.permission.key))
-            .map(rp => rp.permission.permission_id);
+            .filter((rp) => permissionsToRemove.includes(rp.permission.key))
+            .map((rp) => rp.permission.permission_id);
 
           await tx.rolePermission.deleteMany({
             where: {
               role_id: role.role_id,
               permission_id: {
-                in: permissionIdsToRemove
-              }
-            }
+                in: permissionIdsToRemove,
+              },
+            },
           });
           console.log(`Removed ${permissionsToRemove.length} permissions`);
         }
@@ -730,19 +869,21 @@ export class UsersService {
         const addedPermissions: string[] = [];
         for (const permissionKey of permissionsToAdd) {
           const permission = await tx.permission.findUnique({
-            where: { key: permissionKey }
+            where: { key: permissionKey },
           });
 
           if (!permission) {
             console.log(`Permission not found: ${permissionKey}`);
-            throw new NotFoundException(`Permission '${permissionKey}' not found. Please create the permission first.`);
+            throw new NotFoundException(
+              `Permission '${permissionKey}' not found. Please create the permission first.`,
+            );
           }
 
           await tx.rolePermission.create({
             data: {
               role_id: role.role_id,
-              permission_id: permission.permission_id
-            }
+              permission_id: permission.permission_id,
+            },
           });
           addedPermissions.push(permissionKey);
           console.log(`Added permission: ${permissionKey}`);
@@ -756,14 +897,15 @@ export class UsersService {
           stats: {
             added: permissionsToAdd.length,
             removed: permissionsToRemove.length,
-            total: permissionNames.length
-          }
+            total: permissionNames.length,
+          },
         };
       });
-
     } catch (error) {
       console.error('Error assigning permissions to role:', error);
-      throw new BadRequestException(`Failed to assign permissions to role: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to assign permissions to role: ${error.message}`,
+      );
     }
   }
 
@@ -776,8 +918,8 @@ export class UsersService {
         include: {
           rolePermissions: {
             include: {
-              permission: true
-            }
+              permission: true,
+            },
           },
           userRoles: {
             include: {
@@ -785,52 +927,58 @@ export class UsersService {
                 select: {
                   user_id: true,
                   full_name: true,
-                  email: true
-                }
-              }
-            }
-          }
+                  email: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
-          name: 'asc'
-        }
+          name: 'asc',
+        },
       });
 
-      console.log('Users Service - Roles from DB:', roles.map(r => ({ 
-        name: r.name, 
-        userRolesCount: r.userRoles.length,
-        userRoles: r.userRoles 
-      })));
+      console.log(
+        'Users Service - Roles from DB:',
+        roles.map((r) => ({
+          name: r.name,
+          userRolesCount: r.userRoles.length,
+          userRoles: r.userRoles,
+        })),
+      );
 
-      const mappedRoles = roles.map(role => ({
+      const mappedRoles = roles.map((role) => ({
         role_id: role.role_id,
         name: role.name,
         description: role.description,
         created_at: role.created_at,
-        permissions: role.rolePermissions.map(rp => ({
+        permissions: role.rolePermissions.map((rp) => ({
           permission_id: rp.permission.permission_id,
           key: rp.permission.key,
           name: rp.permission.name,
           description: rp.permission.description,
           resource: rp.permission.resource,
-          action: rp.permission.action
+          action: rp.permission.action,
         })),
-        userRoles: role.userRoles.map(ur => ({
+        userRoles: role.userRoles.map((ur) => ({
           user_role_id: ur.user_role_id,
           user_id: ur.user_id,
           role_id: ur.role_id,
-          user: ur.user
-        }))
+          user: ur.user,
+        })),
       }));
 
-      console.log('Users Service - Mapped roles:', mappedRoles.map(r => ({ 
-        name: r.name, 
-        userRolesCount: r.userRoles.length 
-      })));
+      console.log(
+        'Users Service - Mapped roles:',
+        mappedRoles.map((r) => ({
+          name: r.name,
+          userRolesCount: r.userRoles.length,
+        })),
+      );
 
       return {
         message: 'Roles fetched successfully',
-        roles: mappedRoles
+        roles: mappedRoles,
       };
     } catch (error) {
       console.error('Error fetching roles with permissions:', error);
@@ -845,25 +993,27 @@ export class UsersService {
     try {
       const permissions = await this.prisma.permission.findMany({
         orderBy: {
-          key: 'asc'
-        }
+          key: 'asc',
+        },
       });
 
       return {
         message: 'Permissions fetched successfully',
-        permissions: permissions.map(permission => ({
+        permissions: permissions.map((permission) => ({
           permission_id: permission.permission_id,
           key: permission.key,
           name: permission.name,
           description: permission.description,
           resource: permission.resource,
           action: permission.action,
-          created_at: permission.created_at
-        }))
+          created_at: permission.created_at,
+        })),
       };
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      throw new BadRequestException(`Failed to fetch permissions: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch permissions: ${error.message}`,
+      );
     }
   }
 
@@ -874,7 +1024,7 @@ export class UsersService {
     try {
       // Check if role already exists
       const existingRole = await this.prisma.role.findUnique({
-        where: { name }
+        where: { name },
       });
 
       if (existingRole) {
@@ -884,8 +1034,8 @@ export class UsersService {
       const role = await this.prisma.role.create({
         data: {
           name,
-          description: description || `Role: ${name}`
-        }
+          description: description || `Role: ${name}`,
+        },
       });
 
       return {
@@ -895,8 +1045,8 @@ export class UsersService {
           role_id: role.role_id,
           name: role.name,
           description: role.description,
-          created_at: role.created_at
-        }
+          created_at: role.created_at,
+        },
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -910,11 +1060,17 @@ export class UsersService {
   /**
    * Create a new permission
    */
-  async createPermission(key: string, name?: string, description?: string, resource?: string, action?: string): Promise<any> {
+  async createPermission(
+    key: string,
+    name?: string,
+    description?: string,
+    resource?: string,
+    action?: string,
+  ): Promise<any> {
     try {
       // Check if permission already exists
       const existingPermission = await this.prisma.permission.findUnique({
-        where: { key }
+        where: { key },
       });
 
       if (existingPermission) {
@@ -924,7 +1080,7 @@ export class UsersService {
       // Parse permission key if resource and action not provided
       let finalResource = resource;
       let finalAction = action;
-      
+
       if (!resource || !action) {
         const parts = key.split('.');
         finalAction = finalAction || parts[0] || 'access';
@@ -934,11 +1090,13 @@ export class UsersService {
       const permission = await this.prisma.permission.create({
         data: {
           key,
-          name: name || key.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          name:
+            name ||
+            key.replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
           description: description || `Permission: ${key}`,
           resource: finalResource,
-          action: finalAction
-        }
+          action: finalAction,
+        },
       });
 
       return {
@@ -951,26 +1109,31 @@ export class UsersService {
           description: permission.description,
           resource: permission.resource,
           action: permission.action,
-          created_at: permission.created_at
-        }
+          created_at: permission.created_at,
+        },
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
       console.error('Error creating permission:', error);
-      throw new BadRequestException(`Failed to create permission: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to create permission: ${error.message}`,
+      );
     }
   }
 
   /**
    * Update a role (name and/or description)
    */
-  async updateRole(roleId: number, updateData: { name?: string; description?: string }): Promise<any> {
+  async updateRole(
+    roleId: number,
+    updateData: { name?: string; description?: string },
+  ): Promise<any> {
     try {
       // Check if role exists
       const role = await this.prisma.role.findUnique({
-        where: { role_id: roleId }
+        where: { role_id: roleId },
       });
 
       if (!role) {
@@ -980,11 +1143,13 @@ export class UsersService {
       // If updating name, check for duplicates
       if (updateData.name && updateData.name !== role.name) {
         const existingRole = await this.prisma.role.findUnique({
-          where: { name: updateData.name }
+          where: { name: updateData.name },
         });
 
         if (existingRole) {
-          throw new BadRequestException(`Role with name '${updateData.name}' already exists`);
+          throw new BadRequestException(
+            `Role with name '${updateData.name}' already exists`,
+          );
         }
       }
 
@@ -993,21 +1158,23 @@ export class UsersService {
         where: { role_id: roleId },
         data: {
           ...(updateData.name && { name: updateData.name }),
-          ...(updateData.description !== undefined && { description: updateData.description })
+          ...(updateData.description !== undefined && {
+            description: updateData.description,
+          }),
         },
         include: {
           rolePermissions: {
             include: {
-              permission: true
-            }
-          }
-        }
+              permission: true,
+            },
+          },
+        },
       });
 
       return {
         message: `Role '${updatedRole.name}' updated successfully`,
         success: true,
-        data: updatedRole
+        data: updatedRole,
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -1034,49 +1201,49 @@ export class UsersService {
                 select: {
                   user_id: true,
                   full_name: true,
-                  email: true
-                }
-              }
-            }
-          }
-        }
-      })
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
 
       if (!role) {
-        throw new BadRequestException(`Role with ID ${roleId} not found`)
+        throw new BadRequestException(`Role with ID ${roleId} not found`);
       }
 
       // Check if role has any users assigned
       if (role.userRoles && role.userRoles.length > 0) {
-        const userCount = role.userRoles.length
-        
+        const userCount = role.userRoles.length;
+
         throw new BadRequestException(
-          `Cannot delete role '${role.name}' because it is assigned to ${userCount} user(s). Please remove all users from this role first.`
-        )
+          `Cannot delete role '${role.name}' because it is assigned to ${userCount} user(s). Please remove all users from this role first.`,
+        );
       }
 
       // Delete rolePermission records first (cascade)
       if (role.rolePermissions && role.rolePermissions.length > 0) {
         await this.prisma.rolePermission.deleteMany({
-          where: { role_id: roleId }
-        })
+          where: { role_id: roleId },
+        });
       }
 
       // Delete the role
       await this.prisma.role.delete({
-        where: { role_id: roleId }
-      })
+        where: { role_id: roleId },
+      });
 
       return {
         message: `Role '${role.name}' deleted successfully`,
-        success: true
-      }
+        success: true,
+      };
     } catch (error) {
       if (error instanceof BadRequestException) {
-        throw error
+        throw error;
       }
-      console.error('Error deleting role:', error)
-      throw new BadRequestException(`Failed to delete role: ${error.message}`)
+      console.error('Error deleting role:', error);
+      throw new BadRequestException(`Failed to delete role: ${error.message}`);
     }
   }
 }

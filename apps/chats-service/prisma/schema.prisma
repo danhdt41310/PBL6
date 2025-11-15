@@ -29,14 +29,15 @@ model Conversation {
 }
 
 model Message {
-  id              Int         @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   sender_id       Int
   conversation_id Int
-  timestamp       DateTime    @default(now()) @db.Timestamp(6)
-  message_type    MessageType @default(text)
-  content         String?     @db.Text
+  timestamp       DateTime      @default(now()) @db.Timestamp(6)
+  message_type    MessageType   @default(text)
+  content         String?       @db.Text
+  is_read         Boolean       @default(false)   
   
-  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  conversation    Conversation  @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }
