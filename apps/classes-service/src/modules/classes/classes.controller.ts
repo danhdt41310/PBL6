@@ -93,11 +93,6 @@ export class ClassesController {
     return await this.classesService.getEnrollmentsByStudentId(data.student_id);
   }
 
-  @MessagePattern("classes.enrollments.findByStudent")
-  async getEnrollmentsByStudent(@Payload() data: { student_id: number }) {
-    return await this.classesService.getEnrollmentsByStudentId(data.student_id);
-  }
-
   @MessagePattern("classes.get_students_of_class")
   async getStudentsOfClass(@Payload() data: { class_id: number }) {
     return await this.classesService.getStudentsOfClass(data.class_id);

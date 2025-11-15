@@ -903,4 +903,77 @@ export class UsersController {
       );
     }
   }
+
+  /**
+   * Update a role (name and/or description)
+   */
+  @Put('admin/roles/:roleId')
+  async updateRole(
+    @Param('roleId') roleId: string,
+    @Body() updateData: { name?: string; description?: string },
+  ) {
+    try {
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.update_role', {
+            role_id: parseInt(roleId, 10),
+            ...updateData,
+          })
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              return throwError(
+                () =>
+                  new HttpException(
+                    err?.message || 'Failed to update role',
+                    err?.statusCode || HttpStatus.BAD_REQUEST,
+                  ),
+              );
+            }),
+          ),
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to update role',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Delete a role (only if it has no users assigned)
+   * Cascade deletes all rolePermission records
+   */
+  @Delete('admin/roles/:roleId')
+  async deleteRole(@Param('roleId') roleId: string) {
+    try {
+      return await firstValueFrom(
+        this.usersClient
+          .send('users.delete_role', { role_id: parseInt(roleId, 10) })
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              return throwError(
+                () =>
+                  new HttpException(
+                    err?.message || 'Failed to delete role',
+                    err?.statusCode || HttpStatus.BAD_REQUEST,
+                  ),
+              );
+            }),
+          ),
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to delete role',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

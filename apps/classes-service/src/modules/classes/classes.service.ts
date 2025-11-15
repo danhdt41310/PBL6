@@ -274,8 +274,9 @@ export class ClassesService {
         },
       });
     } catch (error) {
-      throw new BadRequestException('Failed to get student enrollments');
-    }  }
+      throw new BadRequestException("Failed to get student enrollments");
+    }
+  }
 
   async getStudentsOfClass(classId: number) {
     try {
@@ -316,10 +317,15 @@ export class ClassesService {
       },
     });
 
-    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id, newPost.id)
+    const data_for_save = await FileHelper.saveUploadFiles(
+      uploadFiles,
+      class_id,
+      uploader_id,
+      newPost.id
+    );
     await this.prisma.material.createMany({
-      data: data_for_save
-    })
+      data: data_for_save,
+    });
 
     return MaterialMapper.toUploadPostWithFilesDto(
       `Uploads Post successfully with ${data_for_save.length} files`,
@@ -330,21 +336,32 @@ export class ClassesService {
     );
   }
 
-  async uploadFiles(class_id: number, uploadFiles:FileInfo[], uploader_id:number){
-    
+  async uploadFiles(
+    class_id: number,
+    uploadFiles: FileInfo[],
+    uploader_id: number
+  ) {
+    console.log(uploadFiles.length);
 
-    console.log(uploadFiles.length)
-    const data_for_save = await FileHelper.saveUploadFiles(uploadFiles, class_id, uploader_id)
-
-    try{
-      await this.prisma.material.createMany({
-        data: data_for_save
-      })
-
-    return MaterialMapper.toUploadFilesOnlyDto(
-      `Uploads successfully ${data_for_save.length} files`,
+    const data_for_save = await FileHelper.saveUploadFiles(
+      uploadFiles,
       class_id,
-      data_for_save
+      uploader_id
     );
+
+    try {
+      await this.prisma.material.createMany({
+        data: data_for_save,
+      });
+
+      return MaterialMapper.toUploadFilesOnlyDto(
+        `Uploads successfully ${data_for_save.length} files`,
+        class_id,
+        data_for_save
+      );
+    } catch (error) {
+      console.error("Upload failed:", error);
+      throw new Error("Failed to upload files");
+    }
   }
 }
