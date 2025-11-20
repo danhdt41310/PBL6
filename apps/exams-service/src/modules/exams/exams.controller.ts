@@ -36,4 +36,9 @@ export class ExamsController {
   async getExamHelloWord(@Payload() data: { examId: number }) {
     return `Hello from exam ${data.examId}`;
   }
+
+  @MessagePattern('exams.findAllOf')
+  async findAllExamsOf(@Payload() data:{ class_ids: number[]}) {
+    return await this.examsService.findAllOf(data.class_ids);
+  }
 }

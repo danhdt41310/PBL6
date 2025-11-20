@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExamDto, UpdateExamDto, ExamFilterDto, ExamStatus } from './dto/create-exam.dto';
+import { Prisma } from '@prisma/exams-client';
 
 @Injectable()
 export class ExamsService {
@@ -287,6 +288,26 @@ export class ExamsService {
         },
       };
     } catch (error) {
+      throw new BadRequestException('Failed to fetch exams: ' + error.message);
+    }
+  }
+
+  async findAllOf(class_ids: number[]){
+    try{
+      const conditions: Prisma.ExamWhereInput[] = class_ids.map((class_id)=>({
+        class_id  
+      } as Prisma.ExamWhereInput))
+      const exams = await this.prisma.exam.findMany({
+        where:{
+          OR: conditions
+        },
+      })
+      return {
+        success:true,
+        data: exams,
+      };
+    }
+    catch (error){
       throw new BadRequestException('Failed to fetch exams: ' + error.message);
     }
   }
