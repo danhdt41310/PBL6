@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 // Question DTOs
@@ -582,4 +582,15 @@ export class ExamFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
+}
+
+export class ClassIdListDto{
+
+  @ApiPropertyOptional({ 
+    description: 'list of class_id that needed to find all exams related',
+    example:[1,2,3,4,10]
+  })
+  @Transform(({value})=>value.map(val=>parseInt(val)))
+  @IsInt({each:true})
+  class_ids: number[]
 }

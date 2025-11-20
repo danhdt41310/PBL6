@@ -36,6 +36,7 @@ import {
   CreateExamDto,
   UpdateExamDto,
   ExamFilterDto,
+  ClassIdListDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
@@ -99,6 +100,20 @@ export class ExamsController {
   async getAllExams(@Query(ValidationPipe) filterDto: ExamFilterDto) {
     return firstValueFrom(
       this.examsService.send('exams.findAll', filterDto)
+    )
+  }
+
+  @Get('examsOf')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get all exams of list class having list class_id',
+    description: 'Get all exams of list class having list class_id. Returns all exams that belong to list class.'
+  })
+  @ApiParam({name:'class_id', required: true, type: String, description: 'class_id of class needed to retrieve all exams' })
+  @ApiResponse({ status: 200, description: 'Exams retrieved successfully' })
+  async getAllExamsOf(@Param() class_ids: ClassIdListDto) {
+    return firstValueFrom(
+      this.examsService.send('exams.findAllOf', class_ids)
     )
   }
 
