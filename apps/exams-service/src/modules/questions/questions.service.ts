@@ -424,7 +424,7 @@ export class QuestionsService {
 
       // Process each criterion
       for (const criterion of criteria) {
-        const { category_id, type, quantity } = criterion
+        const { category_id, type, difficulty, quantity } = criterion
         summary.requested += quantity
 
         // Build the where clause
@@ -446,6 +446,11 @@ export class QuestionsService {
         // Add category filter if provided
         if (category_id) {
           where.category_id = category_id
+        }
+
+        // Add difficulty filter if provided
+        if (difficulty) {
+          where.difficulty = difficulty
         }
 
         // Only fetch public questions or questions created by the user

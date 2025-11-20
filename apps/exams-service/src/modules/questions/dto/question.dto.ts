@@ -81,11 +81,21 @@ export enum RandomQuestionType {
 }
 
 /**
+ * Question difficulty levels
+ */
+export enum RandomQuestionDifficulty {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+}
+
+/**
  * Criteria for fetching random questions
  */
 export interface RandomQuestionCriteriaDto {
   category_id?: number
   type: RandomQuestionType
+  difficulty?: RandomQuestionDifficulty
   quantity: number
 }
 

@@ -276,6 +276,7 @@ export class UsersController {
    * Update current user profile from access token
    */
   @Patch('profile')
+  @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Update current user profile',
     description: 'Update the profile of the currently authenticated user',

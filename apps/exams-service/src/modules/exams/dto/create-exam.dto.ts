@@ -40,6 +40,7 @@ export interface ExamFilterDto {
   status?: ExamStatus
   start_time?: string
   end_time?: string
+  created_by?: number
   page?: number
   limit?: number
 }
