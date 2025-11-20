@@ -550,6 +550,15 @@ export class ExamFilterDto {
   end_time?: string
 
   @ApiPropertyOptional({ 
+    description: 'Filter by creator ID',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Creator ID must be a number' })
+  @Type(() => Number)
+  created_by?: number
+
+  @ApiPropertyOptional({ 
     description: 'Page number for pagination',
     example: 1,
     minimum: 1,
@@ -585,6 +594,12 @@ export enum RandomQuestionType {
   ESSAY = 'essay',
 }
 
+export enum RandomQuestionDifficulty {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+}
+
 export class RandomQuestionCriteriaDto {
   @ApiPropertyOptional({ 
     description: 'Category ID to filter questions (optional)',
@@ -604,6 +619,15 @@ export class RandomQuestionCriteriaDto {
   @IsEnum(RandomQuestionType, { message: 'Invalid question type' })
   type: RandomQuestionType
 
+  @ApiPropertyOptional({ 
+    description: 'Difficulty level (easy, medium, hard)',
+    enum: RandomQuestionDifficulty,
+    example: RandomQuestionDifficulty.MEDIUM
+  })
+  @IsOptional()
+  @IsEnum(RandomQuestionDifficulty, { message: 'Invalid difficulty level' })
+  difficulty?: RandomQuestionDifficulty
+
   @ApiProperty({ 
     description: 'Number of questions to fetch',
     example: 10,
@@ -620,8 +644,8 @@ export class GetRandomQuestionsDto {
     description: 'Array of criteria for fetching random questions',
     type: [RandomQuestionCriteriaDto],
     example: [
-      { category_id: 1, type: 'multiple_choice', quantity: 12 },
-      { category_id: 2, type: 'true_false', quantity: 122 },
+      { category_id: 1, type: 'multiple_choice', difficulty: 'easy', quantity: 12 },
+      { category_id: 2, type: 'true_false', difficulty: 'medium', quantity: 8 },
       { type: 'essay', quantity: 5 }
     ]
   })

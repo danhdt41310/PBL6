@@ -89,10 +89,10 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: PermissionsGuard,
-    },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: PermissionsGuard,
+    // },
     {
       provide: APP_INTERCEPTOR,
       useClass: RpcErrorInterceptor, // Convert RpcException → HttpException

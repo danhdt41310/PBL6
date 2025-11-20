@@ -216,7 +216,8 @@ export class ExamsService {
         search, 
         status,
         start_time,
-        end_time
+        end_time,
+        created_by
       } = filterDto || {};
       
       const skip = (page - 1) * limit;
@@ -245,6 +246,10 @@ export class ExamsService {
 
       if (end_time) {
         where.end_time = { lte: new Date(end_time) };
+      }
+
+      if (created_by) {
+        where.created_by = created_by;
       }
 
       // Get total count
