@@ -103,7 +103,7 @@ export class ExamsController {
     )
   }
 
-  @Get('examsOf')
+  @Get('exams/of')
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all exams of list class having list class_id',

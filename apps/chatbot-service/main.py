@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from agents.EduAgent import eduAgent
 from typing import Annotated, Optional
+from tools.type.UtilScheme import UserRole
 import asyncio
 # Load environment variables
 load_dotenv()
@@ -40,7 +41,9 @@ async def health():
 async def chat(
     threadID: Annotated[str, Form()],
     userMessage: Annotated[str, Form()],
-    files: Optional[list[UploadFile]]=[]
+    user_id: Annotated[int, Form()],
+    user_role: Annotated[UserRole, Form()],
+    files: Optional[list[UploadFile]]=[],
     ):
     try:
 
@@ -63,7 +66,10 @@ async def chat(
                 content={"error": "userMessage is required"}
             )
 
-        user_message = user_message+f'\n\nList of file name:\n{'\n'.join(file_names)}'
+        user_message = user_message+f'\n\nUser information:\n   user_id:{user_id}\n    user_role:{user_role}'
+
+        if file_names:
+            user_message = user_message+f'\n\nList of file name:\n{'\n'.join(file_names)}'
 
         def generate_stream():
             try:
