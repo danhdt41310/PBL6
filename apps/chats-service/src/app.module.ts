@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MessagesModule } from './modules/messages/messages.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { EventsModule } from './modules/events/events.module';
 import { PrismaService } from './prisma/prisma.service';
 
 @Module({
@@ -11,6 +12,7 @@ import { PrismaService } from './prisma/prisma.service';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventsModule,
     MessagesModule,
     ConversationsModule,
   ],

@@ -307,14 +307,6 @@ export class QuestionFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
-
-  @ApiPropertyOptional({ 
-    description: 'Search text in question content',
-    example: 'capital'
-  })
-  @IsOptional()
-  @IsString()
-  search?: string
 }
 
 // ============================================================
@@ -358,7 +350,7 @@ export class QuestionInExamDto {
     { message: 'Points must be a valid number (up to 2 decimal places)' }
   )
   @Min(1, { message: 'Points must be at least 1' })
-  points: number;
+  points: number
 }
 
 export class CreateExamDto {
@@ -559,6 +551,15 @@ export class ExamFilterDto {
   end_time?: string
 
   @ApiPropertyOptional({ 
+    description: 'Filter by creator ID',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Creator ID must be a number' })
+  @Type(() => Number)
+  created_by?: number
+
+  @ApiPropertyOptional({ 
     description: 'Page number for pagination',
     example: 1,
     minimum: 1,
@@ -583,6 +584,109 @@ export class ExamFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
+}
+
+// ============================================================
+// RANDOM QUESTIONS DTOs
+// ============================================================
+export enum RandomQuestionType {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  ESSAY = 'essay',
+}
+
+export enum RandomQuestionDifficulty {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+}
+
+export class RandomQuestionCriteriaDto {
+  @ApiPropertyOptional({ 
+    description: 'Category ID to filter questions (optional)',
+    example: 1
+  })
+  @IsOptional()
+  @IsInt({ message: 'Category ID must be a number' })
+  @Type(() => Number)
+  category_id?: number
+
+  @ApiProperty({ 
+    description: 'Type of questions to fetch (multiple_choice, true_false, essay)',
+    enum: RandomQuestionType,
+    example: RandomQuestionType.MULTIPLE_CHOICE
+  })
+  @IsNotEmpty({ message: 'Question type is required' })
+  @IsEnum(RandomQuestionType, { message: 'Invalid question type' })
+  type: RandomQuestionType
+
+  @ApiPropertyOptional({ 
+    description: 'Difficulty level (easy, medium, hard)',
+    enum: RandomQuestionDifficulty,
+    example: RandomQuestionDifficulty.MEDIUM
+  })
+  @IsOptional()
+  @IsEnum(RandomQuestionDifficulty, { message: 'Invalid difficulty level' })
+  difficulty?: RandomQuestionDifficulty
+
+  @ApiProperty({ 
+    description: 'Number of questions to fetch',
+    example: 10,
+    minimum: 1
+  })
+  @IsNotEmpty({ message: 'Quantity is required' })
+  @IsInt({ message: 'Quantity must be a number' })
+  @Min(1, { message: 'Quantity must be at least 1' })
+  quantity: number
+}
+
+export class GetRandomQuestionsDto {
+  @ApiProperty({ 
+    description: 'Array of criteria for fetching random questions',
+    type: [RandomQuestionCriteriaDto],
+    example: [
+      { category_id: 1, type: 'multiple_choice', difficulty: 'easy', quantity: 12 },
+      { category_id: 2, type: 'true_false', difficulty: 'medium', quantity: 8 },
+      { type: 'essay', quantity: 5 }
+    ]
+  })
+  @IsArray({ message: 'Criteria must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => RandomQuestionCriteriaDto)
+  criteria: RandomQuestionCriteriaDto[]
+}
+
+// ============================================================
+// SUBMISSION DTOs (for exam taking)
+// ============================================================
+export class SubmitAnswerDto {
+  @ApiProperty({ 
+    description: 'Question ID',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Question ID is required' })
+  @IsInt({ message: 'Question ID must be a number' })
+  question_id: number
+
+  @ApiProperty({ 
+    description: 'Answer content (JSON string for multiple choice, plain text for essay)',
+    example: '["opt_1"]'
+  })
+  @IsNotEmpty({ message: 'Answer content is required' })
+  @IsString()
+  answer_content: string
+}
+
+export class UpdateRemainingTimeDto {
+  @ApiProperty({ 
+    description: 'Remaining time in seconds',
+    example: 3600,
+    minimum: 0
+  })
+  @IsNotEmpty({ message: 'Remaining time is required' })
+  @IsInt({ message: 'Remaining time must be a number' })
+  @Min(0, { message: 'Remaining time cannot be negative' })
+  remaining_time: number
 }
 
 export class ClassIdListDto{

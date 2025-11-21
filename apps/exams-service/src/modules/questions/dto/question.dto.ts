@@ -56,6 +56,10 @@ export interface UpdateQuestionCategoryDto {
   description?: string
 }
 
+export interface QuestionCategoryFilterDto {
+  search?: string
+}
+
 export interface QuestionFilterDto {
   type?: QuestionType
   difficulty?: QuestionDifficulty
@@ -65,4 +69,40 @@ export interface QuestionFilterDto {
   page?: number
   limit?: number
   search?: string
+}
+
+/**
+ * Random question types - includes true_false as separate type
+ */
+export enum RandomQuestionType {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  ESSAY = 'essay',
+}
+
+/**
+ * Question difficulty levels
+ */
+export enum RandomQuestionDifficulty {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+}
+
+/**
+ * Criteria for fetching random questions
+ */
+export interface RandomQuestionCriteriaDto {
+  category_id?: number
+  type: RandomQuestionType
+  difficulty?: RandomQuestionDifficulty
+  quantity: number
+}
+
+/**
+ * Request DTO for getting random questions
+ */
+export interface GetRandomQuestionsDto {
+  criteria: RandomQuestionCriteriaDto[]
+  userId?: number
 }
