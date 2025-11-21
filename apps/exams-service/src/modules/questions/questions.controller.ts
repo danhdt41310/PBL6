@@ -33,18 +33,18 @@ export class QuestionsController {
   }
 
   @MessagePattern('questions.categories.findOne')
-  async findCategoryById(@Payload() data: { id: number }) {
-    return await this.questionsService.findCategoryById(data.id);
+  async findCategoryById(@Payload() data: { id: number; userId?: number }) {
+    return await this.questionsService.findCategoryById(data.id, data.userId);
   }
 
   @MessagePattern('questions.categories.update')
-  async updateCategory(@Payload() data: { id: number; updateCategoryDto: UpdateQuestionCategoryDto }) {
-    return await this.questionsService.updateCategory(data.id, data.updateCategoryDto);
+  async updateCategory(@Payload() data: { id: number; updateCategoryDto: UpdateQuestionCategoryDto; userId?: number }) {
+    return await this.questionsService.updateCategory(data.id, data.updateCategoryDto, data.userId);
   }
 
   @MessagePattern('questions.categories.delete')
-  async deleteCategory(@Payload() data: { id: number }) {
-    return await this.questionsService.deleteCategory(data.id);
+  async deleteCategory(@Payload() data: { id: number; userId?: number }) {
+    return await this.questionsService.deleteCategory(data.id, data.userId);
   }
 
   // ============================================================

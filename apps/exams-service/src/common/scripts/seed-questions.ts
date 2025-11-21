@@ -6,16 +6,29 @@ const prisma = new PrismaClient({
   datasourceUrl: process.env.EXAMS_DATABASE_URL,
 })
 
+// Default admin/teacher user ID
+const DEFAULT_CREATED_BY = 1
+
+// Helper function to convert old format to new format
+// Old: { id: 'a', text: 'Answer', is_correct: true }
+// New: { id: 'a', text: '=Answer' } or { id: 'a', text: '~Answer' }
+function convertAnswerFormat(answers: any[]): any[] {
+  return answers.map(answer => ({
+    id: answer.id,
+    text: (answer.is_correct ? '=' : '~') + answer.text
+  }))
+}
+
 // Categories data
 const categories = [
-  { name: 'OOP', description: 'Object-Oriented Programming concepts and principles' },
-  { name: 'HTML', description: 'HyperText Markup Language for web structure' },
-  { name: 'CSS', description: 'Cascading Style Sheets for web styling' },
-  { name: 'JavaScript', description: 'JavaScript programming language' },
-  { name: 'PHP', description: 'PHP: Hypertext Preprocessor server-side scripting' },
-  { name: 'Java', description: 'Java programming language' },
-  { name: 'C', description: 'C programming language' },
-  { name: 'C++', description: 'C++ programming language' },
+  { name: 'OOP', description: 'Object-Oriented Programming concepts and principles', created_by: DEFAULT_CREATED_BY },
+  { name: 'HTML', description: 'HyperText Markup Language for web structure', created_by: DEFAULT_CREATED_BY },
+  { name: 'CSS', description: 'Cascading Style Sheets for web styling', created_by: DEFAULT_CREATED_BY },
+  { name: 'JavaScript', description: 'JavaScript programming language', created_by: DEFAULT_CREATED_BY },
+  { name: 'PHP', description: 'PHP: Hypertext Preprocessor server-side scripting', created_by: DEFAULT_CREATED_BY },
+  { name: 'Java', description: 'Java programming language', created_by: DEFAULT_CREATED_BY },
+  { name: 'C', description: 'C programming language', created_by: DEFAULT_CREATED_BY },
+  { name: 'C++', description: 'C++ programming language', created_by: DEFAULT_CREATED_BY },
 ]
 
 // Sample questions data
@@ -1474,7 +1487,12 @@ async function seedQuestionCategories() {
   try {
     for (const category of categories) {
       await prisma.questionCategory.upsert({
-        where: { name: category.name },
+        where: { 
+          name_created_by: {
+            name: category.name,
+            created_by: category.created_by
+          }
+        },
         update: { description: category.description },
         create: category,
       })
@@ -1523,13 +1541,21 @@ async function seedQuestions() {
         continue
       }
 
+      // Convert options format if they exist
+      let convertedOptions = null
+      if (questionData.options?.answers) {
+        convertedOptions = {
+          answers: convertAnswerFormat(questionData.options.answers)
+        }
+      }
+
       const questionToCreate = {
         content: questionData.content,
         type: questionData.type,
         difficulty: questionData.difficulty || QuestionDifficulty.medium,
         category_id: categoryId,
         is_multiple_answer: questionData.is_multiple_answer || false,
-        options: questionData.options || null,
+        options: convertedOptions,
         created_by: defaultCreatedBy,
         is_public: questionData.is_public || true,
       }
