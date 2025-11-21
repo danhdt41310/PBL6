@@ -59,7 +59,7 @@ export class ClassesController {
     return await this.classesService.getAllClassesOfStudent(data.user_id);
   }
 
-  @MessagePattern('classes.get_all_classes_of_student')
+  @MessagePattern('classes.get_all_classes_of_teacher')
   async getAllClassesOfTeacher(@Payload() data : {user_id: number}){
     return await this.classesService.getAllClassesOfTeacher(data.user_id);
   }

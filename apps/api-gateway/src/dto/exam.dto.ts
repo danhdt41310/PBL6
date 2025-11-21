@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
 import { Transform, Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { Optional } from '@nestjs/common'
 
 // Question DTOs
 export enum QuestionType {
@@ -590,7 +591,7 @@ export class ClassIdListDto{
     description: 'list of class_id that needed to find all exams related',
     example:[1,2,3,4,10]
   })
-  @Transform(({value})=>value.map(val=>parseInt(val)))
-  @IsInt({each:true})
+  @IsArray()
+  @Transform(({value})=>value.map(v=>parseInt(v)))
   class_ids: number[]
 }

@@ -77,6 +77,6 @@ def summaryFile( file_name: str)->SummaryFileOutput:
 
 
 def test():
-    res = summaryFile.invoke({'file_name':'VitOn.docx','user_id':19,'class_id':1})
+    res = summaryFile.invoke({'file_name':'VitOn.docx'})
     print(res)
     

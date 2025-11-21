@@ -5,6 +5,7 @@ import { AddStudentsDto, CreateClassDto, UpdateClassDto } from '../dto/class.dto
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { FilesOnlyDto, PostCreateDto, PostWithFilesDto } from '../dto/material.dto';
+import { SkipPermissionCheck } from 'src/common/decorators/skip-permission-check.decorator';
 
 @ApiTags('classes')
 @ApiBearerAuth('JWT-auth')
@@ -273,6 +274,7 @@ export class ClassesController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'Classes not found' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
+  @SkipPermissionCheck()
   async getAllClassesOfTeacher(@Param('id', ParseIntPipe) id: number, @Param('role') role:string){
     try {
       if (role!=='student' && role!=='teacher'){

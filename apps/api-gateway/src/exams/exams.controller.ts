@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -103,18 +104,19 @@ export class ExamsController {
     )
   }
 
-  @Get('exams/of')
+  @Post('exams/of')
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all exams of list class having list class_id',
     description: 'Get all exams of list class having list class_id. Returns all exams that belong to list class.'
   })
-  @ApiParam({name:'class_id', required: true, type: String, description: 'class_id of class needed to retrieve all exams' })
   @ApiResponse({ status: 200, description: 'Exams retrieved successfully' })
-  async getAllExamsOf(@Param() class_ids: ClassIdListDto) {
+  async getAllExamsOf(@Body() data: ClassIdListDto) {
+    console.log(data)
     return firstValueFrom(
-      this.examsService.send('exams.findAllOf', class_ids)
+      this.examsService.send('exams.findAllOf', data)
     )
+    
   }
 
   @Get('exams/:id')

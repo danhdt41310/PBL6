@@ -2,9 +2,9 @@ from pydantic import BaseModel, Field
 from enum import Enum
 # ---------------------------------------------------------
 
-class UserRole(Enum):
-    STUDENT='student'
-    TEACHER='teacher'
+class UserRole(str, Enum):
+    STUDENT="student"
+    TEACHER="teacher"
 
 class SummaryFileInput(BaseModel):
     file_name: str = Field(...,description='name of file (include file extension) need to be summarized')

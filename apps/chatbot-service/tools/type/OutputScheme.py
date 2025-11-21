@@ -5,5 +5,5 @@ class SummaryFileOutput(BaseModel):
     error: str|None
 
 class ExamScheduleOutput(BaseModel):
-    exams: dict[str, str]|None
+    exams: list[dict[str,str|int]]|None
     error: str|None
