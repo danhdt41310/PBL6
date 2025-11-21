@@ -109,6 +109,75 @@ export class ExamsController {
     )
   }
 
+  @Get('students/exams')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get exams for current student',
+    description: 'Get paginated list of exams that the current student can access based on their enrolled classes. Includes submission status if student has started the exam.'
+  })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in exam title or description' })
+  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled'], description: 'Filter by exam status' })
+  @ApiQuery({ name: 'start_time', required: false, type: String, description: 'Filter exams with start_time >= this value (ISO 8601)' })
+  @ApiQuery({ name: 'end_time', required: false, type: String, description: 'Filter exams with end_time <= this value (ISO 8601)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Student exams retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            exam_id: 1,
+            class_id: 1,
+            title: 'Midterm Exam',
+            start_time: '2024-01-15T09:00:00.000Z',
+            end_time: '2024-01-15T11:00:00.000Z',
+            total_time: 120,
+            description: 'Midterm examination',
+            status: 'published',
+            created_by: 1,
+            created_at: '2024-01-01T00:00:00.000Z',
+            question_exams: [],
+            submissions: [
+              {
+                submission_id: 1,
+                status: 'in_progress',
+                score: null,
+                submitted_at: '2024-01-15T09:05:00.000Z',
+                remaining_time: 6900,
+                current_question_order: 3
+              }
+            ],
+            _count: {
+              submissions: 5
+            }
+          }
+        ],
+        pagination: {
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid parameters' })
+  async getStudentExams(
+    @Query(ValidationPipe) filterDto: ExamFilterDto,
+    @Req() req: RequestWithUser
+  ) {
+    const studentId = req.user?.userId;
+    if (!studentId) {
+      throw new BadRequestException('Student ID not found in token');
+    }
+
+    return firstValueFrom(
+      this.examsService.send('exams.findByStudentId', { studentId, filterDto })
+    );
+  }
+
   @Get('exams/:id')
   @SkipPermissionCheck()
   @ApiOperation({ 
