@@ -239,7 +239,8 @@ export class ExamsController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
   async createCategory(
-    @Body(ValidationPipe) createCategoryDto: CreateQuestionCategoryDto
+    @Body(ValidationPipe) createCategoryDto: CreateQuestionCategoryDto,
+    @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
       this.examsService.send('questions.categories.create', createCategoryDto)
@@ -250,7 +251,7 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all question categories',
-    description: 'Get list of all question categories with question count. Supports search by name.'
+    description: 'Get list of question categories created by the current user with question count. Supports search by name.'
   })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by category name (case-insensitive)' })
   @ApiResponse({ 
@@ -262,6 +263,7 @@ export class ExamsController {
           category_id: 1,
           name: 'Mathematics',
           description: 'Math questions',
+          created_by: 1,
           created_at: '2024-01-01T00:00:00.000Z',
           updated_at: '2024-01-01T00:00:00.000Z',
           question_count: 15
@@ -269,57 +271,86 @@ export class ExamsController {
       ]
     }
   })
-  async getAllCategories(@Query('search') search?: string) {
-    return firstValueFrom(
-      this.examsService.send('questions.categories.findAll', { search })
+  async getAllCategories(
+    @Query('search') search?: string,
+    @Req() req?: RequestWithUser
+  ) {
+    // If user not authenticated, return empty array
+      if (!req?.user?.userId) {
+      return []
+    }
+
+    const result = await firstValueFrom(
+      this.examsService.send('questions.categories.findAll', { 
+        search,
+        created_by: req.user.userId 
+      })
     )
+    return result
   }
 
   @Get('question-categories/:id')
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get category by ID',
-    description: 'Get detailed information about a category'
+    description: 'Get detailed information about a category (only if owned by current user)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  async getCategoryById(@Param('id', ParseIntPipe) id: number) {
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
+  async getCategoryById(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser
+  ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.findOne', { id })
+      this.examsService.send('questions.categories.findOne', { 
+        id,
+        userId: req.user?.userId 
+      })
     )
   }
 
   @Put('question-categories/:id')
   @ApiOperation({ 
     summary: 'Update category',
-    description: 'Update an existing question category'
+    description: 'Update an existing question category (only creator can update)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async updateCategory(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateCategoryDto: UpdateQuestionCategoryDto,
+    @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.update', { id, updateCategoryDto })
+      this.examsService.send('questions.categories.update', { 
+        id, 
+        updateCategoryDto,
+        userId: req.user?.userId 
+      })
     )
   }
 
   @Delete('question-categories/:id')
   @ApiOperation({ 
     summary: 'Delete category',
-    description: 'Delete a category (only if no questions use it)'
+    description: 'Delete a category (only if no questions use it and only creator can delete)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
   @ApiResponse({ status: 400, description: 'Category has questions' })
-  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+  async deleteCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser
+  ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.delete', { id })
+      this.examsService.send('questions.categories.delete', { 
+        id,
+        userId: req.user?.userId 
+      })
     )
   }
 
@@ -340,14 +371,8 @@ export class ExamsController {
     @Body(ValidationPipe) createQuestionDto: CreateQuestionDto,
     @Req() req: RequestWithUser
   ) {
-    // Set creator from JWT token
-    const questionData = {
-      ...createQuestionDto,
-      created_by: req.user?.userId || createQuestionDto.created_by,
-    }
-    
     return firstValueFrom(
-      this.examsService.send('questions.create', questionData)
+      this.examsService.send('questions.create', createQuestionDto)
     )
   }
 
@@ -369,14 +394,29 @@ export class ExamsController {
     @Query(ValidationPipe) filterDto: QuestionFilterDto,
     @Req() req: RequestWithUser
   ) {
-    // If not admin, only show questions created by user or public questions
-    // if (req.user?.role !== 'admin') {
-    //   filterDto.created_by = req.user?.userId
-    // }
+    // If user not authenticated, return empty result
+    if (!req.user?.userId) {
+      console.log('[getAllQuestions] No userId, returning empty result')
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 0,
+        },
+      }
+    }
+
+    const queryFilter = {
+      ...filterDto,
+      created_by: req.user.userId,
+    }
     
-    return firstValueFrom(
-      this.examsService.send('questions.findAll', filterDto)
+    const result = await firstValueFrom(
+      this.examsService.send('questions.findAll', queryFilter)
     )
+    return result
   }
 
   @Get('questions/:id')

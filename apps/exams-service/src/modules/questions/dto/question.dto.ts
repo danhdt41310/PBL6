@@ -17,12 +17,14 @@ export enum QuestionDifficulty {
 
 /**
  * Options for multiple choice questions
- * Example: { id: 'OOP', content: 'Encapsulation', is_correct: true }
+ * Text uses prefix to indicate correctness:
+ * - "=" prefix for correct answer
+ * - "~" prefix for incorrect answer
+ * Example: { id: 1, text: '=Encapsulation' } or { id: 2, text: '~Inheritance' }
  */
 export interface QuestionOptionDto {
-  id: string
-  content: string
-  is_correct: boolean
+  id: number
+  text: string
 }
 
 export interface CreateQuestionDto {
@@ -49,6 +51,7 @@ export interface UpdateQuestionDto {
 export interface CreateQuestionCategoryDto {
   name: string
   description?: string
+  created_by: number
 }
 
 export interface UpdateQuestionCategoryDto {
@@ -58,6 +61,7 @@ export interface UpdateQuestionCategoryDto {
 
 export interface QuestionCategoryFilterDto {
   search?: string
+  created_by?: number
 }
 
 export interface QuestionFilterDto {

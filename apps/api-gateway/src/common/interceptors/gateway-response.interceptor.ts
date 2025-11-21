@@ -133,7 +133,17 @@ export class GatewayResponseInterceptor<T> implements NestInterceptor<T, IApiRes
     if (hasData && !hasMessage) {
       const { data, ...otherFields } = obj
       
-      // Merge additional fields into data
+      // If have pagination fields (meta/pagination), keep the entire structure as data
+      const hasPaginationFields = Object.keys(otherFields).some(key => 
+        key === 'meta' || key === 'pagination'
+      )
+      
+      if (hasPaginationFields) {
+        // Return the entire paginated structure as data: { data: [...], meta: {...} }
+        return ApiResponseBuilder.success<T>(obj as T, 'Operation successful')
+      }
+      
+      // Otherwise merge additional fields into data
       const finalData = this.mergeData(data, otherFields)
       
       return ApiResponseBuilder.success<T>(finalData as T, 'Operation successful')
@@ -170,8 +180,9 @@ export class GatewayResponseInterceptor<T> implements NestInterceptor<T, IApiRes
   }
 
   /**
-   * Merge additional fields into data
-   * Handles cases where data might be null, primitive, object, or array
+   * Merge additional fields into data.
+   * Handles cases where data might be null, primitive, object, or array.
+   * Special handling for pagination responses.
    */
   private mergeData(data: unknown, otherFields: Record<string, any>): unknown {
     const otherKeys = Object.keys(otherFields)
@@ -181,16 +192,29 @@ export class GatewayResponseInterceptor<T> implements NestInterceptor<T, IApiRes
       return data
     }
 
+    // Check if otherFields contains pagination metadata
+    const hasPaginationFields = otherKeys.some(key => 
+      key === 'meta' || key === 'pagination'
+    )
+
     // Data is null/undefined - return other fields as data
     if (data === null || data === undefined) {
       return otherFields
     }
 
-    // Data is primitive or array - wrap in object with data field
+    // If we have pagination fields alongside data array, preserve the structure
+    if (hasPaginationFields && Array.isArray(data)) {
+      return {
+        data,
+        ...otherFields,
+      }
+    }
+
+    // Data is primitive or array (non-pagination case) - wrap in object with data field
     if (this.isPrimitive(data) || Array.isArray(data)) {
       return {
         ...otherFields,
-        value: data, // Use 'value' to avoid confusion
+        data,
       }
     }
 
