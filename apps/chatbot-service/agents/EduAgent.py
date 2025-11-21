@@ -24,6 +24,7 @@ Important:
 - Be concise, factual, and helpful.
 - Ask clarifying questions if input is unclear.
 - Cite sources when retrieving online information.
+- Always using Vietnamese for answer except for cases that you are required to use another language
 """
 
 
