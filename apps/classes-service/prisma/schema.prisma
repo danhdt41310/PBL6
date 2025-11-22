@@ -45,6 +45,10 @@ model Post {
   
   class     Class      @relation(fields: [class_id], references: [class_id], onDelete: Cascade)
   materials Material[]
+  
+  // Self-relation for replies
+  parent    Post?      @relation("PostReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies   Post[]     @relation("PostReplies")
 
   @@map("posts")
 }

@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { ChatsModule } from './chats/chats.module';
 import { ClassesModule } from './classes/classes.module';
+import { MaterialsModule } from './materials/materials.module';
 import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -83,16 +84,17 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
     ProductsModule,
     ChatsModule,
     ClassesModule,
+    MaterialsModule,
     ExamsModule,
     MeetingsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: PermissionsGuard,
-    },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: PermissionsGuard,
+    // },
     {
       provide: APP_INTERCEPTOR,
       useClass: RpcErrorInterceptor, // Convert RpcException → HttpException

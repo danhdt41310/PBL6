@@ -53,6 +53,9 @@ export class MessagesService {
           conversation_id: data.conversation_id,
           message_type: data.message_type,
           content: data.content,
+          file_url: data.file_url,
+          file_name: data.file_name,
+          file_size: data.file_size,
         },
         include: {
           conversation: true,
@@ -434,6 +437,9 @@ export class MessagesService {
       message_type: message.message_type,
       content: message.content,
       is_read: message.is_read ?? false,
+      file_url: message.file_url,
+      file_name: message.file_name,
+      file_size: message.file_size,
       conversation: message.conversation
         ? {
             id: message.conversation.id,

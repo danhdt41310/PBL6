@@ -13,7 +13,17 @@ import {
   UseGuards, // Giữ lại vì có thể cần cho AuthGuard
   HttpException, // Cần cho việc throw HttpException
   HttpStatus, // Cần cho việc throw HttpException
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import * as fs from 'fs';
+import { promisify } from 'util';
 import { ClientProxy } from '@nestjs/microservices';
 import { Observable, firstValueFrom, throwError, TimeoutError } from 'rxjs'; // Thêm throwError, TimeoutError
 import { timeout, catchError } from 'rxjs/operators'; // Thêm timeout, catchError
@@ -35,6 +45,19 @@ import {
   PaginationQueryDto as ConversationPaginationDto,
 } from '../dto/conversation.dto';
 import { ChatsGateway } from './chats.gateway';
+
+const unlinkAsync = promisify(fs.unlink);
+
+// Multer storage configuration for chat files
+const chatFileStorage = diskStorage({
+  destination: '/app/uploads/chat-files',
+  filename: (req, file, callback) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = extname(file.originalname);
+    const filename = `chat-${uniqueSuffix}${ext}`;
+    callback(null, filename);
+  },
+});
 
 @ApiTags('chats')
 @ApiBearerAuth('JWT-auth')
@@ -827,6 +850,113 @@ export class ChatsController {
       }
       throw new HttpException(
         'Failed to delete conversation',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==================== File Upload Endpoints ====================
+
+  @Post('upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: chatFileStorage,
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB
+      },
+      fileFilter: (req, file, callback) => {
+        // Allow common file types
+        const allowedMimes = [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'video/mp4',
+          'video/webm',
+          'application/zip',
+        ];
+
+        if (allowedMimes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(
+              `File type ${file.mimetype} is not allowed`,
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload file for chat',
+    description: 'Upload a file to be sent in chat message',
+  })
+  @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file type' })
+  async uploadChatFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return {
+      success: true,
+      file_url: `/chats/download/${file.filename}`,
+      file_name: file.originalname,
+      file_size: file.size,
+      mime_type: file.mimetype,
+    };
+  }
+
+  @Get('download/:filename')
+  @ApiOperation({
+    summary: 'Download chat file',
+    description: 'Download a file from chat messages',
+  })
+  @ApiResponse({ status: 200, description: 'File downloaded successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  async downloadChatFile(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    try {
+      console.log('📥 Download request for file:', filename);
+
+      const filePath = join('/app', 'uploads', 'chat-files', filename);
+      console.log('📥 Full path:', filePath);
+
+      if (!fs.existsSync(filePath)) {
+        console.error('❌ File not found:', filePath);
+        throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+      }
+
+      const stat = fs.statSync(filePath);
+      console.log('✅ File found, size:', stat.size);
+
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Length', stat.size);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${encodeURIComponent(filename)}"`,
+      );
+
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      console.log('✅ File stream sent');
+    } catch (error) {
+      console.error('❌ Download error:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to download file',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

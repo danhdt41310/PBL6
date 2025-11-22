@@ -737,6 +737,33 @@ export class UsersController {
     }
   }
 
+  @Post('search-by-name-or-email')
+  async searchUsersByNameOrEmail(
+    @Body() body: { searchPattern: string; excludeUserId?: number },
+  ) {
+    try {
+      return await this.usersClient
+        .send('users.search_by_name_or_email', body)
+        .pipe(
+          timeout(5000),
+          catchError((err) => {
+            return throwError(
+              () => new HttpException('Users not found', HttpStatus.NOT_FOUND),
+            );
+          }),
+        )
+        .toPromise();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Search failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /**
    * Create/assign permissions to roles
    * Admin only endpoint for role permission management
