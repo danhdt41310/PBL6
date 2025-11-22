@@ -124,6 +124,9 @@ export class AppModule implements NestModule {
         { path: '/', method: RequestMethod.GET },
         { path: 'users/hello', method: RequestMethod.GET },
         { path: 'admin/*', method: RequestMethod.ALL },
+        // for chat bot check
+        { path: 'classes/of/:role/:id', method: RequestMethod.GET},
+        { path: 'exams/of', method: RequestMethod.POST},
       )
       .forRoutes('*');
   }

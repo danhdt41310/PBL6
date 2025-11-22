@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -37,6 +38,7 @@ import {
   CreateExamDto,
   UpdateExamDto,
   ExamFilterDto,
+  ClassIdListDto,
   GetRandomQuestionsDto,
   SubmitAnswerDto,
   UpdateRemainingTimeDto,
@@ -170,7 +172,7 @@ export class ExamsController {
     if (!studentId) {
       throw new BadRequestException('Student ID not found in token');
     }
-    
+
     return firstValueFrom(
       this.examsService.send('exams.findByStudentId', { studentId, filterDto })
     );
