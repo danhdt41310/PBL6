@@ -24,8 +24,9 @@ export class QuestionsService {
     return tx || this.prisma
   }
 
-  // =============== QUESTION CATEGORIES ===============
-  
+  // ============================================================
+  // QUESTION CATEGORIES
+  // ============================================================
   async createCategory(createCategoryDto: CreateQuestionCategoryDto) {
     try {
       console.log('Creating category with name:', createCategoryDto)
@@ -35,15 +36,23 @@ export class QuestionsService {
       return category
     } catch (error) {
       if (error.code === 'P2002') {
-        throw new BadRequestException('Category name already exists')
+        throw new BadRequestException('You already have a category with this name')
       }
       throw new BadRequestException('Failed to create category: ' + error.message)
     }
   }
 
   async findAllCategories(filterDto?: QuestionCategoryFilterDto) {
+    console.log('[Service findAllCategories] Called with:', filterDto)
     try {
       const where: any = {}
+
+      // Filter by created_by to show only user's categories
+      if (!filterDto?.created_by) {
+        // Return empty array if no user specified
+        return []
+      }
+      where.created_by = filterDto.created_by
 
       // Add search filter if provided
       if (filterDto?.search) {
@@ -75,8 +84,13 @@ export class QuestionsService {
     }
   }
 
-  async findCategoryById(id: number) {
+  async findCategoryById(id: number, userId?: number) {
     try {
+      // Validate ownership
+      if (userId === undefined) {
+        throw new BadRequestException('userId is required to fetch category')
+      }
+
       const category = await this.prisma.questionCategory.findUnique({
         where: { category_id: id },
         include: {
@@ -90,18 +104,24 @@ export class QuestionsService {
         throw new NotFoundException(`Category with ID ${id} not found`)
       }
 
+      // Check ownership
+      if (category.created_by !== userId) {
+        throw new NotFoundException(`Category with ID ${id} not found or you don't have access`)
+      }
+
       return category
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error
       }
       throw new BadRequestException('Failed to fetch category: ' + error.message)
     }
   }
 
-  async updateCategory(id: number, updateCategoryDto: UpdateQuestionCategoryDto) {
+  async updateCategory(id: number, updateCategoryDto: UpdateQuestionCategoryDto, userId?: number) {
     try {
-      await this.findCategoryById(id)
+      // Validate ownership
+      await this.findCategoryById(id, userId)
 
       const category = await this.prisma.questionCategory.update({
         where: { category_id: id },
@@ -110,19 +130,21 @@ export class QuestionsService {
 
       return category
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error
       }
+      // Check for unique constraint violation
       if (error.code === 'P2002') {
-        throw new BadRequestException('Category name already exists')
+        throw new BadRequestException('You already have a category with this name')
       }
       throw new BadRequestException('Failed to update category: ' + error.message)
     }
   }
 
-  async deleteCategory(id: number) {
+  async deleteCategory(id: number, userId?: number) {
     try {
-      const category = await this.findCategoryById(id)
+      // Validate ownership
+      const category = await this.findCategoryById(id, userId)
 
       // Check if category has questions
       if (category._count.questions > 0) {
@@ -144,29 +166,39 @@ export class QuestionsService {
     }
   }
 
-  // =============== QUESTIONS ===============
-
+  // ============================================================
+  // QUESTIONS
+  // ============================================================
   async createQuestion(createQuestionDto: CreateQuestionDto) {
     try {
-      // Validate options for multiple choice questions
+      // Validate category ownership if provided
+      if (createQuestionDto.category_id) {
+        await this.findCategoryById(createQuestionDto.category_id, createQuestionDto.created_by)
+      }
+
+      // Validate options for multiple choice questions (new format with prefix)
       if (createQuestionDto.type === 'multiple_choice') {
         if (!createQuestionDto.options || createQuestionDto.options.length < 2) {
           throw new BadRequestException('Multiple choice questions must have at least 2 options')
         }
         
-        const correctAnswers = createQuestionDto.options.filter(opt => opt.is_correct)
+        // Check for correct answers (at least one option has prefix with =)
+        const correctAnswers = createQuestionDto.options.filter(opt => opt.text.startsWith('='))
         if (correctAnswers.length === 0) {
-          throw new BadRequestException('At least one option must be marked as correct')
+          throw new BadRequestException('At least one option must be marked as correct (prefix with =)')
         }
         
+        // Check single answer can only have one correct option
         if (!createQuestionDto.is_multiple_answer && correctAnswers.length > 1) {
           throw new BadRequestException('Single answer questions can only have one correct option')
         }
-      }
 
-      // Validate category exists if provided
-      if (createQuestionDto.category_id) {
-        await this.findCategoryById(createQuestionDto.category_id)
+        // Validate all options have valid prefix (= or ~)
+        for (const opt of createQuestionDto.options) {
+          if (!opt.text.startsWith('=') && !opt.text.startsWith('~')) {
+            throw new BadRequestException('All options must start with = (correct) or ~ (incorrect)')
+          }
+        }
       }
 
       const question = await this.prisma.question.create({
@@ -202,6 +234,21 @@ export class QuestionsService {
 
       const where: any = {}
 
+      // Filter by created_by to show only user's questions
+      if (!filterDto.created_by) {
+        // Return empty result if no user specified
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        }
+      }
+      where.created_by = filterDto.created_by
+
       if (filterDto.type) {
         where.type = filterDto.type
       }
@@ -212,10 +259,6 @@ export class QuestionsService {
 
       if (filterDto.category_id) {
         where.category_id = filterDto.category_id
-      }
-
-      if (filterDto.created_by) {
-        where.created_by = filterDto.created_by
       }
 
       if (filterDto.is_public !== undefined) {
@@ -302,12 +345,12 @@ export class QuestionsService {
         throw new NotFoundException(`Question with ID ${id} not found`)
       }
 
-      // Validate category exists if being updated
+      // Validate category ownership if being updated
       if (updateQuestionDto.category_id) {
-        await this.findCategoryById(updateQuestionDto.category_id)
+        await this.findCategoryById(updateQuestionDto.category_id, existingQuestion.created_by)
       }
 
-      // Validate options if updating multiple choice question
+      // Validate options if updating multiple choice question (new format with prefix)
       if (updateQuestionDto.type === 'multiple_choice' || 
           (existingQuestion.type === 'multiple_choice' && updateQuestionDto.options)) {
         if (updateQuestionDto.options && updateQuestionDto.options.length < 2) {
@@ -315,9 +358,10 @@ export class QuestionsService {
         }
         
         if (updateQuestionDto.options) {
-          const correctAnswers = updateQuestionDto.options.filter(opt => opt.is_correct)
+          // Check for correct answers (prefix with =)
+          const correctAnswers = updateQuestionDto.options.filter(opt => opt.text.startsWith('='))
           if (correctAnswers.length === 0) {
-            throw new BadRequestException('At least one option must be marked as correct')
+            throw new BadRequestException('At least one option must be marked as correct (prefix with =)')
           }
           
           const isMultipleAnswer = updateQuestionDto.is_multiple_answer !== undefined 
@@ -327,14 +371,30 @@ export class QuestionsService {
           if (!isMultipleAnswer && correctAnswers.length > 1) {
             throw new BadRequestException('Single answer questions can only have one correct option')
           }
+
+          // Validate all options have valid prefix (= or ~)
+          for (const opt of updateQuestionDto.options) {
+            if (!opt.text.startsWith('=') && !opt.text.startsWith('~')) {
+              throw new BadRequestException('All options must start with = (correct) or ~ (incorrect)')
+            }
+          }
         }
       }
 
+      // Prepare update data with proper category relation handling
+      const { category_id, ...restDto } = updateQuestionDto
+      
       const question = await this.prisma.question.update({
         where: { question_id: id },
         data: {
-          ...updateQuestionDto,
+          ...restDto,
           options: updateQuestionDto.options as any,
+          // Handle category relation: connect if provided, disconnect if null/undefined
+          ...(category_id !== undefined && {
+            category: category_id 
+              ? { connect: { category_id } }
+              : { disconnect: true }
+          }),
         },
         include: {
           category: true,
@@ -357,11 +417,19 @@ export class QuestionsService {
         where: { question_id: id },
         include: {
           question_exams: true,
+          submission_answers: true,
         },
       })
 
       if (!question) {
         throw new NotFoundException(`Question with ID ${id} not found`)
+      }
+
+      // Check if question has any submission answers
+      if (question.submission_answers.length > 0) {
+        throw new BadRequestException(
+          'Cannot delete question because it has been answered in one or more submissions'
+        )
       }
 
       // Check if question is being used in any exam
@@ -380,6 +448,7 @@ export class QuestionsService {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error
       }
+      console.error('Error deleting question:', error)
       throw new BadRequestException('Failed to delete question: ' + error.message)
     }
   }

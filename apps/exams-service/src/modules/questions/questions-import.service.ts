@@ -114,14 +114,22 @@ export class QuestionsImportService {
             let categoryId: number | null = null;
             if (data.category_name && data.category_name.trim() !== '') {
               const category = await tx.questionCategory.upsert({
-                where: { name: data.category_name.trim() },
+                where: { 
+                  name_created_by: {
+                    name: data.category_name.trim(),
+                    created_by: createdBy,
+                  }
+                },
                 update: {},
-                create: { name: data.category_name.trim() },
+                create: { 
+                  name: data.category_name.trim(),
+                  created_by: createdBy,
+                },
               });
               categoryId = category.category_id;
             }
 
-            // Build options JSON
+            // Build options JSON (new format with prefix)
             let options = null;
             if (data.type === 'multiple_choice') {
               const optionTexts = [
@@ -153,13 +161,15 @@ export class QuestionsImportService {
                 .map((a) => parseInt(a.trim()))
                 .filter((a) => !isNaN(a) && a > 0);
 
-              options = {
-                answers: optionTexts.map((text, index) => ({
-                  id: index + 1, // Use number instead of letter
-                  text: text.trim(),
-                  is_correct: correctAnswers.includes(index + 1),
-                })),
-              };
+              // Build options with new format (prefix = for correct, ~ for incorrect)
+              options = optionTexts.map((text, index) => {
+                const isCorrect = correctAnswers.includes(index + 1);
+                const prefix = isCorrect ? '=' : '~';
+                return {
+                  id: index + 1,
+                  text: `${prefix}${text.trim()}`,
+                };
+              });
             }
 
             // Create question

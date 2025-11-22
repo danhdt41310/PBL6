@@ -17,28 +17,21 @@ export enum QuestionDifficulty {
 
 export class QuestionOptionDto {
   @ApiProperty({ 
-    description: 'Unique identifier for the option',
-    example: 'opt_1'
+    description: 'Unique identifier for the option (auto-assigned)',
+    example: 1
   })
   @IsNotEmpty({ message: 'Option ID is required' })
-  @IsString()
-  id: string
+  @IsNumber()
+  id: number
 
   @ApiProperty({ 
-    description: 'Content of the option',
-    example: 'Paris'
+    description: 'Option text with prefix: "=" for correct, "~" for incorrect',
+    example: '=Encapsulation'
   })
-  @IsNotEmpty({ message: 'Option content is required' })
+  @IsNotEmpty({ message: 'Option text is required' })
   @IsString()
-  @MinLength(1, { message: 'Option content must not be empty' })
-  content: string
-
-  @ApiProperty({ 
-    description: 'Whether this option is correct',
-    example: true
-  })
-  @IsBoolean()
-  is_correct: boolean
+  @MinLength(2, { message: 'Option text must not be empty (minimum 2 chars including prefix)' })
+  text: string
 }
 
 // ============================================================
@@ -62,6 +55,14 @@ export class CreateQuestionCategoryDto {
   @IsOptional()
   @IsString()
   description?: string
+
+  @ApiProperty({ 
+    description: 'User ID who created this category',
+    example: 1
+  })
+  @IsNotEmpty({ message: 'Creator ID is required' })
+  @IsInt()
+  created_by: number
 }
 
 export class UpdateQuestionCategoryDto {
@@ -150,7 +151,7 @@ export class CreateQuestionDto {
   options?: QuestionOptionDto[]
 
   @ApiProperty({ 
-    description: 'User ID who created this question (auto-filled from JWT)',
+    description: 'User ID who created this question',
     example: 1
   })
   @IsNotEmpty({ message: 'Creator ID is required' })

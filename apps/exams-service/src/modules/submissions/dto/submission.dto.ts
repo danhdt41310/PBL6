@@ -32,3 +32,8 @@ export class SubmitAnswerDto {
 export class UpdateRemainingTimeDto {
   remaining_time: number; // in seconds
 }
+
+export class PaginationDto {
+  page?: number; // Current page number (1-based)
+  limit?: number; // Number of items per page
+}

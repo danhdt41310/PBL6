@@ -242,7 +242,8 @@ export class ExamsController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
   async createCategory(
-    @Body(ValidationPipe) createCategoryDto: CreateQuestionCategoryDto
+    @Body(ValidationPipe) createCategoryDto: CreateQuestionCategoryDto,
+    @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
       this.examsService.send('questions.categories.create', createCategoryDto)
@@ -253,7 +254,7 @@ export class ExamsController {
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get all question categories',
-    description: 'Get list of all question categories with question count. Supports search by name.'
+    description: 'Get list of question categories created by the current user with question count. Supports search by name.'
   })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by category name (case-insensitive)' })
   @ApiResponse({ 
@@ -265,6 +266,7 @@ export class ExamsController {
           category_id: 1,
           name: 'Mathematics',
           description: 'Math questions',
+          created_by: 1,
           created_at: '2024-01-01T00:00:00.000Z',
           updated_at: '2024-01-01T00:00:00.000Z',
           question_count: 15
@@ -272,57 +274,86 @@ export class ExamsController {
       ]
     }
   })
-  async getAllCategories(@Query('search') search?: string) {
-    return firstValueFrom(
-      this.examsService.send('questions.categories.findAll', { search })
+  async getAllCategories(
+    @Query('search') search?: string,
+    @Req() req?: RequestWithUser
+  ) {
+    // If user not authenticated, return empty array
+      if (!req?.user?.userId) {
+      return []
+    }
+
+    const result = await firstValueFrom(
+      this.examsService.send('questions.categories.findAll', { 
+        search,
+        created_by: req.user.userId 
+      })
     )
+    return result
   }
 
   @Get('question-categories/:id')
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Get category by ID',
-    description: 'Get detailed information about a category'
+    description: 'Get detailed information about a category (only if owned by current user)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  async getCategoryById(@Param('id', ParseIntPipe) id: number) {
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
+  async getCategoryById(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser
+  ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.findOne', { id })
+      this.examsService.send('questions.categories.findOne', { 
+        id,
+        userId: req.user?.userId 
+      })
     )
   }
 
   @Put('question-categories/:id')
   @ApiOperation({ 
     summary: 'Update category',
-    description: 'Update an existing question category'
+    description: 'Update an existing question category (only creator can update)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async updateCategory(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateCategoryDto: UpdateQuestionCategoryDto,
+    @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.update', { id, updateCategoryDto })
+      this.examsService.send('questions.categories.update', { 
+        id, 
+        updateCategoryDto,
+        userId: req.user?.userId 
+      })
     )
   }
 
   @Delete('question-categories/:id')
   @ApiOperation({ 
     summary: 'Delete category',
-    description: 'Delete a category (only if no questions use it)'
+    description: 'Delete a category (only if no questions use it and only creator can delete)'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Category ID' })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 404, description: 'Category not found or access denied' })
   @ApiResponse({ status: 400, description: 'Category has questions' })
-  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+  async deleteCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser
+  ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.delete', { id })
+      this.examsService.send('questions.categories.delete', { 
+        id,
+        userId: req.user?.userId 
+      })
     )
   }
 
@@ -343,14 +374,8 @@ export class ExamsController {
     @Body(ValidationPipe) createQuestionDto: CreateQuestionDto,
     @Req() req: RequestWithUser
   ) {
-    // Set creator from JWT token
-    const questionData = {
-      ...createQuestionDto,
-      created_by: req.user?.userId || createQuestionDto.created_by,
-    }
-    
     return firstValueFrom(
-      this.examsService.send('questions.create', questionData)
+      this.examsService.send('questions.create', createQuestionDto)
     )
   }
 
@@ -372,14 +397,29 @@ export class ExamsController {
     @Query(ValidationPipe) filterDto: QuestionFilterDto,
     @Req() req: RequestWithUser
   ) {
-    // If not admin, only show questions created by user or public questions
-    // if (req.user?.role !== 'admin') {
-    //   filterDto.created_by = req.user?.userId
-    // }
+    // If user not authenticated, return empty result
+    if (!req.user?.userId) {
+      console.log('[getAllQuestions] No userId, returning empty result')
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 0,
+        },
+      }
+    }
+
+    const queryFilter = {
+      ...filterDto,
+      created_by: req.user.userId,
+    }
     
-    return firstValueFrom(
-      this.examsService.send('questions.findAll', filterDto)
+    const result = await firstValueFrom(
+      this.examsService.send('questions.findAll', queryFilter)
     )
+    return result
   }
 
   @Get('questions/:id')
@@ -856,6 +896,190 @@ export class ExamsController {
       this.examsService.send('submissions.update_time', {
         submission_id,
         remaining_time: updateTimeDto.remaining_time,
+      })
+    );
+  }
+
+  // ============================================================
+  // SUBMISSIONS MANAGEMENT
+  // ============================================================
+
+  @Get('submissions/exam/:examId')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get submissions by exam ID',
+    description: 'Get paginated list of submissions for a specific exam. Returns submission details with answers and exam info.'
+  })
+  @ApiParam({ name: 'examId', type: 'number', description: 'Exam ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submissions retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            submission_id: 1,
+            exam_id: 1,
+            student_id: 1,
+            current_question_order: 5,
+            remaining_time: 3000,
+            submitted_at: '2024-01-15T10:30:00.000Z',
+            score: 85.5,
+            teacher_feedback: 'Good work!',
+            graded_at: '2024-01-15T11:00:00.000Z',
+            graded_by: 2,
+            status: 'graded',
+            answers: [
+              {
+                answer_id: 1,
+                submission_id: 1,
+                question_id: 1,
+                answer_content: 'My answer',
+                is_correct: true,
+                points_earned: 10,
+                comment: 'Correct!',
+                comment_by: 2,
+                question: {
+                  question_id: 1,
+                  content: 'What is OOP?',
+                  type: 'multiple_choice'
+                }
+              }
+            ],
+            exam: {
+              exam_id: 1,
+              title: 'Midterm Exam',
+              class_id: 1
+            }
+          }
+        ],
+        pagination: {
+          total: 25,
+          page: 1,
+          limit: 10,
+          totalPages: 3
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  async getSubmissionsByExam(
+    @Param('examId', ParseIntPipe) examId: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return firstValueFrom(
+      this.examsService.send('get_submissions_by_exam', {
+        examId,
+        page: page ? +page : 1,
+        limit: limit ? +limit : 10,
+      })
+    );
+  }
+
+  @Get('submissions/:id')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get submission by ID',
+    description: 'Get detailed information about a specific submission including all answers and questions.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submission retrieved successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        exam_id: 1,
+        student_id: 1,
+        current_question_order: 20,
+        remaining_time: 0,
+        submitted_at: '2024-01-15T10:30:00.000Z',
+        score: 85.5,
+        teacher_feedback: 'Excellent work!',
+        graded_at: '2024-01-15T11:00:00.000Z',
+        graded_by: 2,
+        status: 'graded',
+        answers: [
+          {
+            answer_id: 1,
+            submission_id: 1,
+            question_id: 1,
+            answer_content: 'Object Oriented Programming',
+            is_correct: true,
+            points_earned: 5,
+            comment: 'Perfect!',
+            comment_by: 2,
+            question: {
+              question_id: 1,
+              content: 'What is OOP?',
+              type: 'multiple_choice',
+              options: [
+                { id: 'opt_1', content: 'Object Oriented Programming', is_correct: true },
+                { id: 'opt_2', content: 'Online Operating Platform', is_correct: false }
+              ],
+              difficulty: 'easy',
+              category: {
+                category_id: 1,
+                name: 'Programming'
+              }
+            }
+          }
+        ],
+        exam: {
+          exam_id: 1,
+          title: 'Midterm Exam',
+          class_id: 1,
+          start_time: '2024-01-15T09:00:00.000Z',
+          end_time: '2024-01-15T11:00:00.000Z',
+          total_time: 120,
+          description: 'Midterm examination',
+          status: 'completed'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  async getSubmissionById(@Param('id', ParseIntPipe) id: number) {
+    return firstValueFrom(
+      this.examsService.send('get_submission_by_id', { id })
+    );
+  }
+
+  @Put('submissions/:id/grade')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Grade a submission',
+    description: 'Update the score and feedback for a submission. Only teachers can grade submissions.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        score: { type: 'number', description: 'Final score' },
+        teacher_feedback: { type: 'string', description: 'Feedback from teacher' },
+        graded_by: { type: 'number', description: 'Teacher ID who graded the submission' }
+      },
+      required: ['score', 'graded_by']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submission graded successfully'
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
+  async gradeSubmission(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() gradeData: { score: number; teacher_feedback?: string; graded_by: number }
+  ) {
+    return firstValueFrom(
+      this.examsService.send('grade_submission', {
+        submissionId: id,
+        ...gradeData,
       })
     );
   }
