@@ -22,6 +22,7 @@ RUN npm install
 
 # Generate Prisma Client for exams-service
 WORKDIR /app/apps/exams-service
+RUN npm install
 RUN npx prisma generate
 
 # Go back to root

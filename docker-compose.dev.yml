@@ -208,7 +208,6 @@ services:
       - ./apps/exams-service/tsconfig.json:/app/apps/exams-service/tsconfig.json
       - ./apps/exams-service/tsconfig.build.json:/app/apps/exams-service/tsconfig.build.json
       - ./apps/exams-service/nest-cli.json:/app/apps/exams-service/nest-cli.json
-      - ./apps/exams-service/package.json:/app/apps/exams-service/package.json
       - ./apps/exams-service/prisma:/app/apps/exams-service/prisma
       - ./apps/exams-service/.env:/app/apps/exams-service/.env
       - ./packages:/app/packages
@@ -242,7 +241,6 @@ services:
       - ./apps/classes-service/tsconfig.json:/app/apps/classes-service/tsconfig.json
       - ./apps/classes-service/tsconfig.build.json:/app/apps/classes-service/tsconfig.build.json
       - ./apps/classes-service/nest-cli.json:/app/apps/classes-service/nest-cli.json
-      - ./apps/classes-service/package.json:/app/apps/classes-service/package.json
       - ./apps/classes-service/prisma:/app/apps/classes-service/prisma
       - ./apps/classes-service/.env:/app/apps/classes-service/.env
       - ./packages:/app/packages
