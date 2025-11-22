@@ -38,6 +38,18 @@ export class CreateMessageDto {
 
   @IsOptional()
   is_read?: boolean = false;
+
+  @IsString()
+  @IsOptional()
+  file_url?: string;
+
+  @IsString()
+  @IsOptional()
+  file_name?: string;
+
+  @IsInt()
+  @IsOptional()
+  file_size?: number;
 }
 
 /**
@@ -98,6 +110,9 @@ export class MessageResponseDto {
   message_type: MessageType;
   content?: string;
   is_read: boolean;
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
   conversation?: ConversationDetails;
 }
 

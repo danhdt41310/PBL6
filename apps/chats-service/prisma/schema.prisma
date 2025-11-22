@@ -35,6 +35,9 @@ model Message {
   timestamp       DateTime      @default(now()) @db.Timestamp(6)
   message_type    MessageType   @default(text)
   content         String?       @db.Text
+  file_url        String?       @db.VarChar
+  file_name       String?       @db.VarChar
+  file_size       Int?
   is_read         Boolean       @default(false)   
   
   conversation    Conversation  @relation(fields: [conversation_id], references: [id], onDelete: Cascade)

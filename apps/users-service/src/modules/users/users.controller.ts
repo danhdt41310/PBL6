@@ -194,6 +194,17 @@ export class UsersController {
     return await this.usersService.getListProfileMatchEmail(data.emailPattern);
   }
 
+  @MessagePattern('users.search_by_name_or_email')
+  async searchUsersByNameOrEmail(
+    @Payload() data: { searchPattern: string; excludeUserId?: number },
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
+    console.log('Search users by name or email:', data);
+    return await this.usersService.searchUsersByNameOrEmail(
+      data.searchPattern,
+      data.excludeUserId,
+    );
+  }
+
   @MessagePattern('users.assign_role_permissions')
   async assignRolePermissions(
     @Payload() rolePermissionDto: RolePermissionDto,
