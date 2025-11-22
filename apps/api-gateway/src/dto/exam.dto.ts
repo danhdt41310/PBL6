@@ -700,3 +700,11 @@ export class ClassIdListDto{
   @Transform(({value})=>value.map(v=>parseInt(v)))
   class_ids: number[]
 }
+
+export class AnswerCorrectnessDto{
+  @IsString()
+  student_answer: string
+  
+  @IsString()
+  correct_answer: string
+}

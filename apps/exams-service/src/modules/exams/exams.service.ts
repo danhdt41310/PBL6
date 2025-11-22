@@ -4,11 +4,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExamDto, UpdateExamDto, ExamFilterDto, ExamStatus } from './dto/create-exam.dto';
 import { Prisma } from '@prisma/exams-client';
 import { firstValueFrom } from 'rxjs';
+import { EmbeddingService } from 'src/embedding/embedding.service';
 
 @Injectable()
 export class ExamsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly embed: EmbeddingService,
     @Inject('CLASSES_SERVICE') private readonly classesService: ClientProxy,
   ) {}
 
@@ -463,5 +465,10 @@ export class ExamsService {
     } catch (error) {
       throw new BadRequestException('Failed to fetch student exams: ' + error.message);
     }
+  }
+
+  async answerCorrectness(student_answer: string, correct_answer: string){
+    const score = await this.embed.similarCosineSimilarScore(student_answer, correct_answer)
+    return score
   }
 }

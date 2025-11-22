@@ -8,6 +8,7 @@ import { QuestionExamsModule } from './modules/question-exams/question-exams.mod
 import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { SubmissionAnswersModule } from './modules/submission-answers/submission-answers.module';
 import { PrismaService } from './prisma/prisma.service';
+import { EmbeddingService } from './embedding/embedding.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { PrismaService } from './prisma/prisma.service';
     SubmissionAnswersModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [AppService, PrismaService, EmbeddingService],
   exports: [PrismaService],
 })
 export class AppModule {}

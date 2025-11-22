@@ -42,6 +42,7 @@ import {
   GetRandomQuestionsDto,
   SubmitAnswerDto,
   UpdateRemainingTimeDto,
+  AnswerCorrectnessDto,
 } from '../dto/exam.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
@@ -1082,4 +1083,28 @@ export class ExamsController {
       })
     );
   }
+  // *********************************************************
+  //
+  // Auto check answer
+  // 
+  // *********************************************************
+  @Post('exams/answer-correctness')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        student_answer:{type: 'string', description:'student answer for check'},
+        correct_answer:{type: 'string', description:'correct answer for compare'},
+      },
+      required: ['remaining_time']
+    }
+  })
+  @SkipPermissionCheck()
+  async answerCorrectness(@Body() answerCorrectnessDto: AnswerCorrectnessDto){
+    return firstValueFrom(
+      this.examsService.send('exams.answer_correctness', answerCorrectnessDto)
+    );
+  }
+
+
 }
