@@ -44,6 +44,7 @@ import {
   PostCreateDto,
   PostWithFilesDto,
 } from '../dto/material.dto';
+import { SkipPermissionCheck } from 'src/common/decorators/skip-permission-check.decorator';
 import { ChatsGateway } from '../chats/chats.gateway';
 
 @ApiTags('classes')
@@ -658,10 +659,7 @@ export class ClassesController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'Classes not found' })
   @ApiResponse({ status: 408, description: 'Request timeout' })
-  async getAllClassesOfTeacher(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('role') role: string,
-  ) {
+  async getAllClassesOfTeacher(@Param('id', ParseIntPipe) id: number, @Param('role') role:string){
     try {
       if (role !== 'student' && role !== 'teacher') {
         throw new HttpException('Not correct role', HttpStatus.BAD_REQUEST);

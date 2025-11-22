@@ -5,10 +5,12 @@ from langchain.agents import create_agent
 from langgraph.graph import START, END, MessagesState, StateGraph
 from langchain_core.messages import HumanMessage, SystemMessage
 from tools.summaryTool import summaryFile
+from tools.examScheduleTool import examSchedule
 from agents.Model import model
 memory = MemorySaver()
 my_tools = [
-    summaryFile
+    summaryFile,
+    examSchedule,
 ]
 systemPrompt = """
 You are StudentAssist — an AI assistant for students.
@@ -22,6 +24,7 @@ Important:
 - Be concise, factual, and helpful.
 - Ask clarifying questions if input is unclear.
 - Cite sources when retrieving online information.
+- Always using Vietnamese for answer except for cases that you are required to use another language
 """
 
 

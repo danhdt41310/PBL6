@@ -21,7 +21,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
-    "seed:questions": "npx ts-node -r tsconfig-paths/register src/common/scripts/seed-questions.ts"
+    "seed:questions": "npx ts-node -r tsconfig-paths/register src/common/scripts/seed-questions.ts",
+    "seed:exams":"ts-node src/common/scripts/seed-exams.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, Min, Max, MinLength, IsNumber } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { Optional } from '@nestjs/common'
 
 // Question DTOs
 export enum QuestionType {
@@ -687,4 +688,15 @@ export class UpdateRemainingTimeDto {
   @IsInt({ message: 'Remaining time must be a number' })
   @Min(0, { message: 'Remaining time cannot be negative' })
   remaining_time: number
+}
+
+export class ClassIdListDto{
+
+  @ApiPropertyOptional({ 
+    description: 'list of class_id that needed to find all exams related',
+    example:[1,2,3,4,10]
+  })
+  @IsArray()
+  @Transform(({value})=>value.map(v=>parseInt(v)))
+  class_ids: number[]
 }

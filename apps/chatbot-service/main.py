@@ -1,14 +1,19 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import UploadFile, Form, File
 import os
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from agents.EduAgent import eduAgent
+from typing import Annotated, Optional
+from tools.type.UtilScheme import UserRole
 import asyncio
 # Load environment variables
 load_dotenv()
+
+
 
 app = FastAPI(root_path="/api/chatbot")
 
@@ -33,17 +38,38 @@ async def health():
 
 # Chat endpoint with streaming
 @app.post("/chat")
-async def chat(request: Request):
+async def chat(
+    threadID: Annotated[str, Form()],
+    userMessage: Annotated[str, Form()],
+    user_id: Annotated[int, Form()],
+    user_role: Annotated[UserRole, Form()],
+    files: Optional[list[UploadFile]]=[],
+    ):
     try:
-        data = await request.json()
 
-        user_message = data.get("userMessage")
-        thread_id = data.get("threadID", "default")
+        user_message = userMessage
+        thread_id = threadID
+
+        file_names = []
+        if files:
+            try:
+                file_names = await upload_file(files)
+            except Exception as e:
+                return JSONResponse(
+                    status_code=500, 
+                    content={"error": str(e)}
+                )
 
         if not user_message:
             return JSONResponse(
-                status_code=400, content={"error": "userMessage is required"}
+                status_code=400, 
+                content={"error": "userMessage is required"}
             )
+
+        user_message = user_message+f'\n\nUser information:\n   user_id:{user_id}\n    user_role:{user_role}'
+
+        if file_names:
+            user_message = user_message+f'\n\nList of file name:\n{'\n'.join(file_names)}'
 
         def generate_stream():
             try:
@@ -77,3 +103,22 @@ async def chat(request: Request):
             status_code=500,
             content={"error": "Internal server error", "message": str(e)},
         )
+
+async def upload_file(files: list[UploadFile]) -> list[str]:
+    UPLOAD_DIR = os.path.join(os.getenv('UPLOAD_DIR'),'temp')
+    file_names = []
+    for file in files:
+        try:
+            file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+            file_names.append(file.filename)
+            
+            with open(file_path, "wb") as f:
+                while (chunk := await file.read(1024 * 1024)):  # 1MB chunk
+                    f.write(chunk)
+
+            print('Upload file successfully', file.filename)
+        except Exception as e:
+            raise Exception('Failed to upload file:', file.filename)
+
+    return file_names
