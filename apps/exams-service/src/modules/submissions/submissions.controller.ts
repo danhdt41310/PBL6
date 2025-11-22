@@ -13,8 +13,16 @@ export class SubmissionsController {
   }
 
   @Get('exam/:examId')
-  async findSubmissionsByExam(@Param('examId') examId: number) {
-    return this.submissionsService.findSubmissionsByExam(examId);
+  async findSubmissionsByExam(
+    @Param('examId') examId: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return this.submissionsService.findSubmissionsByExam(
+      examId,
+      page ? +page : 1,
+      limit ? +limit : 10
+    );
   }
 
   @Get(':id')
@@ -44,12 +52,26 @@ export class SubmissionsController {
     return this.submissionsService.findSubmissionsByStudent(data.studentId, data.examId);
   }
 
+  @MessagePattern('get_submissions_by_exam')
+  async getSubmissionsByExamMessage(@Payload() data: { examId: number, page?: number, limit?: number }) {
+    return this.submissionsService.findSubmissionsByExam(
+      data.examId,
+      data.page || 1,
+      data.limit || 10
+    );
+  }
+
+  @MessagePattern('get_submission_by_id')
+  async getSubmissionByIdMessage(@Payload() data: { id: number }) {
+    return this.submissionsService.findSubmissionById(data.id);
+  }
+
   @MessagePattern('grade_submission')
-  async gradeSubmissionMessage(@Payload() data: { submissionId: number, score: number, feedback: string, gradedBy: number }) {
+  async gradeSubmissionMessage(@Payload() data: { submissionId: number, score: number, teacher_feedback?: string, graded_by: number }) {
     return this.submissionsService.gradeSubmission(data.submissionId, {
       score: data.score,
-      teacher_feedback: data.feedback,
-      graded_by: data.gradedBy
+      teacher_feedback: data.teacher_feedback,
+      graded_by: data.graded_by
     });
   }
 

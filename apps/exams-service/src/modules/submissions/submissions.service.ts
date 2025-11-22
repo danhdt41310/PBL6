@@ -27,18 +27,38 @@ export class SubmissionsService {
     });
   }
 
-  async findSubmissionsByExam(examId: number) {
-    return this.prisma.submission.findMany({
+  async findSubmissionsByExam(examId: number, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const total = await this.prisma.submission.count({
+      where: { exam_id: examId },
+    });
+
+    // Get paginated submissions
+    const submissions = await this.prisma.submission.findMany({
       where: { exam_id: examId },
       include: {
-        answers: {
-          include: {
-            question: true,
-          },
+        _count: {
+          select: { answers: true },
         },
-        exam: true,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        submitted_at: 'desc',
       },
     });
+
+    return {
+      data: submissions,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findSubmissionById(id: number) {

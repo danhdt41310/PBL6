@@ -856,4 +856,188 @@ export class ExamsController {
       })
     );
   }
+
+  // ============================================================
+  // SUBMISSIONS MANAGEMENT
+  // ============================================================
+
+  @Get('submissions/exam/:examId')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get submissions by exam ID',
+    description: 'Get paginated list of submissions for a specific exam. Returns submission details with answers and exam info.'
+  })
+  @ApiParam({ name: 'examId', type: 'number', description: 'Exam ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submissions retrieved successfully',
+    schema: {
+      example: {
+        data: [
+          {
+            submission_id: 1,
+            exam_id: 1,
+            student_id: 1,
+            current_question_order: 5,
+            remaining_time: 3000,
+            submitted_at: '2024-01-15T10:30:00.000Z',
+            score: 85.5,
+            teacher_feedback: 'Good work!',
+            graded_at: '2024-01-15T11:00:00.000Z',
+            graded_by: 2,
+            status: 'graded',
+            answers: [
+              {
+                answer_id: 1,
+                submission_id: 1,
+                question_id: 1,
+                answer_content: 'My answer',
+                is_correct: true,
+                points_earned: 10,
+                comment: 'Correct!',
+                comment_by: 2,
+                question: {
+                  question_id: 1,
+                  content: 'What is OOP?',
+                  type: 'multiple_choice'
+                }
+              }
+            ],
+            exam: {
+              exam_id: 1,
+              title: 'Midterm Exam',
+              class_id: 1
+            }
+          }
+        ],
+        pagination: {
+          total: 25,
+          page: 1,
+          limit: 10,
+          totalPages: 3
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  async getSubmissionsByExam(
+    @Param('examId', ParseIntPipe) examId: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return firstValueFrom(
+      this.examsService.send('get_submissions_by_exam', {
+        examId,
+        page: page ? +page : 1,
+        limit: limit ? +limit : 10,
+      })
+    );
+  }
+
+  @Get('submissions/:id')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Get submission by ID',
+    description: 'Get detailed information about a specific submission including all answers and questions.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submission retrieved successfully',
+    schema: {
+      example: {
+        submission_id: 1,
+        exam_id: 1,
+        student_id: 1,
+        current_question_order: 20,
+        remaining_time: 0,
+        submitted_at: '2024-01-15T10:30:00.000Z',
+        score: 85.5,
+        teacher_feedback: 'Excellent work!',
+        graded_at: '2024-01-15T11:00:00.000Z',
+        graded_by: 2,
+        status: 'graded',
+        answers: [
+          {
+            answer_id: 1,
+            submission_id: 1,
+            question_id: 1,
+            answer_content: 'Object Oriented Programming',
+            is_correct: true,
+            points_earned: 5,
+            comment: 'Perfect!',
+            comment_by: 2,
+            question: {
+              question_id: 1,
+              content: 'What is OOP?',
+              type: 'multiple_choice',
+              options: [
+                { id: 'opt_1', content: 'Object Oriented Programming', is_correct: true },
+                { id: 'opt_2', content: 'Online Operating Platform', is_correct: false }
+              ],
+              difficulty: 'easy',
+              category: {
+                category_id: 1,
+                name: 'Programming'
+              }
+            }
+          }
+        ],
+        exam: {
+          exam_id: 1,
+          title: 'Midterm Exam',
+          class_id: 1,
+          start_time: '2024-01-15T09:00:00.000Z',
+          end_time: '2024-01-15T11:00:00.000Z',
+          total_time: 120,
+          description: 'Midterm examination',
+          status: 'completed'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  async getSubmissionById(@Param('id', ParseIntPipe) id: number) {
+    return firstValueFrom(
+      this.examsService.send('get_submission_by_id', { id })
+    );
+  }
+
+  @Put('submissions/:id/grade')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Grade a submission',
+    description: 'Update the score and feedback for a submission. Only teachers can grade submissions.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        score: { type: 'number', description: 'Final score' },
+        teacher_feedback: { type: 'string', description: 'Feedback from teacher' },
+        graded_by: { type: 'number', description: 'Teacher ID who graded the submission' }
+      },
+      required: ['score', 'graded_by']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Submission graded successfully'
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
+  async gradeSubmission(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() gradeData: { score: number; teacher_feedback?: string; graded_by: number }
+  ) {
+    return firstValueFrom(
+      this.examsService.send('grade_submission', {
+        submissionId: id,
+        ...gradeData,
+      })
+    );
+  }
 }
