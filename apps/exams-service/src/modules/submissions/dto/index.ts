@@ -5,5 +5,6 @@ export {
   GradeSubmissionDto,
   StartExamDto,
   SubmitAnswerDto,
-  UpdateRemainingTimeDto
+  UpdateRemainingTimeDto,
+  PaginationDto
 } from './submission.dto';
