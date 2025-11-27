@@ -300,6 +300,7 @@ services:
       - ./apps/api-gateway/nodemon.json:/app/apps/api-gateway/nodemon.json
       - ./apps/api-gateway/.env:/app/apps/api-gateway/.env
       - ./packages:/app/packages
+      - ./uploads:/app/uploads # Mount uploads directory to persist files
     depends_on:
       - redis
       - users-service

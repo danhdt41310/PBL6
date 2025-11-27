@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsInt, IsNotEmpty, IsString } from "class-validator";
+import { IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class PostsDTO{
 
@@ -8,13 +8,16 @@ export class PostsDTO{
     @IsNotEmpty()
     class_id:number;
 
-    @Transform(({ value }) => parseInt(value))
+    @Transform(({ value }) => value ? parseInt(value) : undefined)
+    @IsOptional()
     @IsInt()
     parent_id?:number;
 
+    @IsOptional()
     @IsString()
     message?: string;
 
+    @IsOptional()
     @IsString()
     title?: string;
 
