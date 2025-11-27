@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmbeddingService } from 'src/embedding/embedding.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { PrismaService } from '../../prisma/prisma.service';
     ]),
   ],
   controllers: [ExamsController],
-  providers: [ExamsService, PrismaService],
-  exports: [ExamsService],
+  providers: [ExamsService, PrismaService, EmbeddingService],
+  exports: [ExamsService, EmbeddingService],
 })
 export class ExamsModule {}

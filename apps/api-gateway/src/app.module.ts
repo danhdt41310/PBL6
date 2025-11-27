@@ -127,6 +127,7 @@ export class AppModule implements NestModule {
         // for chat bot check
         { path: 'classes/of/:role/:id', method: RequestMethod.GET},
         { path: 'exams/of', method: RequestMethod.POST},
+        { path: 'exams/answer-correctness', method: RequestMethod.POST}
       )
       .forRoutes('*');
   }

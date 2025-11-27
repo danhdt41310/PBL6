@@ -46,4 +46,9 @@ export class ExamsController {
   async findAllExamsOf(@Payload() data:{ class_ids: number[]}) {
     return await this.examsService.findAllOf(data.class_ids);
   }
+
+  @MessagePattern('exams.answer_correctness')
+  async answerCorrectness(@Payload() data:{ student_answer: string, correct_answer:string}) {
+    return await this.examsService.answerCorrectness(data.student_answer, data.correct_answer);
+  }
 }

@@ -22,9 +22,11 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "seed:questions": "npx ts-node -r tsconfig-paths/register src/common/scripts/seed-questions.ts",
-    "seed:exams":"ts-node src/common/scripts/seed-exams.ts"
+    "seed:exams": "ts-node src/common/scripts/seed-exams.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.0.6",
+    "@langchain/openai": "^1.1.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^10.0.0",
@@ -33,7 +35,7 @@
     "@prisma/client": "^5.7.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
-    "dotenv": "^16.0.3",
+    "dotenv": "^16.6.1",
     "prisma": "^5.7.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
