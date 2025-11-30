@@ -46,6 +46,22 @@ export class SubmissionsController {
     return this.submissionsService.gradeSubmission(id, gradeData);
   }
 
+  @Put(':id/answers')
+  async updateSubmissionAnswers(
+    @Param('id') id: number,
+    @Body() data: { answers: Array<{ answer_id: number; points_earned?: number; comment?: string }> }
+  ) {
+    return this.submissionsService.updateSubmissionAnswers(id, data.answers);
+  }
+
+  @Put(':id/confirm-grading')
+  async confirmGrading(
+    @Param('id') id: number,
+    @Body() data: { graded_by?: number }
+  ) {
+    return this.submissionsService.confirmGrading(id, data.graded_by);
+  }
+
   // Microservice patterns
   @MessagePattern('get_student_submissions')
   async getStudentSubmissions(@Payload() data: { studentId: number, examId?: number }) {
@@ -73,6 +89,21 @@ export class SubmissionsController {
       teacher_feedback: data.teacher_feedback,
       graded_by: data.graded_by
     });
+  }
+
+  @MessagePattern('submissions.update_answers')
+  async updateSubmissionAnswersMessage(
+    @Payload() data: { 
+      submissionId: number; 
+      answers: Array<{ answer_id: number; points_earned?: number; comment?: string }> 
+    }
+  ) {
+    return this.submissionsService.updateSubmissionAnswers(data.submissionId, data.answers);
+  }
+
+  @MessagePattern('submissions.confirm_grading')
+  async confirmGradingMessage(@Payload() data: { submissionId: number; graded_by?: number }) {
+    return this.submissionsService.confirmGrading(data.submissionId, data.graded_by);
   }
 
   // ============================================================
