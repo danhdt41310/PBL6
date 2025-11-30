@@ -1083,6 +1083,84 @@ export class ExamsController {
       })
     );
   }
+
+  @Put('submissions/:id/answers')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Update submission answers',
+    description: 'Update points and comments for individual answers in a submission. This will also recalculate the total score.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        answers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              answer_id: { type: 'number', description: 'Answer ID' },
+              points_earned: { type: 'number', description: 'Points earned for this answer' },
+              comment: { type: 'string', description: 'Comment for this answer' }
+            },
+            required: ['answer_id']
+          }
+        }
+      },
+      required: ['answers']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Answers updated successfully'
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  async updateSubmissionAnswers(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: { answers: Array<{ answer_id: number; points_earned?: number; comment?: string }> }
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.update_answers', {
+        submissionId: id,
+        answers: data.answers,
+      })
+    );
+  }
+
+  @Put('submissions/:id/confirm-grading')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Confirm grading',
+    description: 'Mark submission as graded without modifying answers. Calculates total score from existing answers.'
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        graded_by: { type: 'number', description: 'Teacher ID who confirmed the grading' }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Grading confirmed successfully'
+  })
+  @ApiResponse({ status: 404, description: 'Submission not found' })
+  async confirmGrading(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: { graded_by?: number },
+    @Req() req: RequestWithUser
+  ) {
+    return firstValueFrom(
+      this.examsService.send('submissions.confirm_grading', {
+        submissionId: id,
+        graded_by: data.graded_by || req.user?.userId,
+      })
+    );
+  }
+
   // *********************************************************
   //
   // Auto check answer

@@ -711,7 +711,6 @@ export class UsersService {
   async getListProfileByIds(
     userIds: UserIdsDto,
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('getListProfileByIds called with:', userIds);
     const records = [];
     for (let userId of userIds.userIds) {
       let user = await this.prisma.user.findUnique({
