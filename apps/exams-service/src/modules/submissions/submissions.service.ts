@@ -120,7 +120,18 @@ export class SubmissionsService {
       throw new NotFoundException(`Submission with ID ${id} not found`);
     }
 
-    return submission;
+    const usersResponse = await firstValueFrom(
+          this.usersService.send('users.get_list_profile_by_ids', {
+            userIds: [submission.student_id],
+          })
+    );
+    const user = usersResponse?.users?.[0];
+    
+    return {
+      ...submission,
+      student_name: user?.full_name || null,
+      student_email: user?.email || null,
+    };
   }
 
   async findSubmissionsByStudent(studentId: number, examId?: number) {
