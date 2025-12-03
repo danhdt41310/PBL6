@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { ChatsModule } from './chats/chats.module';
 import { ClassesModule } from './classes/classes.module';
+import { MaterialsModule } from './materials/materials.module';
 import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -91,6 +92,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
     ProductsModule,
     ChatsModule,
     ClassesModule,
+    MaterialsModule,
     ExamsModule,
     MeetingsModule,
   ],
@@ -134,11 +136,7 @@ export class AppModule implements NestModule {
         { path: 'admin/*', method: RequestMethod.ALL },
         { path: 'classes/of/:role/:id', method: RequestMethod.GET},
         { path: 'exams/of', method: RequestMethod.POST},
-
-        // Allow template download and preview without authentication
-        { path: 'questions/import/template', method: RequestMethod.GET },
-        { path: 'questions/import/preview', method: RequestMethod.POST },
-        // Note: questions/import endpoint REQUIRES authentication for created_by
+        { path: 'exams/answer-correctness', method: RequestMethod.POST}
       )
       .forRoutes('*');
   }

@@ -59,7 +59,16 @@ export class ClassesService {
     const classItem = await this.prisma.class.findUnique({
       where: { class_id },
       include: {
-        posts: true,
+        posts: {
+          include: {
+            materials: true,
+            replies: {
+              include: {
+                materials: true,
+              },
+            },
+          },
+        },
         enrollments: true,
         teachers: true,
       },
@@ -223,7 +232,11 @@ export class ClassesService {
       const classEnrolls = await this.prisma.classEnrollment.findMany({
         where: { student_id: userId },
         include: {
-          class: true,
+          class: {
+            include: {
+              enrollments: true,
+            },
+          },
         },
       });
 

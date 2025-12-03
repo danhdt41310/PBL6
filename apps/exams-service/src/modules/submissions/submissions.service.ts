@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSubmissionDto, GradeSubmissionDto, StartExamDto, SubmitAnswerDto, UpdateRemainingTimeDto } from './dto';
+import { ExamsService } from '../exams/exams.service';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class SubmissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly examsService: ExamsService,
+    @Inject('USERS_SERVICE') private readonly usersService: ClientProxy,
+  ) {}
 
   async createSubmission(createSubmissionDto: CreateSubmissionDto) {
     const { answers, ...submissionData } = createSubmissionDto;
@@ -50,8 +57,43 @@ export class SubmissionsService {
       },
     });
 
+    // Get unique student IDs
+    const studentIds = [...new Set(submissions.map(sub => sub.student_id))];
+
+    // Fetch user information from users-service
+    let usersMap = new Map<number, any>();
+    if (studentIds.length > 0) {
+      try {
+        const usersResponse = await firstValueFrom(
+          this.usersService.send('users.get_list_profile_by_ids', {
+            userIds: studentIds,
+          })
+        );
+
+        // Create a map for quick lookup
+        if (usersResponse?.users) {
+          usersResponse.users.forEach((user: any) => {
+            usersMap.set(user.user_id, user);
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user information:', error);
+        // Continue without user information if the service call fails
+      }
+    }
+
+    // Enrich submissions with user information
+    const enrichedSubmissions = submissions.map(submission => {
+      const user = usersMap.get(submission.student_id);
+      return {
+        ...submission,
+        student_name: user?.full_name || null,
+        student_email: user?.email || null,
+      };
+    });
+
     return {
-      data: submissions,
+      data: enrichedSubmissions,
       pagination: {
         total,
         page,
@@ -78,7 +120,18 @@ export class SubmissionsService {
       throw new NotFoundException(`Submission with ID ${id} not found`);
     }
 
-    return submission;
+    const usersResponse = await firstValueFrom(
+          this.usersService.send('users.get_list_profile_by_ids', {
+            userIds: [submission.student_id],
+          })
+    );
+    const user = usersResponse?.users?.[0];
+    
+    return {
+      ...submission,
+      student_name: user?.full_name || null,
+      student_email: user?.email || null,
+    };
   }
 
   async findSubmissionsByStudent(studentId: number, examId?: number) {
@@ -108,6 +161,7 @@ export class SubmissionsService {
         teacher_feedback: gradeData.teacher_feedback,
         graded_by: gradeData.graded_by,
         graded_at: new Date(),
+        status: 'graded',
       },
       include: {
         answers: {
@@ -442,7 +496,7 @@ export class SubmissionsService {
   }
 
   /**
-   * Submit the entire exam - mark as submitted
+   * Submit the entire exam - mark as submitted and trigger async grading
    */
   async submitExam(submissionId: number) {
     const submission = await this.prisma.submission.findUnique({
@@ -482,6 +536,11 @@ export class SubmissionsService {
       },
     });
 
+    // Trigger async grading (fire and forget)
+    this.calculateSubmissionScore(submissionId).catch((error) => {
+      console.error(`Error calculating score for submission ${submissionId}:`, error);
+    });
+
     return {
       submission_id: updatedSubmission.submission_id,
       exam_id: updatedSubmission.exam_id,
@@ -492,6 +551,148 @@ export class SubmissionsService {
       answered_questions: updatedSubmission.answers.length,
       message: 'Exam submitted successfully',
     };
+  }
+
+  async calculateSubmissionScore(submissionId: number) {
+    try {
+      // Get submission with all answers and questions
+      const submission = await this.prisma.submission.findUnique({
+        where: { submission_id: submissionId },
+        include: {
+          answers: {
+            include: {
+              question: true,
+            },
+          },
+          exam: {
+            include: {
+              question_exams: {
+                include: {
+                  question: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!submission) {
+        throw new NotFoundException(`Submission with ID ${submissionId} not found`);
+      }
+
+      let totalScore = 0;
+
+      // Process each answer
+      for (const answer of submission.answers) {
+        // Find the question_exam to get points
+        const questionExam = submission.exam.question_exams.find(
+          (qe) => qe.question_id === answer.question_id
+        );
+
+        if (!questionExam) {
+          console.warn(`Question ${answer.question_id} not found in exam ${submission.exam_id}`);
+          continue;
+        }
+
+        const question = answer.question;
+        const maxPoints = Number(questionExam.points);
+        let pointsEarned = 0;
+        let isCorrect = false;
+
+        if (question.type === 'multiple_choice') {
+          // Parse options to get correct answers
+          const options = question.options as Array<{ id: number; text: string }>;
+          const correctAnswerIds = options
+            .filter((opt) => opt.text.startsWith('='))
+            .map((opt) => opt.id);
+
+          // Parse student answer (assuming it's stored as comma-separated IDs or JSON array)
+          let studentAnswerIds: number[] = [];
+          try {
+            const parsed = JSON.parse(answer.answer_content);
+            studentAnswerIds = Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            // If not JSON, try comma-separated
+            studentAnswerIds = answer.answer_content
+              .split(',')
+              .map((id) => parseInt(id.trim()))
+              .filter((id) => !isNaN(id));
+          }
+
+          if (question.is_multiple_answer) {
+            // Multiple answers - must select all correct and no incorrect
+            const correctSelected = studentAnswerIds.filter((id) =>
+              correctAnswerIds.includes(id)
+            );
+            const incorrectSelected = studentAnswerIds.filter(
+              (id) => !correctAnswerIds.includes(id)
+            );
+
+            // Calculate points: each correct adds, each incorrect subtracts
+            const pointsPerCorrect = maxPoints / correctAnswerIds.length;
+            pointsEarned = correctSelected.length * pointsPerCorrect - incorrectSelected.length * pointsPerCorrect;
+            pointsEarned = Math.max(0, pointsEarned); // Minimum is 0
+
+            // Full points only if all correct and no incorrect
+            isCorrect = 
+              correctSelected.length === correctAnswerIds.length && 
+              incorrectSelected.length === 0;
+          } else {
+            // Single answer - must select the one correct answer
+            isCorrect = 
+              studentAnswerIds.length === 1 && 
+              correctAnswerIds.includes(studentAnswerIds[0]);
+            pointsEarned = isCorrect ? maxPoints : 0;
+          }
+        } else if (question.type === 'essay') {
+          // For essay questions, use AI to compare answers
+          const correctAnswer = question.options as string || '';
+          const studentAnswer = answer.answer_content;
+
+          if (correctAnswer && studentAnswer) {
+            try {
+              // Get similarity score from AI (0 to 1)
+              const similarityScore = await this.examsService.answerCorrectness(
+                studentAnswer,
+                correctAnswer
+              );
+              // Calculate points based on similarity
+              pointsEarned = maxPoints * similarityScore;
+              isCorrect = similarityScore >= 0.8; // Consider correct if 80% similar
+            } catch (error) {
+              console.error(`Error calculating similarity for answer ${answer.answer_id}:`, error);
+              pointsEarned = 0;
+              isCorrect = false;
+            }
+          }
+        }
+
+        // Update the answer with score
+        await this.prisma.submissionAnswer.update({
+          where: { answer_id: answer.answer_id },
+          data: {
+            is_correct: isCorrect,
+            points_earned: pointsEarned,
+          },
+        });
+
+        totalScore += pointsEarned;
+      }
+
+      // Update submission with total score and mark as graded
+      await this.prisma.submission.update({
+        where: { submission_id: submissionId },
+        data: {
+          score: totalScore
+        },
+      });
+
+      console.log(`Submission ${submissionId} graded successfully. Total score: ${totalScore}`);
+      return { submissionId, totalScore };
+    } catch (error) {
+      console.error(`Failed to calculate score for submission ${submissionId}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -522,5 +723,91 @@ export class SubmissionsService {
       remaining_time: (updatedSubmission as any).remaining_time,
       message: 'Remaining time updated successfully',
     };
+  }
+
+  /**
+   * Update multiple answers (points and comments)
+   */
+  async updateSubmissionAnswers(
+    submissionId: number,
+    answers: Array<{
+      answer_id: number;
+      points_earned?: number;
+      comment?: string;
+    }>,
+  ) {
+    const submission = await this.findSubmissionById(submissionId);
+
+    // Update each answer
+    const updatePromises = answers.map((answer) =>
+      this.prisma.submissionAnswer.update({
+        where: { answer_id: answer.answer_id },
+        data: {
+          ...(answer.points_earned !== undefined && { points_earned: answer.points_earned }),
+          ...(answer.comment !== undefined && { comment: answer.comment }),
+        },
+      }),
+    );
+
+    await Promise.all(updatePromises);
+
+    // Recalculate total score
+    const allAnswers = await this.prisma.submissionAnswer.findMany({
+      where: { submission_id: submissionId },
+    });
+
+    const totalScore = allAnswers.reduce(
+      (sum, answer) => sum + Number(answer.points_earned || 0),
+      0,
+    );
+
+    // Update submission with new score and status
+    return this.prisma.submission.update({
+      where: { submission_id: submissionId },
+      data: {
+        score: totalScore,
+        status: 'graded',
+        graded_at: new Date(),
+      },
+      include: {
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+        exam: true,
+      },
+    });
+  }
+
+  /**
+   * Confirm grading (change status to graded without modifying answers)
+   */
+  async confirmGrading(submissionId: number, gradedBy?: number) {
+    const submission = await this.findSubmissionById(submissionId);
+
+    // Calculate total score from existing answers
+    const totalScore = submission.answers.reduce(
+      (sum, answer) => sum + Number(answer.points_earned || 0),
+      0,
+    );
+
+    return this.prisma.submission.update({
+      where: { submission_id: submissionId },
+      data: {
+        score: totalScore,
+        status: 'graded',
+        graded_at: new Date(),
+        ...(gradedBy && { graded_by: gradedBy }),
+      },
+      include: {
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+        exam: true,
+      },
+    });
   }
 }

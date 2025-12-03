@@ -1,7 +1,6 @@
 import { PostResponseDto } from "./post-response.dto";
 
-
-export class ClassResponseDto{
+export class ClassResponseDto {
   class_id: number;
   class_name: string;
   class_code: string;
@@ -9,6 +8,12 @@ export class ClassResponseDto{
   teacher_id?: number;
   created_at: Date;
   updated_at?: Date;
+  enrollments?: Array<{
+    enrollment_id: number;
+    class_id: number;
+    student_id: number;
+    enrolled_at: Date;
+  }>;
 }
 
 export class ClassResponseAllInfoDto {
@@ -19,7 +24,7 @@ export class ClassResponseAllInfoDto {
   teacher_id?: number;
   created_at: Date;
   updated_at?: Date;
-  posts:PostResponseDto[];
+  posts: PostResponseDto[];
 }
 
 export class CreateClassResponseDto {
@@ -31,4 +36,3 @@ export class UpdateClassResponseDto {
   message: string;
   class: ClassResponseDto;
 }
-

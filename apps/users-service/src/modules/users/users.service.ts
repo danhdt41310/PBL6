@@ -711,7 +711,6 @@ export class UsersService {
   async getListProfileByIds(
     userIds: UserIdsDto,
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('getListProfileByIds called with:', userIds);
     const records = [];
     for (let userId of userIds.userIds) {
       let user = await this.prisma.user.findUnique({
@@ -783,6 +782,61 @@ export class UsersService {
         email: { contains: emailPattern },
       },
       take: 100,
+    });
+
+    return {
+      users: UserMapper.toResponseDtoArray(records),
+    };
+  }
+
+  /**
+   * Search users by name or email pattern
+   * Supports searching by full_name or email
+   * Returns users with role 'student' or 'teacher'
+   * Can exclude a specific user (e.g., current user)
+   */
+  async searchUsersByNameOrEmail(
+    searchPattern: string,
+    excludeUserId?: number,
+  ): Promise<UserListByEmailsOrIdsResponseDto> {
+    const whereConditions: any[] = [
+      {
+        OR: [
+          { full_name: { contains: searchPattern, mode: 'insensitive' } },
+          { email: { contains: searchPattern, mode: 'insensitive' } },
+        ],
+      },
+      {
+        userRoles: {
+          some: {
+            role: {
+              name: { in: ['student', 'teacher'] }, // Return both students and teachers
+            },
+          },
+        },
+      },
+    ];
+
+    // Exclude specific user if provided
+    if (excludeUserId) {
+      whereConditions.push({
+        user_id: { not: excludeUserId },
+      });
+    }
+
+    const records = await this.prisma.user.findMany({
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+      where: {
+        AND: whereConditions,
+      },
+      take: 20,
+      orderBy: [{ full_name: 'asc' }, { email: 'asc' }],
     });
 
     return {
