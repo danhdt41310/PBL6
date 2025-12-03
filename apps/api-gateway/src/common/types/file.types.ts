@@ -78,7 +78,7 @@ export const DefaultFileUploadConfigs = {
     maxFiles: 1,
   },
   EXCEL: {
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 100 * 1024 * 1024, // 100MB for large import files
     allowedTypes: FileTypeGroups.SPREADSHEETS,
     maxFiles: 1,
   },

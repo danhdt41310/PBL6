@@ -7,6 +7,7 @@ import {
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { APP_GUARD } from '@nestjs/core';
+import { MulterModule } from '@nestjs/platform-express';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -30,6 +31,13 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    MulterModule.register({
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB to match
+        files: 10,
+        fieldSize: 100 * 1024 * 1024, // 100MB field size
+      },
     }),
     JwtModule.register({
       global: true,
@@ -124,9 +132,13 @@ export class AppModule implements NestModule {
         { path: '/', method: RequestMethod.GET },
         { path: 'users/hello', method: RequestMethod.GET },
         { path: 'admin/*', method: RequestMethod.ALL },
-        // for chat bot check
         { path: 'classes/of/:role/:id', method: RequestMethod.GET},
         { path: 'exams/of', method: RequestMethod.POST},
+
+        // Allow template download and preview without authentication
+        { path: 'questions/import/template', method: RequestMethod.GET },
+        { path: 'questions/import/preview', method: RequestMethod.POST },
+        // Note: questions/import endpoint REQUIRES authentication for created_by
       )
       .forRoutes('*');
   }

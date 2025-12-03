@@ -22,7 +22,7 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "seed:questions": "npx ts-node -r tsconfig-paths/register src/common/scripts/seed-questions.ts",
-    "seed:exams":"ts-node src/common/scripts/seed-exams.ts"
+    "seed:exams": "ts-node src/common/scripts/seed-exams.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -33,6 +33,7 @@
     "@prisma/client": "^5.7.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "docx": "^9.5.1",
     "dotenv": "^16.0.3",
     "prisma": "^5.7.0",
     "reflect-metadata": "^0.2.0",
