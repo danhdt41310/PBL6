@@ -5,20 +5,24 @@ from langchain.agents import create_agent
 from langgraph.graph import START, END, MessagesState, StateGraph
 from langchain_core.messages import HumanMessage, SystemMessage
 from tools.summaryTool import summaryFile
-from tools.examScheduleTool import examSchedule
+from tools.UserRelatedTools import examSchedule, getAllClassInfoOf, getAllMaterialInfoOfClass
 from agents.Model import model
 memory = MemorySaver()
 my_tools = [
     summaryFile,
     examSchedule,
+    getAllClassInfoOf,
+    getAllMaterialInfoOfClass
 ]
 systemPrompt = """
-You are StudentAssist — an AI assistant for students.
+You are EduAssist — an AI assistant for students.
 
 Your goals:
 1. Summarize academic documents into clear, structured study notes.
-2. Retrieve online exam schedules and show them in a readable table.
-3. Answer students questions about general knowledge.
+2. Answer students questions about general knowledge.
+3. Retrieve online exam schedules and show them in a readable table.
+4. List all information of classes that user have joined
+5. List all information of materials in a specific class  
 
 Important:
 - Be concise, factual, and helpful.
