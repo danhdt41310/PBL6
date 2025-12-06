@@ -540,15 +540,71 @@ export class ExamsController {
   // EXAM SUBMISSION / TAKING ENDPOINTS
   // ============================================================
 
+  @Post('exams/:exam_id/verify-password')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Verify exam password',
+    description: 'Verify if the provided password is correct for an exam that requires password authentication.'
+  })
+  @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        password: { type: 'string', description: 'Password to verify' }
+      },
+      required: ['password']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Password verification result',
+    schema: {
+      example: {
+        success: true,
+        message: 'Password is correct',
+        has_password: true
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  async verifyExamPassword(
+    @Param('exam_id', ParseIntPipe) exam_id: number,
+    @Body() body: { password: string },
+    @Req() req: RequestWithUser
+  ) {
+    const studentId = req.user?.userId;
+    if (!studentId) {
+      throw new BadRequestException('User ID not found in token');
+    }
+
+    return firstValueFrom(
+      this.examsService.send('exams.verify_password', {
+        exam_id,
+        student_id: studentId,
+        password: body.password,
+      })
+    );
+  }
+
   @Post('exams/:exam_id/start')
   @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Start an exam',
-    description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token.'
+    description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token. If exam requires password, include it in request body.'
   })
   @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
-  @ApiResponse({
-    status: 200,
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        password: { type: 'string', description: 'Exam password (if required)' }
+      }
+    },
+    required: false
+  })
+  @ApiResponse({ 
+    status: 200, 
     description: 'Exam started successfully or existing submission returned',
     schema: {
       example: {
@@ -575,10 +631,12 @@ export class ExamsController {
       }
     }
   })
+  @ApiResponse({ status: 403, description: 'Forbidden - incorrect password' })
   @ApiResponse({ status: 404, description: 'Exam not found' })
   @ApiResponse({ status: 400, description: 'Bad request - exam has no questions or already submitted' })
   async startExam(
     @Param('exam_id', ParseIntPipe) exam_id: number,
+    @Body() body: { password?: string },
     @Req() req: RequestWithUser
   ) {
     const studentId = req.user?.userId;
@@ -590,6 +648,7 @@ export class ExamsController {
       this.examsService.send('submissions.start_exam', {
         exam_id,
         student_id: studentId,
+        password: body?.password,
       })
     );
   }

@@ -448,6 +448,14 @@ export class CreateExamDto {
   @IsInt()
   created_by: number
 
+  @ApiPropertyOptional({ 
+    description: 'Password to access the exam (optional)',
+    example: 'securepassword123'
+  })
+  @IsOptional()
+  @IsString()
+  password?: string
+
   @ApiProperty({
     description: 'Array of questions with their order and points',
     type: [QuestionInExamDto],
@@ -524,6 +532,14 @@ export class UpdateExamDto {
   @IsOptional()
   @IsEnum(ExamStatus, { message: 'Invalid exam status' })
   status?: ExamStatus
+
+  @ApiPropertyOptional({ 
+    description: 'Password to access the exam (optional)',
+    example: 'newsecurepassword456'
+  })
+  @IsOptional()
+  @IsString()
+  password?: string
 
   @ApiPropertyOptional({
     description: 'Array of questions with their order and points (replaces all existing questions)',
