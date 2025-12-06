@@ -35,6 +35,7 @@ model Exam {
   total_time  Int           // in minutes
   description String?       @db.Text
   status      ExamStatus    @default(draft)
+  password    String?       @db.VarChar(255) @default("")
   created_by  Int
   created_at  DateTime      @default(now()) @db.Timestamp(6)
   

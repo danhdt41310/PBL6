@@ -179,7 +179,7 @@ export class SubmissionsService {
    * Creates a new submission or returns existing one if already started
    * Returns the first question (order = 1)
    */
-  async startExam(examId: number, studentId: number) {
+  async startExam(examId: number, studentId: number, password?: string) {
     // Check if exam exists
     const exam = await this.prisma.exam.findUnique({
       where: { exam_id: examId },
@@ -199,6 +199,17 @@ export class SubmissionsService {
 
     if (!exam) {
       throw new NotFoundException(`Exam with ID ${examId} not found`);
+    }
+
+    // Check password if exam requires it
+    const hasPassword = exam.password && exam.password.trim() !== '';
+    if (hasPassword) {
+      if (!password) {
+        throw new BadRequestException('This exam requires a password');
+      }
+      if (exam.password !== password) {
+        throw new BadRequestException('Incorrect password');
+      }
     }
 
     // Check if exam has questions

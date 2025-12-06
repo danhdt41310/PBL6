@@ -50,6 +50,7 @@ export class ExamsService {
             description: examData.description,
             status: examData.status || ExamStatus.DRAFT,
             created_by: examData.created_by,
+            password: examData.password || "",
           },
         });
 
@@ -105,6 +106,8 @@ export class ExamsService {
 
       const { questions, ...examData } = updateExamDto;
 
+      console.log('Updating exam with data:', updateExamDto);
+
       // Validate questions if provided
       if (questions && questions.length > 0) {
         const questionIds = questions.map(q => q.question_id);
@@ -131,6 +134,7 @@ export class ExamsService {
         if (examData.total_time !== undefined) updateData.total_time = examData.total_time;
         if (examData.description !== undefined) updateData.description = examData.description;
         if (examData.status !== undefined) updateData.status = examData.status;
+        if (examData.password !== undefined) updateData.password = examData.password;
 
         const exam = await prisma.exam.update({
           where: { exam_id: id },
@@ -470,5 +474,52 @@ export class ExamsService {
   async answerCorrectness(student_answer: string, correct_answer: string){
     const score = await this.embed.similarCosineSimilarScore(student_answer, correct_answer)
     return score
+  }
+
+  /**
+   * Verify if the provided password is correct for an exam
+   */
+  async verifyExamPassword(exam_id: number, student_id: number, password: string) {
+    try {
+      // Find the exam
+      const exam = await this.prisma.exam.findUnique({
+        where: { exam_id },
+        select: { 
+          exam_id: true,
+          password: true,
+          title: true,
+        },
+      });
+
+      if (!exam) {
+        throw new NotFoundException(`Exam with ID ${exam_id} not found`);
+      }
+
+      // Check if exam has a password
+      const hasPassword = exam.password && exam.password.trim() !== '';
+      
+      if (!hasPassword) {
+        // Exam doesn't require password
+        return {
+          success: true,
+          message: 'Exam does not require a password',
+          has_password: false,
+        };
+      }
+
+      // Verify the password
+      const isCorrect = exam.password === password;
+
+      return {
+        success: isCorrect,
+        message: isCorrect ? 'Password is correct' : 'Incorrect password',
+        has_password: true,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to verify exam password: ' + error.message);
+    }
   }
 }
