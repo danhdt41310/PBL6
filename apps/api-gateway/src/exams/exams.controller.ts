@@ -1,14 +1,14 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
+import {
+  Controller,
+  Get,
+  Post,
   Put,
-  Patch, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
-  Inject, 
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Inject,
   ParseIntPipe,
   Req,
   ValidationPipe,
@@ -22,19 +22,19 @@ import {
 import { Response } from 'express'
 import { ClientProxy } from '@nestjs/microservices'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { 
-  ApiTags, 
-  ApiOperation, 
-  ApiResponse, 
-  ApiBearerAuth, 
-  ApiParam, 
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
   ApiQuery,
   ApiBody,
   ApiConsumes,
 } from '@nestjs/swagger'
-import { 
-  CreateQuestionDto, 
-  UpdateQuestionDto, 
+import {
+  CreateQuestionDto,
+  UpdateQuestionDto,
   QuestionFilterDto,
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto,
@@ -64,14 +64,14 @@ interface RequestWithUser extends Request {
 @ApiBearerAuth('JWT-auth')
 @Controller()
 export class ExamsController {
-  constructor(@Inject('EXAMS_SERVICE') private examsService: ClientProxy) {}
+  constructor(@Inject('EXAMS_SERVICE') private examsService: ClientProxy) { }
 
   // ============================================================
   // EXAMS
   // ============================================================
   @Post('exams')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new exam',
     description: 'Create a new exam with questions. Creator ID will be set from JWT token.'
   })
@@ -87,7 +87,7 @@ export class ExamsController {
       ...createExamDto,
       created_by: req.user?.userId || createExamDto.created_by,
     }
-    
+
     return firstValueFrom(
       this.examsService.send('exams.create', examData)
     )
@@ -95,7 +95,7 @@ export class ExamsController {
 
   @Get('exams')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all exams',
     description: 'Get paginated list of exams with filters. Returns exams that have start_time and end_time within the specified range.'
   })
@@ -115,7 +115,7 @@ export class ExamsController {
 
   @Get('students/exams')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get exams for current student',
     description: 'Get paginated list of exams that the current student can access based on their enrolled classes. Includes submission status if student has started the exam.'
   })
@@ -125,8 +125,8 @@ export class ExamsController {
   @ApiQuery({ name: 'end_time', required: false, type: String, description: 'Filter exams with end_time <= this value (ISO 8601)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Student exams retrieved successfully',
     schema: {
       example: {
@@ -184,7 +184,7 @@ export class ExamsController {
 
   @Get('exams/:id')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get exam by ID',
     description: 'Get detailed information about a specific exam including all questions and submissions'
   })
@@ -199,7 +199,7 @@ export class ExamsController {
 
   @Put('exams/:id')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update exam',
     description: 'Update an existing exam. Can update exam details and/or replace questions.'
   })
@@ -219,7 +219,7 @@ export class ExamsController {
   }
 
   @Delete('exams/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete exam',
     description: 'Delete an exam and all associated data (question associations, submissions, etc.)'
   })
@@ -237,7 +237,7 @@ export class ExamsController {
   // QUESTION CATEGORY
   // ============================================================
   @Post('question-categories')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create question category',
     description: 'Create a new question category (teachers only)'
   })
@@ -255,13 +255,13 @@ export class ExamsController {
 
   @Get('question-categories')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all question categories',
     description: 'Get list of question categories created by the current user with question count. Supports search by name.'
   })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by category name (case-insensitive)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Categories retrieved successfully',
     schema: {
       example: [
@@ -282,14 +282,14 @@ export class ExamsController {
     @Req() req?: RequestWithUser
   ) {
     // If user not authenticated, return empty array
-      if (!req?.user?.userId) {
+    if (!req?.user?.userId) {
       return []
     }
 
     const result = await firstValueFrom(
-      this.examsService.send('questions.categories.findAll', { 
+      this.examsService.send('questions.categories.findAll', {
         search,
-        created_by: req.user.userId 
+        created_by: req.user.userId
       })
     )
     return result
@@ -297,7 +297,7 @@ export class ExamsController {
 
   @Get('question-categories/:id')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get category by ID',
     description: 'Get detailed information about a category (only if owned by current user)'
   })
@@ -309,15 +309,15 @@ export class ExamsController {
     @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.findOne', { 
+      this.examsService.send('questions.categories.findOne', {
         id,
-        userId: req.user?.userId 
+        userId: req.user?.userId
       })
     )
   }
 
   @Put('question-categories/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update category',
     description: 'Update an existing question category (only creator can update)'
   })
@@ -331,16 +331,16 @@ export class ExamsController {
     @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.update', { 
-        id, 
+      this.examsService.send('questions.categories.update', {
+        id,
         updateCategoryDto,
-        userId: req.user?.userId 
+        userId: req.user?.userId
       })
     )
   }
 
   @Delete('question-categories/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete category',
     description: 'Delete a category (only if no questions use it and only creator can delete)'
   })
@@ -353,9 +353,9 @@ export class ExamsController {
     @Req() req: RequestWithUser
   ) {
     return firstValueFrom(
-      this.examsService.send('questions.categories.delete', { 
+      this.examsService.send('questions.categories.delete', {
         id,
-        userId: req.user?.userId 
+        userId: req.user?.userId
       })
     )
   }
@@ -365,7 +365,7 @@ export class ExamsController {
   // ============================================================
   @Post('questions')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new question',
     description: 'Create a new question (teachers only). Creator ID will be set from JWT token.'
   })
@@ -384,13 +384,14 @@ export class ExamsController {
 
   @Get('questions')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all questions',
     description: 'Get paginated list of questions with filters. Teachers see their own questions + public ones.'
   })
   @ApiQuery({ name: 'type', required: false, enum: ['multiple_choice', 'essay'], description: 'Question type filter' })
   @ApiQuery({ name: 'difficulty', required: false, enum: ['easy', 'medium', 'hard'], description: 'Difficulty level filter' })
-  @ApiQuery({ name: 'category_id', required: false, type: Number, description: 'Category ID filter' })
+  @ApiQuery({ name: 'category_id', required: false, type: Number, description: 'Single category ID filter' })
+  @ApiQuery({ name: 'category_ids', required: false, type: [Number], description: 'Multiple category IDs filter (comma-separated or repeated query params)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in question content' })
@@ -418,7 +419,9 @@ export class ExamsController {
       ...filterDto,
       created_by: req.user.userId,
     }
-    
+
+    console.log('[getAllQuestions] Sending to exams-service:', JSON.stringify(queryFilter, null, 2))
+
     const result = await firstValueFrom(
       this.examsService.send('questions.findAll', queryFilter)
     )
@@ -426,7 +429,7 @@ export class ExamsController {
   }
 
   @Get('questions/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get question by ID',
     description: 'Get detailed information about a specific question including its usage in exams'
   })
@@ -440,7 +443,7 @@ export class ExamsController {
   }
 
   @Put('questions/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update question',
     description: 'Update an existing question. Only the creator can update their questions.'
   })
@@ -460,7 +463,7 @@ export class ExamsController {
   }
 
   @Delete('questions/:id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete question',
     description: 'Delete a question. Can only delete if question is not used in any exam.'
   })
@@ -479,14 +482,14 @@ export class ExamsController {
   // RANDOM QUESTIONS
   // ============================================================
   @Post('questions/random')
-  @SkipPermissionCheck()  
-  @ApiOperation({ 
+  @SkipPermissionCheck()
+  @ApiOperation({
     summary: 'Get random questions',
     description: 'Get random questions based on multiple criteria (category, type, quantity). Supports multiple_choice, true_false, and essay types. true_false questions are multiple_choice with is_multiple_answer=false.'
   })
   @ApiBody({ type: GetRandomQuestionsDto })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Random questions retrieved successfully',
     schema: {
       example: {
@@ -539,13 +542,13 @@ export class ExamsController {
 
   @Post('exams/:exam_id/start')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Start an exam',
     description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token.'
   })
   @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Exam started successfully or existing submission returned',
     schema: {
       example: {
@@ -593,14 +596,14 @@ export class ExamsController {
 
   @Get('submissions/:submission_id/questions/:order')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get question by order',
     description: 'Get a specific question by order number for a submission. Returns question details and existing answer if available.'
   })
   @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
   @ApiParam({ name: 'order', type: 'number', description: 'Question order number (starts from 1)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Question retrieved successfully',
     schema: {
       example: {
@@ -641,7 +644,7 @@ export class ExamsController {
 
   @Post('submissions/:submission_id/answers')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Submit or update an answer',
     description: 'Create or update a SubmissionAnswer record. If an answer already exists for the question, it will be updated.'
   })
@@ -656,8 +659,8 @@ export class ExamsController {
       required: ['question_id', 'answer_content']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Answer submitted or updated successfully',
     schema: {
       example: {
@@ -685,13 +688,13 @@ export class ExamsController {
 
   @Get('submissions/:submission_id/resume')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Resume exam',
     description: 'Resume an exam at the current question (based on current_question_order). Returns current question and remaining time.'
   })
   @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Current question retrieved successfully',
     schema: {
       example: {
@@ -732,13 +735,13 @@ export class ExamsController {
 
   @Post('submissions/:submission_id/submit')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Submit exam',
     description: 'Mark submission as "submitted". After this, no more answers can be added/updated.'
   })
   @ApiParam({ name: 'submission_id', type: 'number', description: 'Submission ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Exam submitted successfully',
     schema: {
       example: {
@@ -767,7 +770,7 @@ export class ExamsController {
 
   @Patch('submissions/:submission_id/time')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update remaining time',
     description: 'Update the remaining time for a submission. Used to sync time as student takes the exam.'
   })
@@ -781,8 +784,8 @@ export class ExamsController {
       required: ['remaining_time']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Remaining time updated successfully',
     schema: {
       example: {
@@ -812,15 +815,15 @@ export class ExamsController {
 
   @Get('submissions/exam/:examId')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get submissions by exam ID',
     description: 'Get paginated list of submissions for a specific exam. Returns submission details with answers and exam info.'
   })
   @ApiParam({ name: 'examId', type: 'number', description: 'Exam ID' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Submissions retrieved successfully',
     schema: {
       example: {
@@ -887,13 +890,13 @@ export class ExamsController {
 
   @Get('submissions/:id')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get submission by ID',
     description: 'Get detailed information about a specific submission including all answers and questions.'
   })
   @ApiParam({ name: 'id', type: 'number', description: 'Submission ID' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Submission retrieved successfully',
     schema: {
       example: {
@@ -956,7 +959,7 @@ export class ExamsController {
 
   @Put('submissions/:id/grade')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Grade a submission',
     description: 'Update the score and feedback for a submission. Only teachers can grade submissions.'
   })
@@ -972,8 +975,8 @@ export class ExamsController {
       required: ['score', 'graded_by']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Submission graded successfully'
   })
   @ApiResponse({ status: 404, description: 'Submission not found' })
@@ -992,7 +995,7 @@ export class ExamsController {
 
   @Put('submissions/:id/answers')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update submission answers',
     description: 'Update points and comments for individual answers in a submission. This will also recalculate the total score.'
   })
@@ -1017,8 +1020,8 @@ export class ExamsController {
       required: ['answers']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Answers updated successfully'
   })
   @ApiResponse({ status: 404, description: 'Submission not found' })
@@ -1036,7 +1039,7 @@ export class ExamsController {
 
   @Put('submissions/:id/confirm-grading')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Confirm grading',
     description: 'Mark submission as graded without modifying answers. Calculates total score from existing answers.'
   })
@@ -1049,8 +1052,8 @@ export class ExamsController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Grading confirmed successfully'
   })
   @ApiResponse({ status: 404, description: 'Submission not found' })
@@ -1077,14 +1080,14 @@ export class ExamsController {
     schema: {
       type: 'object',
       properties: {
-        student_answer:{type: 'string', description:'student answer for check'},
-        correct_answer:{type: 'string', description:'correct answer for compare'},
+        student_answer: { type: 'string', description: 'student answer for check' },
+        correct_answer: { type: 'string', description: 'correct answer for compare' },
       },
       required: ['remaining_time']
     }
   })
   @SkipPermissionCheck()
-  async answerCorrectness(@Body() answerCorrectnessDto: AnswerCorrectnessDto){
+  async answerCorrectness(@Body() answerCorrectnessDto: AnswerCorrectnessDto) {
     return firstValueFrom(
       this.examsService.send('exams.answer_correctness', answerCorrectnessDto)
     );
@@ -1102,7 +1105,7 @@ export class ExamsController {
     new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
   )
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Preview Excel import',
     description: 'Upload Excel file and preview questions before importing'
   })
@@ -1163,7 +1166,7 @@ export class ExamsController {
     new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
   )
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Import questions from Excel',
     description: 'Upload Excel file to bulk import questions. Categories will be auto-created if not exist. Requires authentication.'
   })
@@ -1203,12 +1206,12 @@ export class ExamsController {
 
   @Get('questions/import/template')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Download Excel template',
     description: 'Download the Excel template for bulk importing questions'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Template downloaded',
     content: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
@@ -1222,9 +1225,9 @@ export class ExamsController {
   async downloadTemplate(@Res() res: Response) {
     const fs = require('fs')
     const path = require('path')
-    
+
     const templatePath = path.join(__dirname, '..', '..', '..', '..', '..', 'templates', 'excels', 'TemplateImportQuestions.xlsx')
-    
+
     if (!fs.existsSync(templatePath)) {
       throw new BadRequestException('Template file not found')
     }
@@ -1234,13 +1237,13 @@ export class ExamsController {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="TemplateImportQuestions.xlsx"',
     })
-    
+
     file.pipe(res)
   }
 
   @Get('questions/export/excel')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Export questions to Excel',
     description: 'Export filtered questions to Excel file'
   })
@@ -1249,8 +1252,8 @@ export class ExamsController {
   @ApiQuery({ name: 'category_id', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'is_public', required: false, type: Boolean })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Excel file generated',
     content: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
@@ -1271,7 +1274,7 @@ export class ExamsController {
       ...filterDto,
       created_by: req.user.userId,
     }
-    
+
     const result: any = await firstValueFrom(
       this.examsService.send('questions.export.excel', exportFilter)
     )
@@ -1290,7 +1293,7 @@ export class ExamsController {
 
   @Get('questions/export/text')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Export questions to text file',
     description: 'Export filtered questions to plain text file'
   })
@@ -1299,8 +1302,8 @@ export class ExamsController {
   @ApiQuery({ name: 'category_id', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'is_public', required: false, type: Boolean })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Text file generated',
     content: {
       'text/plain': {
@@ -1320,7 +1323,7 @@ export class ExamsController {
       ...filterDto,
       created_by: req.user.userId,
     }
-    
+
     const text = await firstValueFrom(
       this.examsService.send('questions.export.text', exportFilter)
     )
@@ -1337,7 +1340,7 @@ export class ExamsController {
 
   @Get('questions/export/docx')
   @SkipPermissionCheck()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Export questions to Word document',
     description: 'Export filtered questions to DOCX file'
   })
@@ -1346,7 +1349,7 @@ export class ExamsController {
   @ApiQuery({ name: 'category_id', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'is_public', required: false, type: Boolean })
-  @ApiResponse({ 
+  @ApiResponse({
     status: 200,
     description: 'Word document generated',
     content: {
@@ -1368,7 +1371,7 @@ export class ExamsController {
       ...filterDto,
       created_by: req.user.userId,
     }
-    
+
     const result: any = await firstValueFrom(
       this.examsService.send('questions.export.docx', exportFilter)
     )

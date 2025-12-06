@@ -68,6 +68,7 @@ export interface QuestionFilterDto {
   type?: QuestionType
   difficulty?: QuestionDifficulty
   category_id?: number
+  category_ids?: number[] // Support multiple categories
   created_by?: number
   is_public?: boolean
   page?: number

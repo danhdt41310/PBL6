@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { PrismaClient } from '@prisma/exams-client'
-import { 
-  CreateQuestionDto, 
-  UpdateQuestionDto, 
+import {
+  CreateQuestionDto,
+  UpdateQuestionDto,
   QuestionFilterDto,
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto,
@@ -15,7 +15,7 @@ import { TransactionClient } from 'src/prisma/prisma.type'
 
 @Injectable()
 export class QuestionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Get Prisma client for transaction or regular operation
@@ -181,13 +181,13 @@ export class QuestionsService {
         if (!createQuestionDto.options || createQuestionDto.options.length < 2) {
           throw new BadRequestException('Multiple choice questions must have at least 2 options')
         }
-        
+
         // Check for correct answers (at least one option has prefix with =)
         const correctAnswers = createQuestionDto.options.filter(opt => opt.text.startsWith('='))
         if (correctAnswers.length === 0) {
           throw new BadRequestException('At least one option must be marked as correct (prefix with =)')
         }
-        
+
         // Check single answer can only have one correct option
         if (!createQuestionDto.is_multiple_answer && correctAnswers.length > 1) {
           throw new BadRequestException('Single answer questions can only have one correct option')
@@ -257,7 +257,10 @@ export class QuestionsService {
         where.difficulty = filterDto.difficulty
       }
 
-      if (filterDto.category_id) {
+      // Support both single category_id and multiple category_ids
+      if (filterDto.category_ids && filterDto.category_ids.length > 0) {
+        where.category_id = { in: filterDto.category_ids }
+      } else if (filterDto.category_id) {
         where.category_id = filterDto.category_id
       }
 
@@ -351,23 +354,23 @@ export class QuestionsService {
       }
 
       // Validate options if updating multiple choice question (new format with prefix)
-      if (updateQuestionDto.type === 'multiple_choice' || 
-          (existingQuestion.type === 'multiple_choice' && updateQuestionDto.options)) {
+      if (updateQuestionDto.type === 'multiple_choice' ||
+        (existingQuestion.type === 'multiple_choice' && updateQuestionDto.options)) {
         if (updateQuestionDto.options && updateQuestionDto.options.length < 2) {
           throw new BadRequestException('Multiple choice questions must have at least 2 options')
         }
-        
+
         if (updateQuestionDto.options) {
           // Check for correct answers (prefix with =)
           const correctAnswers = updateQuestionDto.options.filter(opt => opt.text.startsWith('='))
           if (correctAnswers.length === 0) {
             throw new BadRequestException('At least one option must be marked as correct (prefix with =)')
           }
-          
-          const isMultipleAnswer = updateQuestionDto.is_multiple_answer !== undefined 
-            ? updateQuestionDto.is_multiple_answer 
+
+          const isMultipleAnswer = updateQuestionDto.is_multiple_answer !== undefined
+            ? updateQuestionDto.is_multiple_answer
             : (existingQuestion as any).is_multiple_answer
-            
+
           if (!isMultipleAnswer && correctAnswers.length > 1) {
             throw new BadRequestException('Single answer questions can only have one correct option')
           }
@@ -383,7 +386,7 @@ export class QuestionsService {
 
       // Prepare update data with proper category relation handling
       const { category_id, ...restDto } = updateQuestionDto
-      
+
       const question = await this.prisma.question.update({
         where: { question_id: id },
         data: {
@@ -391,7 +394,7 @@ export class QuestionsService {
           options: updateQuestionDto.options as any,
           // Handle category relation: connect if provided, disconnect if null/undefined
           ...(category_id !== undefined && {
-            category: category_id 
+            category: category_id
               ? { connect: { category_id } }
               : { disconnect: true }
           }),
@@ -555,7 +558,7 @@ export class QuestionsService {
         const selected = shuffled.slice(0, quantity)
 
         allQuestions.push(...selected)
-        
+
         summary.fetched += selected.length
         summary.by_criteria.push({
           category_id: category_id || null,

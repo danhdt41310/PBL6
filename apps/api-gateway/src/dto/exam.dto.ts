@@ -16,7 +16,7 @@ export enum QuestionDifficulty {
 }
 
 export class QuestionOptionDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Unique identifier for the option (auto-assigned)',
     example: 1
   })
@@ -24,7 +24,7 @@ export class QuestionOptionDto {
   @IsNumber()
   id: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Option text with prefix: "=" for correct, "~" for incorrect',
     example: '=Encapsulation'
   })
@@ -38,7 +38,7 @@ export class QuestionOptionDto {
 // QUESTION CATEGORY DTOs
 // ============================================================
 export class CreateQuestionCategoryDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Category name',
     example: 'Mathematics',
     minLength: 2
@@ -48,7 +48,7 @@ export class CreateQuestionCategoryDto {
   @MinLength(2, { message: 'Category name must be at least 2 characters' })
   name: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category description',
     example: 'Questions related to mathematics and calculations'
   })
@@ -56,7 +56,7 @@ export class CreateQuestionCategoryDto {
   @IsString()
   description?: string
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User ID who created this category',
     example: 1
   })
@@ -66,7 +66,7 @@ export class CreateQuestionCategoryDto {
 }
 
 export class UpdateQuestionCategoryDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category name',
     example: 'OOP',
     minLength: 2
@@ -76,7 +76,7 @@ export class UpdateQuestionCategoryDto {
   @MinLength(2, { message: 'Category name must be at least 2 characters' })
   name?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category description',
     example: 'Advanced object-oriented programming concepts and principles'
   })
@@ -89,7 +89,7 @@ export class UpdateQuestionCategoryDto {
 // QUESTION DTOs
 // ============================================================
 export class CreateQuestionDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Question content/text',
     example: 'How many OOP principles are there?',
     minLength: 10
@@ -99,7 +99,7 @@ export class CreateQuestionDto {
   @MinLength(10, { message: 'Question content must be at least 10 characters' })
   content: string
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Type of question',
     enum: QuestionType,
     example: QuestionType.MULTIPLE_CHOICE
@@ -107,7 +107,7 @@ export class CreateQuestionDto {
   @IsEnum(QuestionType, { message: 'Invalid question type' })
   type: QuestionType
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Difficulty level',
     enum: QuestionDifficulty,
     example: QuestionDifficulty.EASY
@@ -116,7 +116,7 @@ export class CreateQuestionDto {
   @IsEnum(QuestionDifficulty, { message: 'Invalid difficulty level' })
   difficulty?: QuestionDifficulty
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category ID this question belongs to',
     example: 1
   })
@@ -125,7 +125,7 @@ export class CreateQuestionDto {
   @Type(() => Number)
   category_id?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Whether multiple answers are correct (for MCQ)',
     example: false,
     default: false
@@ -134,7 +134,7 @@ export class CreateQuestionDto {
   @IsBoolean()
   is_multiple_answer?: boolean
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Answer options (required for multiple choice questions)',
     type: [QuestionOptionDto],
     example: [
@@ -150,7 +150,7 @@ export class CreateQuestionDto {
   @Type(() => QuestionOptionDto)
   options?: QuestionOptionDto[]
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User ID who created this question',
     example: 1
   })
@@ -158,7 +158,7 @@ export class CreateQuestionDto {
   @IsInt()
   created_by: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Whether question is publicly visible',
     example: true,
     default: false
@@ -169,7 +169,7 @@ export class CreateQuestionDto {
 }
 
 export class UpdateQuestionDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Question content/text',
     example: 'What is the capital city of France?',
     minLength: 10
@@ -179,7 +179,7 @@ export class UpdateQuestionDto {
   @MinLength(10, { message: 'Question content must be at least 10 characters' })
   content?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Type of question',
     enum: QuestionType,
     example: QuestionType.MULTIPLE_CHOICE
@@ -188,7 +188,7 @@ export class UpdateQuestionDto {
   @IsEnum(QuestionType, { message: 'Invalid question type' })
   type?: QuestionType
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Difficulty level',
     enum: QuestionDifficulty,
     example: QuestionDifficulty.MEDIUM
@@ -197,7 +197,7 @@ export class UpdateQuestionDto {
   @IsEnum(QuestionDifficulty, { message: 'Invalid difficulty level' })
   difficulty?: QuestionDifficulty
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category ID this question belongs to',
     example: 2
   })
@@ -206,7 +206,7 @@ export class UpdateQuestionDto {
   @Type(() => Number)
   category_id?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Whether multiple answers are correct (for MCQ)',
     example: false
   })
@@ -214,7 +214,7 @@ export class UpdateQuestionDto {
   @IsBoolean()
   is_multiple_answer?: boolean
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Answer options (for multiple choice questions)',
     type: [QuestionOptionDto],
     example: [
@@ -228,7 +228,7 @@ export class UpdateQuestionDto {
   @Type(() => QuestionOptionDto)
   options?: QuestionOptionDto[]
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Whether question is publicly visible',
     example: true
   })
@@ -238,7 +238,7 @@ export class UpdateQuestionDto {
 }
 
 export class QuestionFilterDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by question type',
     enum: QuestionType,
     example: QuestionType.MULTIPLE_CHOICE
@@ -247,7 +247,7 @@ export class QuestionFilterDto {
   @IsEnum(QuestionType)
   type?: QuestionType
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by difficulty level',
     enum: QuestionDifficulty,
     example: QuestionDifficulty.EASY
@@ -256,8 +256,8 @@ export class QuestionFilterDto {
   @IsEnum(QuestionDifficulty)
   difficulty?: QuestionDifficulty
 
-  @ApiPropertyOptional({ 
-    description: 'Filter by category ID',
+  @ApiPropertyOptional({
+    description: 'Filter by single category ID',
     example: 1
   })
   @IsOptional()
@@ -265,7 +265,22 @@ export class QuestionFilterDto {
   @Type(() => Number)
   category_id?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
+    description: 'Filter by multiple category IDs',
+    example: [1, 2, 3],
+    type: [Number]
+  })
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    // Handle both array and single value from query string
+    if (!value) return undefined
+    if (Array.isArray(value)) return value.map(v => parseInt(String(v), 10))
+    return [parseInt(String(value), 10)]
+  })
+  category_ids?: number[]
+
+  @ApiPropertyOptional({
     description: 'Filter by creator user ID',
     example: 1
   })
@@ -274,7 +289,7 @@ export class QuestionFilterDto {
   @Type(() => Number)
   created_by?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by public/private status',
     example: true
   })
@@ -283,7 +298,7 @@ export class QuestionFilterDto {
   @Type(() => Boolean)
   is_public?: boolean
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Page number for pagination',
     example: 1,
     minimum: 1,
@@ -295,7 +310,7 @@ export class QuestionFilterDto {
   @Type(() => Number)
   page?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Number of items per page',
     example: 10,
     minimum: 1,
@@ -308,6 +323,14 @@ export class QuestionFilterDto {
   @Max(100)
   @Type(() => Number)
   limit?: number
+
+  @ApiPropertyOptional({
+    description: 'Search text in question content',
+    example: 'What is OOP'
+  })
+  @IsOptional()
+  @IsString()
+  search?: string
 }
 
 // ============================================================
@@ -322,7 +345,7 @@ export enum ExamStatus {
 }
 
 export class QuestionInExamDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Question ID',
     example: 1
   })
@@ -330,7 +353,7 @@ export class QuestionInExamDto {
   @IsInt({ message: 'Question ID must be a number' })
   question_id: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Order/position of question in exam',
     example: 1,
     minimum: 1
@@ -340,7 +363,7 @@ export class QuestionInExamDto {
   @Min(0, { message: 'Order must be at least 0' })
   order: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Points awarded for this question',
     example: 10,
     minimum: 1
@@ -355,7 +378,7 @@ export class QuestionInExamDto {
 }
 
 export class CreateExamDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Class ID this exam belongs to',
     example: 1
   })
@@ -363,7 +386,7 @@ export class CreateExamDto {
   @IsInt({ message: 'Class ID must be a number' })
   class_id: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Exam title',
     example: 'Midterm Exam - OOP Fundamentals',
     minLength: 5
@@ -373,7 +396,7 @@ export class CreateExamDto {
   @MinLength(5, { message: 'Title must be at least 5 characters' })
   title: string
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Exam start time (ISO 8601 format)',
     example: '2024-12-01T09:00:00Z'
   })
@@ -381,7 +404,7 @@ export class CreateExamDto {
   @IsString()
   start_time: string
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Exam end time (ISO 8601 format)',
     example: '2024-12-01T11:00:00Z'
   })
@@ -389,7 +412,7 @@ export class CreateExamDto {
   @IsString()
   end_time: string
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Total time allowed for exam in minutes',
     example: 90,
     minimum: 1
@@ -399,7 +422,7 @@ export class CreateExamDto {
   @Min(1, { message: 'Total time must be at least 1 minute' })
   total_time: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam description/instructions',
     example: 'This is a comprehensive midterm exam covering OOP principles...'
   })
@@ -407,7 +430,7 @@ export class CreateExamDto {
   @IsString()
   description?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam status',
     enum: ExamStatus,
     example: ExamStatus.DRAFT,
@@ -417,7 +440,7 @@ export class CreateExamDto {
   @IsEnum(ExamStatus, { message: 'Invalid exam status' })
   status?: ExamStatus
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User ID who created this exam (auto-filled from JWT)',
     example: 1
   })
@@ -425,7 +448,7 @@ export class CreateExamDto {
   @IsInt()
   created_by: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of questions with their order and points',
     type: [QuestionInExamDto],
     example: [
@@ -441,7 +464,7 @@ export class CreateExamDto {
 }
 
 export class UpdateExamDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Class ID this exam belongs to',
     example: 1
   })
@@ -449,7 +472,7 @@ export class UpdateExamDto {
   @IsInt({ message: 'Class ID must be a number' })
   class_id?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam title',
     example: 'Updated Midterm Exam',
     minLength: 5
@@ -459,7 +482,7 @@ export class UpdateExamDto {
   @MinLength(5, { message: 'Title must be at least 5 characters' })
   title?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam start time (ISO 8601 format)',
     example: '2024-12-01T09:00:00Z'
   })
@@ -467,7 +490,7 @@ export class UpdateExamDto {
   @IsString()
   start_time?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam end time (ISO 8601 format)',
     example: '2024-12-01T11:00:00Z'
   })
@@ -475,7 +498,7 @@ export class UpdateExamDto {
   @IsString()
   end_time?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Total time allowed for exam in minutes',
     example: 90,
     minimum: 1
@@ -485,7 +508,7 @@ export class UpdateExamDto {
   @Min(1, { message: 'Total time must be at least 1 minute' })
   total_time?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam description/instructions',
     example: 'Updated exam description...'
   })
@@ -493,7 +516,7 @@ export class UpdateExamDto {
   @IsString()
   description?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Exam status',
     enum: ExamStatus,
     example: ExamStatus.PUBLISHED
@@ -502,7 +525,7 @@ export class UpdateExamDto {
   @IsEnum(ExamStatus, { message: 'Invalid exam status' })
   status?: ExamStatus
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Array of questions with their order and points (replaces all existing questions)',
     type: [QuestionInExamDto],
     example: [
@@ -518,7 +541,7 @@ export class UpdateExamDto {
 }
 
 export class ExamFilterDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Search text in exam title or description',
     example: 'midterm'
   })
@@ -526,7 +549,7 @@ export class ExamFilterDto {
   @IsString()
   search?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by exam status',
     enum: ExamStatus,
     example: ExamStatus.PUBLISHED
@@ -535,7 +558,7 @@ export class ExamFilterDto {
   @IsEnum(ExamStatus)
   status?: ExamStatus
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter start time - exams with start_time >= this value (ISO 8601 format)',
     example: '2024-12-01T00:00:00Z'
   })
@@ -543,7 +566,7 @@ export class ExamFilterDto {
   @IsString()
   start_time?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter end time - exams with end_time <= this value (ISO 8601 format)',
     example: '2024-12-31T23:59:59Z'
   })
@@ -551,7 +574,7 @@ export class ExamFilterDto {
   @IsString()
   end_time?: string
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by creator ID',
     example: 1
   })
@@ -560,7 +583,7 @@ export class ExamFilterDto {
   @Type(() => Number)
   created_by?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Page number for pagination',
     example: 1,
     minimum: 1,
@@ -572,7 +595,7 @@ export class ExamFilterDto {
   @Type(() => Number)
   page?: number
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Number of items per page',
     example: 10,
     minimum: 1,
@@ -603,7 +626,7 @@ export enum RandomQuestionDifficulty {
 }
 
 export class RandomQuestionCriteriaDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Category ID to filter questions (optional)',
     example: 1
   })
@@ -612,7 +635,7 @@ export class RandomQuestionCriteriaDto {
   @Type(() => Number)
   category_id?: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Type of questions to fetch (multiple_choice, true_false, essay)',
     enum: RandomQuestionType,
     example: RandomQuestionType.MULTIPLE_CHOICE
@@ -621,7 +644,7 @@ export class RandomQuestionCriteriaDto {
   @IsEnum(RandomQuestionType, { message: 'Invalid question type' })
   type: RandomQuestionType
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Difficulty level (easy, medium, hard)',
     enum: RandomQuestionDifficulty,
     example: RandomQuestionDifficulty.MEDIUM
@@ -630,7 +653,7 @@ export class RandomQuestionCriteriaDto {
   @IsEnum(RandomQuestionDifficulty, { message: 'Invalid difficulty level' })
   difficulty?: RandomQuestionDifficulty
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Number of questions to fetch',
     example: 10,
     minimum: 1
@@ -642,7 +665,7 @@ export class RandomQuestionCriteriaDto {
 }
 
 export class GetRandomQuestionsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of criteria for fetching random questions',
     type: [RandomQuestionCriteriaDto],
     example: [
@@ -661,7 +684,7 @@ export class GetRandomQuestionsDto {
 // SUBMISSION DTOs (for exam taking)
 // ============================================================
 export class SubmitAnswerDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Question ID',
     example: 1
   })
@@ -669,7 +692,7 @@ export class SubmitAnswerDto {
   @IsInt({ message: 'Question ID must be a number' })
   question_id: number
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Answer content (JSON string for multiple choice, plain text for essay)',
     example: '["opt_1"]'
   })
@@ -679,7 +702,7 @@ export class SubmitAnswerDto {
 }
 
 export class UpdateRemainingTimeDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Remaining time in seconds',
     example: 3600,
     minimum: 0
@@ -690,21 +713,21 @@ export class UpdateRemainingTimeDto {
   remaining_time: number
 }
 
-export class ClassIdListDto{
+export class ClassIdListDto {
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'list of class_id that needed to find all exams related',
-    example:[1,2,3,4,10]
+    example: [1, 2, 3, 4, 10]
   })
   @IsArray()
-  @Transform(({value})=>value.map(v=>parseInt(v)))
+  @Transform(({ value }) => value.map(v => parseInt(v)))
   class_ids: number[]
 }
 
-export class AnswerCorrectnessDto{
+export class AnswerCorrectnessDto {
   @IsString()
   student_answer: string
-  
+
   @IsString()
   correct_answer: string
 }
