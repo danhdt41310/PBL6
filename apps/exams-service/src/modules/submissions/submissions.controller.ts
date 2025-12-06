@@ -115,8 +115,8 @@ export class SubmissionsController {
    * Returns the first question (order = 1)
    */
   @MessagePattern('submissions.start_exam')
-  async startExam(@Payload() data: { exam_id: number; student_id: number }) {
-    return this.submissionsService.startExam(data.exam_id, data.student_id);
+  async startExam(@Payload() data: { exam_id: number; student_id: number; password?: string }) {
+    return this.submissionsService.startExam(data.exam_id, data.student_id, data.password);
   }
 
   /**
