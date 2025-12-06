@@ -14,7 +14,7 @@ export class QuestionsImportService {
   constructor(
     private readonly transactionService: TransactionService,
     private readonly questionsService: QuestionsService,
-  ) {}
+  ) { }
 
   /**
    * Preview Excel file data
@@ -69,6 +69,7 @@ export class QuestionsImportService {
   async importExcel(buffer: Buffer, createdBy: number): Promise<ImportQuestionResult> {
     const errors: ImportQuestionError[] = [];
     let imported = 0;
+    let updated = 0;
     let failed = 0;
 
     try {
@@ -108,18 +109,18 @@ export class QuestionsImportService {
         )];
 
         const categoryMap = new Map<string, number>();
-        
+
         // Batch upsert categories
         for (const categoryName of categoryNames) {
           const category = await tx.questionCategory.upsert({
-            where: { 
+            where: {
               name_created_by: {
                 name: categoryName,
                 created_by: createdBy,
               }
             },
             update: {},
-            create: { 
+            create: {
               name: categoryName,
               created_by: createdBy,
             },
@@ -195,21 +196,43 @@ export class QuestionsImportService {
               }
             }
 
-            // Create question
-            await tx.question.create({
-              data: {
+            const existingQuestion = await tx.question.findFirst({
+              where: {
                 content: data.content.trim(),
-                type: data.type as any,
-                difficulty: (data.difficulty || 'medium') as any,
-                is_multiple_answer: data.is_multiple_answer === 'true',
-                options: options,
-                category_id: categoryId,
                 created_by: createdBy,
-                is_public: data.is_public === 'true',
               },
             });
 
-            imported++;
+            if (existingQuestion) {
+              // Update existing question (including type and category)
+              await tx.question.update({
+                where: { question_id: existingQuestion.question_id },
+                data: {
+                  type: data.type as any,
+                  difficulty: (data.difficulty || 'medium') as any,
+                  is_multiple_answer: data.is_multiple_answer === 'true',
+                  options: options,
+                  category_id: categoryId,
+                  is_public: data.is_public === 'true',
+                },
+              });
+              updated++;
+            } else {
+              // Create new question
+              await tx.question.create({
+                data: {
+                  content: data.content.trim(),
+                  type: data.type as any,
+                  difficulty: (data.difficulty || 'medium') as any,
+                  is_multiple_answer: data.is_multiple_answer === 'true',
+                  options: options,
+                  category_id: categoryId,
+                  created_by: createdBy,
+                  is_public: data.is_public === 'true',
+                },
+              });
+              imported++;
+            }
           } catch (error) {
             errors.push({
               row: rowNumber,
@@ -225,6 +248,7 @@ export class QuestionsImportService {
         success: failed === 0,
         total: parsedRows.length,
         imported,
+        updated,
         failed,
         errors,
       };
@@ -245,17 +269,17 @@ export class QuestionsImportService {
     if (value === undefined || value === null || value === '') {
       return '';
     }
-    
+
     // Handle boolean type
     if (typeof value === 'boolean') {
       return value ? 'true' : 'false';
     }
-    
+
     // Handle number type (1 = true, 0 = false)
     if (typeof value === 'number') {
       return value === 1 ? 'true' : 'false';
     }
-    
+
     // Handle string type
     const strValue = String(value).toLowerCase().trim();
     if (strValue === 'true' || strValue === '1') {
@@ -264,7 +288,7 @@ export class QuestionsImportService {
     if (strValue === 'false' || strValue === '0') {
       return 'false';
     }
-    
+
     // Return original for validation to catch
     return String(value);
   }

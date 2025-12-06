@@ -7,6 +7,7 @@ export interface ImportQuestionResult {
   success: boolean;
   total: number;
   imported: number;
+  updated: number;
   failed: number;
   errors: ImportQuestionError[];
 }
