@@ -1,18 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   CreateConversationDto,
-  UpdateConversationDto,
   PaginationDto,
   ConversationResponseDto,
-  ConversationListResponseDto
+  ConversationListResponseDto,
 } from './dto/conversation.dto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Conversation, Prisma } from '@prisma/chats-client';
-import { RpcException } from '@nestjs/microservices';
+import { ConversationRepository } from './conversation.repository';
+import {
+  ResourceNotFoundException,
+  InvalidOperationException,
+} from '../../common/exceptions';
+import { ERROR_MESSAGES } from '../../common/constants';
 
 @Injectable()
 export class ConversationsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private readonly conversationRepository: ConversationRepository,
+  ) {}
 
   /**
    * Create a new conversation or return existing one
@@ -20,56 +24,30 @@ export class ConversationsService {
    * @param data - Conversation creation data
    * @returns Created or existing conversation
    */
-  async createConversation(data: CreateConversationDto): Promise<ConversationResponseDto> {
-    try {
-      // Prevent self-conversation
-      if (data.sender_id === data.receiver_id) {
-        throw new RpcException(
-          new BadRequestException('Cannot create conversation with yourself')
-        );
-      }
-
-      // Check if conversation already exists (bidirectional)
-      const existingConversation = await this.prisma.conversation.findFirst({
-        where: {
-          OR: [
-            {
-              sender_id: data.sender_id,
-              receiver_id: data.receiver_id,
-            },
-            {
-              sender_id: data.receiver_id,
-              receiver_id: data.sender_id,
-            },
-          ],
-        },
-        include: {
-          messages: {
-            orderBy: { timestamp: 'desc' },
-            take: 1,
-          },
-        },
-      });
-
-      if (existingConversation) {
-        return this.mapToResponseDto(existingConversation);
-      }
-
-      // Create new conversation
-      const conversation = await this.prisma.conversation.create({
-        data: {
-          sender_id: data.sender_id,
-          receiver_id: data.receiver_id,
-        },
-        include: {
-          messages: true,
-        },
-      });
-
-      return this.mapToResponseDto(conversation);
-    } catch (error) {
-      this.handlePrismaError(error, 'create conversation');
+  async createConversation(
+    data: CreateConversationDto,
+  ): Promise<ConversationResponseDto> {
+    // Prevent self-conversation
+    if (data.sender_id === data.receiver_id) {
+      throw new InvalidOperationException(
+        ERROR_MESSAGES.CONVERSATION.SELF_CONVERSATION,
+      );
     }
+
+    // Use repository to create unique conversation
+    const conversation = await this.conversationRepository.createUnique(
+      data.sender_id,
+      data.receiver_id,
+    );
+
+    // Get conversation with messages
+    const conversationWithMessages =
+      await this.conversationRepository.findByIdWithMessages(
+        conversation.id,
+        false, // Only latest message
+      );
+
+    return this.mapToResponseDto(conversationWithMessages);
   }
 
   /**
@@ -78,30 +56,20 @@ export class ConversationsService {
    * @param includeMessages - Whether to include all messages
    * @returns Conversation with optional messages
    */
-  async findOne(id: number, includeMessages: boolean = false): Promise<ConversationResponseDto> {
-    try {
-      const conversation = await this.prisma.conversation.findUnique({
-        where: { id },
-        include: {
-          messages: includeMessages ? {
-            orderBy: { timestamp: 'desc' },
-          } : {
-            orderBy: { timestamp: 'desc' },
-            take: 1,
-          },
-        },
-      });
+  async findOne(
+    id: number,
+    includeMessages: boolean = false,
+  ): Promise<ConversationResponseDto> {
+    const conversation = await this.conversationRepository.findByIdWithMessages(
+      id,
+      includeMessages,
+    );
 
-      if (!conversation) {
-        throw new RpcException(
-          new NotFoundException(`Conversation with ID ${id} not found`)
-        );
-      }
-
-      return this.mapToResponseDto(conversation);
-    } catch (error) {
-      this.handlePrismaError(error, 'find conversation');
+    if (!conversation) {
+      throw new ResourceNotFoundException('Conversation', id);
     }
+
+    return this.mapToResponseDto(conversation);
   }
 
   /**
@@ -110,33 +78,29 @@ export class ConversationsService {
    * @param userId2 - Second user ID
    * @returns Conversation if exists
    */
-  async findByUsers(userId1: number, userId2: number): Promise<ConversationResponseDto | null> {
-    try {
-      const conversation = await this.prisma.conversation.findFirst({
-        where: {
-          OR: [
-            {
-              sender_id: userId1,
-              receiver_id: userId2,
-            },
-            {
-              sender_id: userId2,
-              receiver_id: userId1,
-            },
-          ],
-        },
-        include: {
-          messages: {
-            orderBy: { timestamp: 'desc' },
-            take: 1,
-          },
-        },
-      });
+  async findByUsers(
+    userId1: number,
+    userId2: number,
+  ): Promise<ConversationResponseDto | null> {
+    const conversation = await this.conversationRepository.findByUsers(
+      userId1,
+      userId2,
+    );
 
-      return conversation ? this.mapToResponseDto(conversation) : null;
-    } catch (error) {
-      this.handlePrismaError(error, 'find conversation by users');
+    if (!conversation) {
+      return null;
     }
+
+    // Get with messages
+    const conversationWithMessages =
+      await this.conversationRepository.findByIdWithMessages(
+        conversation.id,
+        false, // Only latest message
+      );
+
+    return conversationWithMessages
+      ? this.mapToResponseDto(conversationWithMessages)
+      : null;
   }
 
   /**
@@ -147,55 +111,31 @@ export class ConversationsService {
    */
   async findUserConversations(
     userId: number,
-    pagination: PaginationDto
+    pagination: PaginationDto,
   ): Promise<ConversationListResponseDto> {
-    try {
-      const { page = 1, limit = 20 } = pagination;
-      const skip = (page - 1) * limit;
+    const { page = 1, limit = 20 } = pagination;
 
-      const [conversations, total] = await Promise.all([
-        this.prisma.conversation.findMany({
-          where: {
-            OR: [
-              { sender_id: userId },
-              { receiver_id: userId },
-            ],
-          },
-          skip,
-          take: limit,
-          include: {
-            messages: {
-              orderBy: { timestamp: 'desc' },
-              take: 1,
-            },
-          },
-          orderBy: {
-            id: 'desc',
-          },
-        }),
-        this.prisma.conversation.count({
-          where: {
-            OR: [
-              { sender_id: userId },
-              { receiver_id: userId },
-            ],
-          },
-        }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        success: true,
-        conversations: conversations.map(conv => this.mapToResponseDto(conv, userId)),
-        total,
+    const [conversations, total] = await Promise.all([
+      this.conversationRepository.findByUserIdWithMessages(userId, {
         page,
         limit,
-        totalPages,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'find user conversations');
-    }
+        orderBy: 'desc',
+      }),
+      this.conversationRepository.countByUserId(userId),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      conversations: conversations.map((conv) =>
+        this.mapToResponseDto(conv, userId),
+      ),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   /**
@@ -203,30 +143,25 @@ export class ConversationsService {
    * @param id - Conversation ID
    * @returns Success status
    */
-  async deleteConversation(id: number): Promise<{ success: boolean; message: string }> {
-    try {
-      const conversation = await this.prisma.conversation.findUnique({
-        where: { id },
-      });
+  async deleteConversation(
+    id: number,
+  ): Promise<{ success: boolean; message: string }> {
+    const conversation = await this.conversationRepository.findById(id);
 
-      if (!conversation) {
-        throw new RpcException(
-          new NotFoundException(`Conversation with ID ${id} not found`)
-        );
-      }
-
-      // Delete conversation (messages will be cascade deleted due to onDelete: Cascade)
-      await this.prisma.conversation.delete({
-        where: { id },
-      });
-
-      return {
-        success: true,
-        message: `Conversation with ID ${id} and all its messages deleted successfully`,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'delete conversation');
+    if (!conversation) {
+      throw new ResourceNotFoundException('Conversation', id);
     }
+
+    // Delete conversation (messages will be cascade deleted due to onDelete: Cascade)
+    await this.conversationRepository.delete(id);
+
+    return {
+      success: true,
+      message: ERROR_MESSAGES.CONVERSATION.DELETE_FAILED.replace(
+        'Failed to delete conversation',
+        `Conversation with ID ${id} and all its messages deleted successfully`,
+      ),
+    };
   }
 
   /**
@@ -234,44 +169,44 @@ export class ConversationsService {
    * @param userId - User ID
    * @returns Statistics about user's conversations
    */
-  async getUserConversationStats(userId: number): Promise<any> {
-    try {
-      const [totalConversations, totalMessages] = await Promise.all([
-        this.prisma.conversation.count({
-          where: {
-            OR: [
-              { sender_id: userId },
-              { receiver_id: userId },
-            ],
-          },
-        }),
-        this.prisma.message.count({
-          where: {
-            conversation: {
-              OR: [
-                { sender_id: userId },
-                { receiver_id: userId },
-              ],
-            },
-          },
-        }),
-      ]);
+  async getUserConversationStats(userId: number): Promise<{
+    success: boolean;
+    userId: number;
+    totalConversations: number;
+    totalMessages: number;
+  }> {
+    const totalConversations =
+      await this.conversationRepository.countByUserId(userId);
 
-      return {
-        success: true,
-        userId,
-        totalConversations,
-        totalMessages,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'get conversation stats');
+    // Get all conversations to count total messages
+    const conversations =
+      await this.conversationRepository.findByUserId(userId);
+    let totalMessages = 0;
+
+    // This could be optimized with a custom repository method if needed
+    for (const conv of conversations) {
+      const convWithMessages: any =
+        await this.conversationRepository.findByIdWithMessages(conv.id, true);
+      if (convWithMessages?.messages) {
+        totalMessages += convWithMessages.messages.length;
+      }
     }
+
+    return {
+      success: true,
+      userId,
+      totalConversations,
+      totalMessages,
+    };
   }
 
   /**
    * Map Prisma conversation to response DTO
    */
-  private mapToResponseDto(conversation: any, currentUserId?: number): ConversationResponseDto {
+  private mapToResponseDto(
+    conversation: any,
+    currentUserId?: number,
+  ): ConversationResponseDto {
     const response: ConversationResponseDto = {
       id: conversation.id,
       sender_id: conversation.sender_id,
@@ -280,9 +215,10 @@ export class ConversationsService {
 
     // If currentUserId provided, determine the other user (receiver from perspective)
     if (currentUserId) {
-      const otherUserId = conversation.sender_id === currentUserId
-        ? conversation.receiver_id
-        : conversation.sender_id;
+      const otherUserId =
+        conversation.sender_id === currentUserId
+          ? conversation.receiver_id
+          : conversation.sender_id;
 
       // Add receiver info (will be populated by gateway later if needed)
       response.receiver_id = otherUserId;
@@ -317,47 +253,5 @@ export class ConversationsService {
     }
 
     return response;
-  }
-
-  /**
-   * Handle Prisma errors and map to appropriate HTTP exceptions
-   */
-  private handlePrismaError(error: any, operation: string): never {
-    if (error instanceof RpcException) {
-      throw error;
-    }
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (error.code) {
-        case 'P2002':
-          throw new RpcException(
-            new BadRequestException(
-              `Conversation already exists between these users`
-            )
-          );
-        case 'P2025':
-          throw new RpcException(
-            new NotFoundException(`Record not found during ${operation}`)
-          );
-        case 'P2003':
-          throw new RpcException(
-            new BadRequestException(
-              `Invalid user reference`
-            )
-          );
-        default:
-          throw new RpcException(
-            new InternalServerErrorException(
-              `Database error during ${operation}: ${error.code}`
-            )
-          );
-      }
-    }
-
-    throw new RpcException(
-      new InternalServerErrorException(
-        `Failed to ${operation}: ${error.message}`
-      )
-    );
   }
 }
