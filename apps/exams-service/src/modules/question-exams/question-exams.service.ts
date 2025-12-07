@@ -1,34 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { QuestionExamsRepository } from './question-exams.repository';
 import { CreateQuestionExamDto, UpdateQuestionExamDto } from './dto';
 
 @Injectable()
 export class QuestionExamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly questionExamsRepository: QuestionExamsRepository,
+  ) {}
 
   async createQuestionExam(createDto: CreateQuestionExamDto) {
-    return this.prisma.questionExam.create({
-      data: createDto,
-      include: {
-        question: true,
-        exam: true,
-      },
-    });
+    return this.questionExamsRepository.create(createDto);
   }
 
   async findQuestionExam(questionId: number, examId: number) {
-    const questionExam = await this.prisma.questionExam.findUnique({
-      where: { 
-        question_id_exam_id: {
-          question_id: questionId,
-          exam_id: examId,
-        },
-      },
-      include: {
-        question: true,
-        exam: true,
-      },
-    });
+    const questionExam = await this.questionExamsRepository.findUnique(questionId, examId);
 
     if (!questionExam) {
       throw new NotFoundException(`Question-Exam relationship not found`);
@@ -39,48 +26,19 @@ export class QuestionExamsService {
 
   async updateQuestionExam(questionId: number, examId: number, updateDto: UpdateQuestionExamDto) {
     const questionExam = await this.findQuestionExam(questionId, examId);
-    return this.prisma.questionExam.update({
-      where: { 
-        question_id_exam_id: {
-          question_id: questionId,
-          exam_id: examId,
-        },
-      },
-      data: updateDto,
-      include: {
-        question: true,
-        exam: true,
-      },
-    });
+    return this.questionExamsRepository.update(questionId, examId, updateDto);
   }
 
   async deleteQuestionExam(questionId: number, examId: number): Promise<void> {
     const questionExam = await this.findQuestionExam(questionId, examId);
-    await this.prisma.questionExam.delete({
-      where: { 
-        question_id_exam_id: {
-          question_id: questionId,
-          exam_id: examId,
-        },
-      },
-    });
+    await this.questionExamsRepository.delete(questionId, examId);
   }
 
   async findQuestionsByExam(examId: number) {
-    return this.prisma.questionExam.findMany({
-      where: { exam_id: examId },
-      include: {
-        question: true,
-      },
-    });
+    return this.questionExamsRepository.findManyByExam(examId);
   }
 
   async findExamsByQuestion(questionId: number) {
-    return this.prisma.questionExam.findMany({
-      where: { question_id: questionId },
-      include: {
-        exam: true,
-      },
-    });
+    return this.questionExamsRepository.findManyByQuestion(questionId);
   }
 }

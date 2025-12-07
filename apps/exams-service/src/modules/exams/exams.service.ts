@@ -5,11 +5,13 @@ import { CreateExamDto, UpdateExamDto, ExamFilterDto, ExamStatus } from './dto/c
 import { Prisma } from '@prisma/exams-client';
 import { firstValueFrom } from 'rxjs';
 import { EmbeddingService } from 'src/embedding/embedding.service';
+import { ExamsRepository } from './exams.repository';
 
 @Injectable()
 export class ExamsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly examsRepository: ExamsRepository,
     private readonly embed: EmbeddingService,
     @Inject('CLASSES_SERVICE') private readonly classesService: ClientProxy,
   ) {}
@@ -25,10 +27,7 @@ export class ExamsService {
       // Validate that questions exist
       if (questions && questions.length > 0) {
         const questionIds = questions.map(q => q.question_id);
-        const existingQuestions = await this.prisma.question.findMany({
-          where: { question_id: { in: questionIds } },
-          select: { question_id: true }
-        });
+        const existingQuestions = await this.examsRepository.findManyQuestions(questionIds);
 
         if (existingQuestions.length !== questionIds.length) {
           const foundIds = existingQuestions.map(q => q.question_id);
@@ -38,53 +37,20 @@ export class ExamsService {
       }
 
       // Use transaction to create exam and question associations
-      const result = await this.prisma.$transaction(async (prisma) => {
-        // Create the exam
-        const exam = await prisma.exam.create({
-          data: {
-            class_id: examData.class_id,
-            title: examData.title,
-            start_time: new Date(examData.start_time),
-            end_time: new Date(examData.end_time),
-            total_time: examData.total_time,
-            description: examData.description,
-            status: examData.status || ExamStatus.DRAFT,
-            created_by: examData.created_by,
-            password: examData.password || "",
-          },
-        });
-
-        // Create question_exam relationships if questions are provided
-        if (questions && questions.length > 0) {
-          await prisma.questionExam.createMany({
-            data: questions.map(q => ({
-              exam_id: exam.exam_id,
-              question_id: q.question_id,
-              order: q.order,
-              points: q.points,
-            })),
-          });
-        }
-
-        // Return exam with questions
-        return prisma.exam.findUnique({
-          where: { exam_id: exam.exam_id },
-          include: {
-            question_exams: {
-              include: {
-                question: {
-                  include: {
-                    category: true,
-                  },
-                },
-              },
-              orderBy: {
-                order: 'asc',
-              },
-            },
-          },
-        });
-      });
+      const result = await this.examsRepository.createExamWithTransaction(
+        {
+          class_id: examData.class_id,
+          title: examData.title,
+          start_time: new Date(examData.start_time),
+          end_time: new Date(examData.end_time),
+          total_time: examData.total_time,
+          description: examData.description,
+          status: examData.status || ExamStatus.DRAFT,
+          created_by: examData.created_by,
+          password: examData.password || "",
+        },
+        questions
+      );
 
       return result;
     } catch (error) {
@@ -106,15 +72,10 @@ export class ExamsService {
 
       const { questions, ...examData } = updateExamDto;
 
-      console.log('Updating exam with data:', updateExamDto);
-
       // Validate questions if provided
       if (questions && questions.length > 0) {
         const questionIds = questions.map(q => q.question_id);
-        const existingQuestions = await this.prisma.question.findMany({
-          where: { question_id: { in: questionIds } },
-          select: { question_id: true }
-        });
+        const existingQuestions = await this.examsRepository.findManyQuestions(questionIds);
 
         if (existingQuestions.length !== questionIds.length) {
           const foundIds = existingQuestions.map(q => q.question_id);
@@ -124,62 +85,17 @@ export class ExamsService {
       }
 
       // Use transaction to update exam and questions
-      const result = await this.prisma.$transaction(async (prisma) => {
-        // Update exam data
-        const updateData: any = {};
-        if (examData.class_id !== undefined) updateData.class_id = examData.class_id;
-        if (examData.title !== undefined) updateData.title = examData.title;
-        if (examData.start_time !== undefined) updateData.start_time = new Date(examData.start_time);
-        if (examData.end_time !== undefined) updateData.end_time = new Date(examData.end_time);
-        if (examData.total_time !== undefined) updateData.total_time = examData.total_time;
-        if (examData.description !== undefined) updateData.description = examData.description;
-        if (examData.status !== undefined) updateData.status = examData.status;
-        if (examData.password !== undefined) updateData.password = examData.password;
+      const updateData: any = {};
+      if (examData.class_id !== undefined) updateData.class_id = examData.class_id;
+      if (examData.title !== undefined) updateData.title = examData.title;
+      if (examData.start_time !== undefined) updateData.start_time = new Date(examData.start_time);
+      if (examData.end_time !== undefined) updateData.end_time = new Date(examData.end_time);
+      if (examData.total_time !== undefined) updateData.total_time = examData.total_time;
+      if (examData.description !== undefined) updateData.description = examData.description;
+      if (examData.status !== undefined) updateData.status = examData.status;
+      if (examData.password !== undefined) updateData.password = examData.password;
 
-        const exam = await prisma.exam.update({
-          where: { exam_id: id },
-          data: updateData,
-        });
-
-        // Update questions if provided
-        if (questions !== undefined) {
-          // Delete existing question associations
-          await prisma.questionExam.deleteMany({
-            where: { exam_id: id },
-          });
-
-          // Create new associations
-          if (questions.length > 0) {
-            await prisma.questionExam.createMany({
-              data: questions.map(q => ({
-                exam_id: id,
-                question_id: q.question_id,
-                order: q.order,
-                points: q.points,
-              })),
-            });
-          }
-        }
-
-        // Return updated exam with questions
-        return prisma.exam.findUnique({
-          where: { exam_id: id },
-          include: {
-            question_exams: {
-              include: {
-                question: {
-                  include: {
-                    category: true,
-                  },
-                },
-              },
-              orderBy: {
-                order: 'asc',
-              },
-            },
-          },
-        });
-      });
+      const result = await this.examsRepository.updateExamWithTransaction(id, updateData, questions);
 
       return result;
     } catch (error) {
@@ -199,9 +115,7 @@ export class ExamsService {
       // Check if exam exists
       await this.findOne(id);
 
-      await this.prisma.exam.delete({
-        where: { exam_id: id },
-      });
+      await this.examsRepository.deleteExam(id);
 
       return { message: 'Exam deleted successfully' };
     } catch (error) {
@@ -232,7 +146,7 @@ export class ExamsService {
 
       // Build where clause
       const where: any = {};
-      
+
       // Filter by status
       if (status) {
         where.status = status;
@@ -260,39 +174,10 @@ export class ExamsService {
       }
 
       // Get total count
-      const total = await this.prisma.exam.count({ where });
+      const total = await this.examsRepository.countExams(where);
 
       // Get paginated results
-      const exams = await this.prisma.exam.findMany({
-        where,
-        skip,
-        take,
-        orderBy: {
-          created_at: 'desc',
-        },
-        include: {
-          question_exams: {
-            include: {
-              question: {
-                select: {
-                  question_id: true,
-                  content: true,
-                  type: true,
-                  difficulty: true,
-                },
-              },
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          _count: {
-            select: {
-              submissions: true,
-            },
-          },
-        },
-      });
+      const exams = await this.examsRepository.findManyExams(where, skip, take);
 
       return {
         data: exams,
@@ -310,14 +195,7 @@ export class ExamsService {
 
   async findAllOf(class_ids: number[]){
     try{
-      const conditions: Prisma.ExamWhereInput[] = class_ids.map((class_id)=>({
-        class_id  
-      } as Prisma.ExamWhereInput))
-      const exams = await this.prisma.exam.findMany({
-        where:{
-          OR: conditions
-        },
-      })
+      const exams = await this.examsRepository.findManyExamsByClassIds(class_ids);
       return {
         success:true,
         data: exams,
@@ -329,17 +207,7 @@ export class ExamsService {
   }
 
   async findOne(id: number) {
-    const exam = await this.prisma.exam.findUnique({
-      where: { exam_id: id },
-      include: {
-        submissions: true,
-        question_exams: {
-          include: {
-            question: true,
-          },
-        },
-      },
-    });
+    const exam = await this.examsRepository.findExamById(id);
     
     if (!exam) {
       throw new NotFoundException(`Exam with ID ${id} not found`);
@@ -410,52 +278,10 @@ export class ExamsService {
       }
 
       // Get total count
-      const total = await this.prisma.exam.count({ where });
+      const total = await this.examsRepository.countExams(where);
 
       // Get paginated results
-      const exams = await this.prisma.exam.findMany({
-        where,
-        skip,
-        take,
-        orderBy: {
-          created_at: 'desc',
-        },
-        include: {
-          question_exams: {
-            include: {
-              question: {
-                select: {
-                  question_id: true,
-                  content: true,
-                  type: true,
-                  difficulty: true,
-                },
-              },
-            },
-            orderBy: {
-              order: 'asc',
-            },
-          },
-          submissions: {
-            where: {
-              student_id: studentId,
-            },
-            select: {
-              submission_id: true,
-              status: true,
-              score: true,
-              submitted_at: true,
-              remaining_time: true,
-              current_question_order: true,
-            },
-          },
-          _count: {
-            select: {
-              submissions: true,
-            },
-          },
-        },
-      });
+      const exams = await this.examsRepository.findManyExamsWithSubmissions(where, skip, take, studentId);
 
       return {
         data: exams,
@@ -482,14 +308,7 @@ export class ExamsService {
   async verifyExamPassword(exam_id: number, student_id: number, password: string) {
     try {
       // Find the exam
-      const exam = await this.prisma.exam.findUnique({
-        where: { exam_id },
-        select: { 
-          exam_id: true,
-          password: true,
-          title: true,
-        },
-      });
+      const exam = await this.examsRepository.findExamByIdForPassword(exam_id);
 
       if (!exam) {
         throw new NotFoundException(`Exam with ID ${exam_id} not found`);

@@ -3,59 +3,30 @@ import { ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSubmissionDto, GradeSubmissionDto, StartExamDto, SubmitAnswerDto, UpdateRemainingTimeDto } from './dto';
 import { ExamsService } from '../exams/exams.service';
+import { SubmissionsRepository } from './submissions.repository';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class SubmissionsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly submissionsRepository: SubmissionsRepository,
     private readonly examsService: ExamsService,
     @Inject('USERS_SERVICE') private readonly usersService: ClientProxy,
   ) {}
 
   async createSubmission(createSubmissionDto: CreateSubmissionDto) {
-    const { answers, ...submissionData } = createSubmissionDto;
-    
-    return this.prisma.submission.create({
-      data: {
-        ...submissionData,
-        answers: {
-          create: answers,
-        },
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
-    });
+    return this.submissionsRepository.create(createSubmissionDto);
   }
 
   async findSubmissionsByExam(examId: number, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
 
     // Get total count for pagination metadata
-    const total = await this.prisma.submission.count({
-      where: { exam_id: examId },
-    });
+    const total = await this.submissionsRepository.countByExamId(examId);
 
     // Get paginated submissions
-    const submissions = await this.prisma.submission.findMany({
-      where: { exam_id: examId },
-      include: {
-        _count: {
-          select: { answers: true },
-        },
-      },
-      skip,
-      take: limit,
-      orderBy: {
-        submitted_at: 'desc',
-      },
-    });
+    const submissions = await this.submissionsRepository.findManyByExamId(examId, skip, limit);
 
     // Get unique student IDs
     const studentIds = [...new Set(submissions.map(sub => sub.student_id))];
@@ -104,17 +75,7 @@ export class SubmissionsService {
   }
 
   async findSubmissionById(id: number) {
-    const submission = await this.prisma.submission.findUnique({
-      where: { submission_id: id },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
-    });
+    const submission = await this.submissionsRepository.findById(id);
 
     if (!submission) {
       throw new NotFoundException(`Submission with ID ${id} not found`);
@@ -135,42 +96,18 @@ export class SubmissionsService {
   }
 
   async findSubmissionsByStudent(studentId: number, examId?: number) {
-    return this.prisma.submission.findMany({
-      where: {
-        student_id: studentId,
-        ...(examId && { exam_id: examId }),
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
-    });
+    return this.submissionsRepository.findManyByStudent(studentId, examId);
   }
 
   async gradeSubmission(submissionId: number, gradeData: GradeSubmissionDto) {
     const submission = await this.findSubmissionById(submissionId);
     
-    return this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        score: gradeData.score,
-        teacher_feedback: gradeData.teacher_feedback,
-        graded_by: gradeData.graded_by,
-        graded_at: new Date(),
-        status: 'graded',
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
+    return this.submissionsRepository.update(submissionId, {
+      score: gradeData.score,
+      teacher_feedback: gradeData.teacher_feedback,
+      graded_by: gradeData.graded_by,
+      graded_at: new Date(),
+      status: 'graded',
     });
   }
 
@@ -218,32 +155,17 @@ export class SubmissionsService {
     }
 
     // Check if submission already exists
-    let submission = await this.prisma.submission.findUnique({
-      where: {
-        exam_id_student_id: {
-          exam_id: examId,
-          student_id: studentId,
-        },
-      },
-      include: {
-        answers: true,
-      },
-    });
+    let submission = await this.submissionsRepository.findByExamAndStudent(examId, studentId);
 
     // Create new submission if doesn't exist
     if (!submission) {
       const totalTimeInSeconds = exam.total_time * 60;
-      submission = await this.prisma.submission.create({
-        data: {
-          exam_id: examId,
-          student_id: studentId,
-          current_question_order: 1,
-          remaining_time: totalTimeInSeconds,
-          status: 'in_progress',
-        } as any,
-        include: {
-          answers: true,
-        },
+      submission = await this.submissionsRepository.createSubmission({
+        exam_id: examId,
+        student_id: studentId,
+        current_question_order: 1,
+        remaining_time: totalTimeInSeconds,
+        status: 'in_progress',
       });
     }
 
@@ -287,26 +209,7 @@ export class SubmissionsService {
    */
   async getQuestionByOrder(submissionId: number, order: number) {
     // Get submission
-    const submission = await this.prisma.submission.findUnique({
-      where: { submission_id: submissionId },
-      include: {
-        exam: {
-          include: {
-            question_exams: {
-              where: { order },
-              include: {
-                question: {
-                  include: {
-                    category: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        answers: true,
-      },
-    });
+    const submission = await this.submissionsRepository.findSubmissionWithExamAndQuestions(submissionId, order);
 
     if (!submission) {
       throw new NotFoundException(`Submission with ID ${submissionId} not found`);
@@ -319,12 +222,7 @@ export class SubmissionsService {
     }
 
     // Update current_question_order to track which question the student is viewing
-    await this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        current_question_order: order,
-      },
-    });
+    await this.submissionsRepository.updateCurrentQuestionOrder(submissionId, order);
 
     // Find existing answer for this question
     const existingAnswer = submission.answers.find(
@@ -332,9 +230,7 @@ export class SubmissionsService {
     );
 
     // Get total questions count
-    const totalQuestions = await this.prisma.questionExam.count({
-      where: { exam_id: submission.exam_id },
-    });
+    const totalQuestions = await this.submissionsRepository.countQuestionsByExamId(submission.exam_id);
 
     return {
       submission_id: submission.submission_id,
@@ -393,30 +289,23 @@ export class SubmissionsService {
     }
 
     // Check if answer already exists
-    const existingAnswer = await this.prisma.submissionAnswer.findFirst({
-      where: {
-        submission_id: submissionId,
-        question_id: submitAnswerDto.question_id,
-      },
-    });
+    const existingAnswer = await this.submissionsRepository.findSubmissionAnswerBySubmissionAndQuestion(
+      submissionId,
+      submitAnswerDto.question_id
+    );
 
     let answer;
     if (existingAnswer) {
       // Update existing answer
-      answer = await this.prisma.submissionAnswer.update({
-        where: { answer_id: existingAnswer.answer_id },
-        data: {
-          answer_content: submitAnswerDto.answer_content,
-        },
+      answer = await this.submissionsRepository.updateSubmissionAnswer(existingAnswer.answer_id, {
+        answer_content: submitAnswerDto.answer_content,
       });
     } else {
       // Create new answer
-      answer = await this.prisma.submissionAnswer.create({
-        data: {
-          submission_id: submissionId,
-          question_id: submitAnswerDto.question_id,
-          answer_content: submitAnswerDto.answer_content,
-        },
+      answer = await this.submissionsRepository.createSubmissionAnswer({
+        submission_id: submissionId,
+        question_id: submitAnswerDto.question_id,
+        answer_content: submitAnswerDto.answer_content,
       });
     }
 
@@ -432,26 +321,7 @@ export class SubmissionsService {
    * Resume exam - get current question based on current_question_order
    */
   async resumeExam(submissionId: number) {
-    const submission = await this.prisma.submission.findUnique({
-      where: { submission_id: submissionId },
-      include: {
-        exam: {
-          include: {
-            question_exams: {
-              orderBy: { order: 'asc' },
-              include: {
-                question: {
-                  include: {
-                    category: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        answers: true,
-      },
-    });
+    const submission = await this.submissionsRepository.findSubmissionWithExamAndAnswers(submissionId);
 
     if (!submission) {
       throw new NotFoundException(`Submission with ID ${submissionId} not found`);
@@ -531,21 +401,11 @@ export class SubmissionsService {
     }
 
     // Update submission status
-    const updatedSubmission = await this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        status: 'submitted',
-        submitted_at: new Date(),
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
-    });
+    const updatedSubmission = await this.submissionsRepository.updateSubmissionStatus(
+      submissionId,
+      'submitted',
+      new Date()
+    );
 
     // Trigger async grading (fire and forget)
     this.calculateSubmissionScore(submissionId).catch((error) => {
@@ -559,7 +419,7 @@ export class SubmissionsService {
       status: updatedSubmission.status,
       submitted_at: updatedSubmission.submitted_at,
       total_questions: submission.exam.question_exams.length,
-      answered_questions: updatedSubmission.answers.length,
+      answered_questions: submission.answers.length,
       message: 'Exam submitted successfully',
     };
   }
@@ -567,36 +427,21 @@ export class SubmissionsService {
   async calculateSubmissionScore(submissionId: number) {
     try {
       // Get submission with all answers and questions
-      const submission = await this.prisma.submission.findUnique({
-        where: { submission_id: submissionId },
-        include: {
-          answers: {
-            include: {
-              question: true,
-            },
-          },
-          exam: {
-            include: {
-              question_exams: {
-                include: {
-                  question: true,
-                },
-              },
-            },
-          },
-        },
-      });
+      const submission = await this.submissionsRepository.findSubmissionWithAnswersAndQuestions(submissionId);
 
       if (!submission) {
         throw new NotFoundException(`Submission with ID ${submissionId} not found`);
       }
+
+      // Get question exams for scoring
+      const questionExams = await this.submissionsRepository.findQuestionExamsByExamId(submission.exam_id);
 
       let totalScore = 0;
 
       // Process each answer
       for (const answer of submission.answers) {
         // Find the question_exam to get points
-        const questionExam = submission.exam.question_exams.find(
+        const questionExam = questionExams.find(
           (qe) => qe.question_id === answer.question_id
         );
 
@@ -679,24 +524,16 @@ export class SubmissionsService {
         }
 
         // Update the answer with score
-        await this.prisma.submissionAnswer.update({
-          where: { answer_id: answer.answer_id },
-          data: {
-            is_correct: isCorrect,
-            points_earned: pointsEarned,
-          },
+        await this.submissionsRepository.updateSubmissionAnswer(answer.answer_id, {
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
         });
 
         totalScore += pointsEarned;
       }
 
       // Update submission with total score and mark as graded
-      await this.prisma.submission.update({
-        where: { submission_id: submissionId },
-        data: {
-          score: totalScore
-        },
-      });
+      await this.submissionsRepository.updateSubmissionScore(submissionId, totalScore);
 
       console.log(`Submission ${submissionId} graded successfully. Total score: ${totalScore}`);
       return { submissionId, totalScore };
@@ -722,12 +559,10 @@ export class SubmissionsService {
       throw new BadRequestException('Cannot update time: submission is not in progress');
     }
 
-    const updatedSubmission = await this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        remaining_time: updateTimeDto.remaining_time,
-      } as any,
-    });
+    const updatedSubmission = await this.submissionsRepository.updateRemainingTime(
+      submissionId,
+      updateTimeDto.remaining_time
+    );
 
     return {
       submission_id: updatedSubmission.submission_id,
@@ -750,17 +585,7 @@ export class SubmissionsService {
     const submission = await this.findSubmissionById(submissionId);
 
     // Update each answer
-    const updatePromises = answers.map((answer) =>
-      this.prisma.submissionAnswer.update({
-        where: { answer_id: answer.answer_id },
-        data: {
-          ...(answer.points_earned !== undefined && { points_earned: answer.points_earned }),
-          ...(answer.comment !== undefined && { comment: answer.comment }),
-        },
-      }),
-    );
-
-    await Promise.all(updatePromises);
+    await this.submissionsRepository.updateAnswersBatch(answers);
 
     // Recalculate total score
     const allAnswers = await this.prisma.submissionAnswer.findMany({
@@ -773,21 +598,10 @@ export class SubmissionsService {
     );
 
     // Update submission with new score and status
-    return this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        score: totalScore,
-        status: 'graded',
-        graded_at: new Date(),
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
+    return this.submissionsRepository.update(submissionId, {
+      score: totalScore,
+      status: 'graded',
+      graded_at: new Date(),
     });
   }
 
@@ -803,22 +617,11 @@ export class SubmissionsService {
       0,
     );
 
-    return this.prisma.submission.update({
-      where: { submission_id: submissionId },
-      data: {
-        score: totalScore,
-        status: 'graded',
-        graded_at: new Date(),
-        ...(gradedBy && { graded_by: gradedBy }),
-      },
-      include: {
-        answers: {
-          include: {
-            question: true,
-          },
-        },
-        exam: true,
-      },
+    return this.submissionsRepository.update(submissionId, {
+      score: totalScore,
+      status: 'graded',
+      graded_at: new Date(),
+      ...(gradedBy && { graded_by: gradedBy }),
     });
   }
 }

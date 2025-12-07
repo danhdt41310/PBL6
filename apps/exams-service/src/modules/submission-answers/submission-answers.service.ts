@@ -1,29 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SubmissionAnswersRepository } from './submission-answers.repository';
 import { CreateSubmissionAnswerDto, UpdateSubmissionAnswerDto } from './dto';
 
 @Injectable()
 export class SubmissionAnswersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly submissionAnswersRepository: SubmissionAnswersRepository,
+  ) {}
 
   async createSubmissionAnswer(createDto: CreateSubmissionAnswerDto) {
-    return this.prisma.submissionAnswer.create({
-      data: createDto,
-      include: {
-        submission: true,
-        question: true,
-      },
-    });
+    return this.submissionAnswersRepository.create(createDto);
   }
 
   async findSubmissionAnswerById(id: number) {
-    const submissionAnswer = await this.prisma.submissionAnswer.findUnique({
-      where: { answer_id: id },
-      include: {
-        submission: true,
-        question: true,
-      },
-    });
+    const submissionAnswer = await this.submissionAnswersRepository.findById(id);
 
     if (!submissionAnswer) {
       throw new NotFoundException(`Submission answer with ID ${id} not found`);
@@ -34,22 +26,10 @@ export class SubmissionAnswersService {
 
   async updateSubmissionAnswer(id: number, updateDto: UpdateSubmissionAnswerDto) {
     const submissionAnswer = await this.findSubmissionAnswerById(id);
-    return this.prisma.submissionAnswer.update({
-      where: { answer_id: id },
-      data: updateDto,
-      include: {
-        submission: true,
-        question: true,
-      },
-    });
+    return this.submissionAnswersRepository.update(id, updateDto);
   }
 
   async findAnswersBySubmission(submissionId: number) {
-    return this.prisma.submissionAnswer.findMany({
-      where: { submission_id: submissionId },
-      include: {
-        question: true,
-      },
-    });
+    return this.submissionAnswersRepository.findManyBySubmission(submissionId);
   }
 }

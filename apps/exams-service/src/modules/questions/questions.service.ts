@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
+import { QuestionsRepository } from './questions.repository'
 import { PrismaClient } from '@prisma/exams-client'
 import { 
   CreateQuestionDto, 
@@ -15,7 +16,10 @@ import { TransactionClient } from 'src/prisma/prisma.type'
 
 @Injectable()
 export class QuestionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly questionsRepository: QuestionsRepository,
+  ) {}
 
   /**
    * Get Prisma client for transaction or regular operation
@@ -30,9 +34,7 @@ export class QuestionsService {
   async createCategory(createCategoryDto: CreateQuestionCategoryDto) {
     try {
       console.log('Creating category with name:', createCategoryDto)
-      const category = await this.prisma.questionCategory.create({
-        data: createCategoryDto,
-      })
+      const category = await this.questionsRepository.createCategory(createCategoryDto);
       return category
     } catch (error) {
       if (error.code === 'P2002') {
@@ -62,17 +64,7 @@ export class QuestionsService {
         }
       }
 
-      const categories = await this.prisma.questionCategory.findMany({
-        where,
-        orderBy: {
-          name: 'asc',
-        },
-        include: {
-          _count: {
-            select: { questions: true },
-          },
-        },
-      })
+      const categories = await this.questionsRepository.findManyCategories(where);
 
       // Transform response to include question count
       return categories.map(category => ({
@@ -91,14 +83,7 @@ export class QuestionsService {
         throw new BadRequestException('userId is required to fetch category')
       }
 
-      const category = await this.prisma.questionCategory.findUnique({
-        where: { category_id: id },
-        include: {
-          _count: {
-            select: { questions: true },
-          },
-        },
-      })
+      const category = await this.questionsRepository.findCategoryById(id);
 
       if (!category) {
         throw new NotFoundException(`Category with ID ${id} not found`)
@@ -123,10 +108,7 @@ export class QuestionsService {
       // Validate ownership
       await this.findCategoryById(id, userId)
 
-      const category = await this.prisma.questionCategory.update({
-        where: { category_id: id },
-        data: updateCategoryDto,
-      })
+      const category = await this.questionsRepository.updateCategory(id, updateCategoryDto);
 
       return category
     } catch (error) {
@@ -153,9 +135,7 @@ export class QuestionsService {
         )
       }
 
-      await this.prisma.questionCategory.delete({
-        where: { category_id: id },
-      })
+      await this.questionsRepository.deleteCategory(id);
 
       return { message: 'Category deleted successfully' }
     } catch (error) {
@@ -201,21 +181,16 @@ export class QuestionsService {
         }
       }
 
-      const question = await this.prisma.question.create({
-        data: {
-          content: createQuestionDto.content,
-          type: createQuestionDto.type,
-          difficulty: createQuestionDto.difficulty || 'medium',
-          category_id: createQuestionDto.category_id,
-          is_multiple_answer: createQuestionDto.is_multiple_answer || false,
-          options: createQuestionDto.options as any,
-          created_by: createQuestionDto.created_by,
-          is_public: createQuestionDto.is_public || false,
-        },
-        include: {
-          category: true,
-        },
-      })
+      const question = await this.questionsRepository.createQuestion({
+        content: createQuestionDto.content,
+        type: createQuestionDto.type,
+        difficulty: createQuestionDto.difficulty || 'medium',
+        category_id: createQuestionDto.category_id,
+        is_multiple_answer: createQuestionDto.is_multiple_answer || false,
+        options: createQuestionDto.options,
+        created_by: createQuestionDto.created_by,
+        is_public: createQuestionDto.is_public || false,
+      });
 
       return question
     } catch (error) {
@@ -273,18 +248,8 @@ export class QuestionsService {
       }
 
       const [questions, total] = await Promise.all([
-        this.prisma.question.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: {
-            created_at: 'desc',
-          },
-          include: {
-            category: true,
-          },
-        }),
-        this.prisma.question.count({ where }),
+        this.questionsRepository.findManyQuestions(where, skip, limit),
+        this.questionsRepository.countQuestions(where),
       ])
 
       return {
@@ -303,23 +268,7 @@ export class QuestionsService {
 
   async findQuestionById(id: number) {
     try {
-      const question = await this.prisma.question.findUnique({
-        where: { question_id: id },
-        include: {
-          category: true,
-          question_exams: {
-            include: {
-              exam: {
-                select: {
-                  exam_id: true,
-                  title: true,
-                  status: true,
-                },
-              },
-            },
-          },
-        },
-      })
+      const question = await this.questionsRepository.findQuestionById(id);
 
       if (!question) {
         throw new NotFoundException(`Question with ID ${id} not found`)
@@ -337,9 +286,7 @@ export class QuestionsService {
   async updateQuestion(id: number, updateQuestionDto: UpdateQuestionDto) {
     try {
       // First check if question exists
-      const existingQuestion = await this.prisma.question.findUnique({
-        where: { question_id: id },
-      })
+      const existingQuestion = await this.questionsRepository.findQuestionByIdSimple(id);
 
       if (!existingQuestion) {
         throw new NotFoundException(`Question with ID ${id} not found`)
@@ -382,24 +329,19 @@ export class QuestionsService {
       }
 
       // Prepare update data with proper category relation handling
-      const { category_id, ...restDto } = updateQuestionDto
+      const { category_id, options, ...restDto } = updateQuestionDto
       
-      const question = await this.prisma.question.update({
-        where: { question_id: id },
-        data: {
-          ...restDto,
-          options: updateQuestionDto.options as any,
-          // Handle category relation: connect if provided, disconnect if null/undefined
-          ...(category_id !== undefined && {
-            category: category_id 
-              ? { connect: { category_id } }
-              : { disconnect: true }
-          }),
-        },
-        include: {
-          category: true,
-        },
-      })
+      const updateData: any = {
+        ...restDto,
+      };
+      
+      if (category_id !== undefined) {
+        updateData.category = category_id 
+          ? { connect: { category_id } }
+          : { disconnect: true };
+      }
+
+      const question = await this.questionsRepository.updateQuestion(id, updateData, options);
 
       return question
     } catch (error) {
@@ -413,13 +355,7 @@ export class QuestionsService {
   async deleteQuestion(id: number) {
     try {
       // Check if question exists
-      const question = await this.prisma.question.findUnique({
-        where: { question_id: id },
-        include: {
-          question_exams: true,
-          submission_answers: true,
-        },
-      })
+      const question = await this.questionsRepository.findQuestionWithRelations(id);
 
       if (!question) {
         throw new NotFoundException(`Question with ID ${id} not found`)
@@ -439,9 +375,7 @@ export class QuestionsService {
         )
       }
 
-      await this.prisma.question.delete({
-        where: { question_id: id },
-      })
+      await this.questionsRepository.deleteQuestion(id);
 
       return { message: 'Question deleted successfully' }
     } catch (error) {
@@ -458,23 +392,7 @@ export class QuestionsService {
   }
 
   async findQuestionsByExam(examId: number) {
-    return this.prisma.question.findMany({
-      where: {
-        question_exams: {
-          some: {
-            exam_id: examId,
-          },
-        },
-      },
-      include: {
-        category: true,
-        question_exams: {
-          include: {
-            exam: true,
-          },
-        },
-      },
-    })
+    return this.questionsRepository.findQuestionsByExam(examId);
   }
 
   /**
@@ -533,22 +451,15 @@ export class QuestionsService {
         }
 
         // Get total count for this criterion
-        const totalAvailable = await this.prisma.question.count({ where })
+        const totalAvailable = await this.questionsRepository.countQuestions(where);
         const randomOffset = Math.floor(Math.random() * (totalAvailable - quantity))
 
         // Fetch random questions with all data including options (answers)
-        const questions = await this.prisma.question.findMany({
+        const questions = await this.questionsRepository.findRandomQuestions(
           where,
-          skip: randomOffset > 0 ? randomOffset : 0,
-          take: Math.min(quantity, totalAvailable),
-          include: {
-            category: true,
-          },
-          orderBy: {
-            question_id: 'asc',
-          },
-        })
-
+          randomOffset > 0 ? randomOffset : 0,
+          Math.min(quantity, totalAvailable)
+        );
 
         // Shuffle the results to get random selection
         const shuffled = this.shuffleArray(questions)
