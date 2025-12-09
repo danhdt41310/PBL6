@@ -3,34 +3,10 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ChatsController } from './chats.controller';
 import { ChatsGateway } from './chats.gateway';
 import { PresenceService } from './services/presence.service';
-import { Redis } from 'ioredis';
-
-/**
- * Redis Client Provider
- */
-const redisClientProvider = {
-  provide: 'REDIS_CLIENT',
-  useFactory: () => {
-    const client = new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT) || 6379,
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-    });
-
-    client.on('error', (err) => {
-      // Redis client error
-    });
-
-    client.on('connect', () => {
-      // Redis client connected
-    });
-
-    return client;
-  },
-};
+import { ConnectionSocketService } from './services/connection-socket.service';
+import { ConversationSocketService } from './services/conversation-socket.service';
+import { MessageSocketService } from './services/message-socket.service';
+import { ClassSocketService } from './services/class-socket.service';
 
 @Module({
   imports: [
@@ -54,7 +30,14 @@ const redisClientProvider = {
     ]),
   ],
   controllers: [ChatsController],
-  providers: [ChatsGateway, PresenceService, redisClientProvider],
+  providers: [
+    ChatsGateway,
+    PresenceService,
+    ConnectionSocketService,
+    ConversationSocketService,
+    MessageSocketService,
+    ClassSocketService,
+  ],
   exports: [ChatsGateway, PresenceService],
 })
 export class ChatsModule {}

@@ -92,8 +92,10 @@ export class PaginationDto {
 // ********** Response DTOs *********************
 // **********************************************
 
-// Định nghĩa kiểu cho chi tiết Conversation bên trong MessageResponseDto
-interface ConversationDetails {
+/**
+ * Conversation details for message responses
+ */
+export interface ConversationDetails {
   id: number;
   sender_id: number;
   receiver_id: number;
@@ -102,7 +104,7 @@ interface ConversationDetails {
 /**
  * Response DTO for a single message with conversation details
  */
-export class MessageResponseDto {
+export interface MessageResponseDto {
   id: number;
   sender_id: number;
   conversation_id: number;
@@ -119,7 +121,7 @@ export class MessageResponseDto {
 /**
  * Response DTO for message list with pagination
  */
-export class MessageListResponseDto {
+export interface MessageListResponseDto {
   success: boolean;
   messages: MessageResponseDto[];
   total: number;
@@ -131,7 +133,7 @@ export class MessageListResponseDto {
 /**
  * Response DTO for single message operations
  */
-export class MessageActionResponseDto {
+export interface MessageActionResponseDto {
   success: boolean;
   message: string;
   data?: MessageResponseDto;
@@ -154,3 +156,74 @@ export class MarkMessagesAsReadDto {
   @IsOptional()
   message_ids?: number[]; // If not provided, mark all messages in conversation as read
 }
+
+// **********************************************
+// ********** Controller Response DTOs **********
+// **********************************************
+
+/**
+ * Response DTO for hello endpoint
+ */
+export interface MessageHelloResponseDto {
+  message: string;
+}
+
+/**
+ * Response DTO for create message
+ */
+export interface CreateMessageResponseDto {
+  success: boolean;
+  message: string;
+  data: MessageResponseDto;
+}
+
+/**
+ * Response DTO for find one message
+ */
+export interface FindOneMessageResponseDto {
+  success: boolean;
+  data: MessageResponseDto;
+}
+
+/**
+ * Response DTO for update message
+ */
+export interface UpdateMessageResponseDto {
+  success: boolean;
+  message: string;
+  data: MessageResponseDto;
+}
+
+/**
+ * Response DTO for delete message
+ */
+export interface DeleteMessageResponseDto {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Response DTO for mark messages as read
+ */
+export interface MarkMessagesAsReadResponseDto {
+  success: boolean;
+  count: number;
+}
+
+/**
+ * Response DTO for unread count
+ */
+export interface UnreadCountResponseDto {
+  count: number;
+}
+
+/**
+ * Response DTO for unread count by conversation
+ */
+export interface UnreadCountByConversationItem {
+  conversation_id: number;
+  unread_count: number;
+}
+
+export type UnreadCountByConversationResponseDto =
+  UnreadCountByConversationItem[];
