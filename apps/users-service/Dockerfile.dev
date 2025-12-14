@@ -14,6 +14,9 @@ COPY package*.json ./
 COPY turbo.json ./
 COPY apps/users-service/package*.json ./apps/users-service/
 COPY apps/users-service/prisma ./apps/users-service/prisma
+COPY apps/users-service/tsconfig*.json ./apps/users-service/
+COPY apps/users-service/nest-cli.json ./apps/users-service/
+COPY apps/users-service/src ./apps/users-service/src
 COPY packages/ ./packages/
 COPY apps/users-service/.env ./apps/users-service/.env
 
@@ -21,9 +24,15 @@ COPY apps/users-service/.env ./apps/users-service/.env
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
+# Build shared packages (only @repo/common now)
+RUN npm run build --workspace=@repo/common --if-present || true
+
 # Generate Prisma Client for users-service
 WORKDIR /app/apps/users-service
 RUN npx prisma generate
+
+# Build application to create dist folder
+RUN npm run build
 
 # Go back to root
 WORKDIR /app
@@ -31,4 +40,4 @@ WORKDIR /app
 EXPOSE 3001
 
 # Use start:dev for hot reload - source code will be mounted as volume
-CMD ["sh", "-c", "cd apps/users-service && npx prisma db push && cd ../.. && npm run start:dev --workspace=users-service"]
+CMD ["sh", "-c", "cd apps/users-service && npx prisma db push && node dist/apps/users-service/src/main.js"]
