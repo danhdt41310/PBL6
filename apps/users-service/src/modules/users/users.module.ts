@@ -1,18 +1,12 @@
-import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
+import { Module, forwardRef } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { UsersRepository } from './users.repository';
+import { PrismaService } from '../../shared/prisma/prisma.service';
 
 @Module({
-  imports: [
-    JwtModule.register({
-      global: true,
-      secret: process.env.ACCESS_JWT_SECRET || 'keybimat',
-      signOptions: { expiresIn: '1h' },
-    }),
-  ],
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService],
+  providers: [UsersService, UsersRepository, PrismaService],
+  exports: [UsersService, UsersRepository],
 })
 export class UsersModule {}

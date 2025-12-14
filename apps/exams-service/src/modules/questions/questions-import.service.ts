@@ -21,6 +21,7 @@ export class QuestionsImportService {
    */
   async previewExcel(buffer: Buffer, limit: number = 10): Promise<PreviewExcelResult> {
     try {
+      // Read workbook from buffer (binary data) & access "Main" sheet
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const mainSheet = workbook.Sheets['Main'];
 
@@ -41,14 +42,16 @@ export class QuestionsImportService {
       // Get headers from row 2
       const headers = Object.values(rawData[1] || {}) as string[];
 
-      // Parse rows
-      const preview = dataRows
-        .slice(0, limit)
+      // Parse all rows and filter out empty ones
+      const allParsedRows = dataRows
         .map((row) => this.parseExcelRow(row))
         .filter((row) => row.content && row.content.trim() !== '');
 
+      // Get preview with limit
+      const preview = allParsedRows.slice(0, limit);
+
       return {
-        total: dataRows.length,
+        total: allParsedRows.length, // Only count non-empty rows
         preview,
         headers,
       };
@@ -69,6 +72,7 @@ export class QuestionsImportService {
     let failed = 0;
 
     try {
+      // Read workbook from buffer (binary data) & access "Main" sheet
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const mainSheet = workbook.Sheets['Main'];
 
@@ -78,9 +82,9 @@ export class QuestionsImportService {
 
       // Parse sheet to JSON
       const rawData: any[] = XLSX.utils.sheet_to_json(mainSheet, {
-        header: 'A',
-        defval: '',
-        blankrows: false,
+        header: 'A', // Use column letters as keys
+        defval: '', // Default value for empty cells
+        blankrows: false, // Skip completely blank rows
       });
 
       // Skip first 3 rows (title, header, notes)
@@ -92,10 +96,37 @@ export class QuestionsImportService {
           rowNumber: index + 4, // +4 because of skipped rows
           data: this.parseExcelRow(row),
         }))
-        .filter((item) => item.data.content && item.data.content.trim() !== '');
+        .filter((item) => item.data.content && item.data.content.trim() !== '') // Only allow non-empty content
 
       // Import within transaction
       await this.transactionService.runTransaction(async (tx) => {
+        // Pre-fetch or create all categories at once to avoid repeated upserts
+        const categoryNames = [...new Set(
+          parsedRows
+            .map(item => item.data.category_name?.trim())
+            .filter(name => name && name !== '')
+        )];
+
+        const categoryMap = new Map<string, number>();
+        
+        // Batch upsert categories
+        for (const categoryName of categoryNames) {
+          const category = await tx.questionCategory.upsert({
+            where: { 
+              name_created_by: {
+                name: categoryName,
+                created_by: createdBy,
+              }
+            },
+            update: {},
+            create: { 
+              name: categoryName,
+              created_by: createdBy,
+            },
+          });
+          categoryMap.set(categoryName, category.category_id);
+        }
+
         for (const { rowNumber, data } of parsedRows) {
           try {
             // Validate row
@@ -110,42 +141,28 @@ export class QuestionsImportService {
               continue;
             }
 
-            // Create or find category
+            // Get category ID from pre-fetched map
             let categoryId: number | null = null;
             if (data.category_name && data.category_name.trim() !== '') {
-              const category = await tx.questionCategory.upsert({
-                where: { 
-                  name_created_by: {
-                    name: data.category_name.trim(),
-                    created_by: createdBy,
-                  }
-                },
-                update: {},
-                create: { 
-                  name: data.category_name.trim(),
-                  created_by: createdBy,
-                },
-              });
-              categoryId = category.category_id;
+              categoryId = categoryMap.get(data.category_name.trim()) || null;
             }
 
-            // Build options JSON (new format with prefix)
+            // Build options JSON from 8 pairs of (text, checkbox)
             let options = null;
             if (data.type === 'multiple_choice') {
-              const optionTexts = [
-                data.F,
-                data.G,
-                data.H,
-                data.I,
-                data.J,
-                data.K,
-                data.L,
-                data.M,
-                data.N,
-                data.O,
-              ].filter((text) => text && text.trim() !== '');
+              // Get all 8 option pairs (text + checkbox)
+              const optionsData = [
+                { text: data.F, correct: data.G }, // Option A
+                { text: data.H, correct: data.I }, // Option B
+                { text: data.J, correct: data.K }, // Option C
+                { text: data.L, correct: data.M }, // Option D
+                { text: data.N, correct: data.O }, // Option E
+                { text: data.P, correct: data.Q }, // Option F
+                { text: data.R, correct: data.S }, // Option G
+                { text: data.T, correct: data.U }, // Option H
+              ].filter((opt) => opt.text && opt.text.trim() !== '');
 
-              if (optionTexts.length === 0) {
+              if (optionsData.length === 0) {
                 errors.push({
                   row: rowNumber,
                   content: data.content,
@@ -155,21 +172,27 @@ export class QuestionsImportService {
                 continue;
               }
 
-              // Parse correct answers
-              const correctAnswers = (data.correct_answers || '')
-                .split(',')
-                .map((a) => parseInt(a.trim()))
-                .filter((a) => !isNaN(a) && a > 0);
-
-              // Build options with new format (prefix = for correct, ~ for incorrect)
-              options = optionTexts.map((text, index) => {
-                const isCorrect = correctAnswers.includes(index + 1);
+              // Build options with prefix (= for correct, ~ for incorrect)
+              options = optionsData.map((opt, index) => {
+                const isCorrect = opt.correct === 'true' || opt.correct === 'TRUE' || opt.correct === '1';
                 const prefix = isCorrect ? '=' : '~';
                 return {
                   id: index + 1,
-                  text: `${prefix}${text.trim()}`,
+                  text: `${prefix}${opt.text.trim()}`,
                 };
               });
+
+              // Validate at least one correct answer
+              const hasCorrectAnswer = options.some(opt => opt.text.startsWith('='));
+              if (!hasCorrectAnswer) {
+                errors.push({
+                  row: rowNumber,
+                  content: data.content,
+                  errors: ['Multiple choice question must have at least one correct answer'],
+                });
+                failed++;
+                continue;
+              }
             }
 
             // Create question
@@ -214,29 +237,79 @@ export class QuestionsImportService {
   }
 
   /**
+   * Normalize boolean value from Excel
+   * Excel can return: true, TRUE, "true", "TRUE", 1, "1", false, FALSE, "false", "FALSE", 0, "0"
+   * We normalize to: "true" | "false" | ""
+   */
+  private normalizeBooleanValue(value: any): string {
+    if (value === undefined || value === null || value === '') {
+      return '';
+    }
+    
+    // Handle boolean type
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+    
+    // Handle number type (1 = true, 0 = false)
+    if (typeof value === 'number') {
+      return value === 1 ? 'true' : 'false';
+    }
+    
+    // Handle string type
+    const strValue = String(value).toLowerCase().trim();
+    if (strValue === 'true' || strValue === '1') {
+      return 'true';
+    }
+    if (strValue === 'false' || strValue === '0') {
+      return 'false';
+    }
+    
+    // Return original for validation to catch
+    return String(value);
+  }
+
+  /**
    * Parse Excel row to question data
+   * Structure: F-G (Option A), H-I (Option B), J-K (Option C), L-M (Option D),
+   *            N-O (Option E), P-Q (Option F), R-S (Option G), T-U (Option H),
+   *            V (is_public), W (options_json), X (status)
    */
   private parseExcelRow(row: any): ExcelQuestionRow {
     return {
-      content: row.A || '',
+      content: row.A,
       type: row.B || '',
       category_name: row.C || '',
       difficulty: row.D || '',
-      is_multiple_answer: row.E || '',
+      is_multiple_answer: this.normalizeBooleanValue(row.E),
+      // Option A (text + checkbox)
       F: row.F || '',
-      G: row.G || '',
+      G: this.normalizeBooleanValue(row.G),
+      // Option B (text + checkbox)
       H: row.H || '',
-      I: row.I || '',
+      I: this.normalizeBooleanValue(row.I),
+      // Option C (text + checkbox)
       J: row.J || '',
-      K: row.K || '',
+      K: this.normalizeBooleanValue(row.K),
+      // Option D (text + checkbox)
       L: row.L || '',
-      M: row.M || '',
+      M: this.normalizeBooleanValue(row.M),
+      // Option E (text + checkbox)
       N: row.N || '',
-      O: row.O || '',
-      correct_answers: row.P || '',
-      is_public: row.Q || '',
-      options_json: row.R || '',
-      status: row.S || '',
+      O: this.normalizeBooleanValue(row.O),
+      // Option F (text + checkbox)
+      P: row.P || '',
+      Q: this.normalizeBooleanValue(row.Q),
+      // Option G (text + checkbox)
+      R: row.R || '',
+      S: this.normalizeBooleanValue(row.S),
+      // Option H (text + checkbox)
+      T: row.T || '',
+      U: this.normalizeBooleanValue(row.U),
+      // Other fields
+      is_public: this.normalizeBooleanValue(row.V),
+      options_json: row.W || '',
+      status: row.X || '',
     };
   }
 
@@ -271,52 +344,45 @@ export class QuestionsImportService {
 
     // Validate multiple choice options
     if (data.type === 'multiple_choice') {
-      const optionTexts = [
-        data.F,
-        data.G,
-        data.H,
-        data.I,
-        data.J,
-        data.K,
-        data.L,
-        data.M,
-        data.N,
-        data.O,
-      ].filter((text) => text && text.trim() !== '');
+      const optionsData = [
+        { text: data.F, correct: data.G, label: 'A' }, // Option A
+        { text: data.H, correct: data.I, label: 'B' }, // Option B
+        { text: data.J, correct: data.K, label: 'C' }, // Option C
+        { text: data.L, correct: data.M, label: 'D' }, // Option D
+        { text: data.N, correct: data.O, label: 'E' }, // Option E
+        { text: data.P, correct: data.Q, label: 'F' }, // Option F
+        { text: data.R, correct: data.S, label: 'G' }, // Option G
+        { text: data.T, correct: data.U, label: 'H' }, // Option H
+      ].filter((opt) => opt.text && opt.text.trim() !== '');
 
-      if (optionTexts.length === 0) {
+      if (optionsData.length === 0) {
         errors.push('Multiple choice questions must have at least one option');
       }
 
-      // Validate correct answers
-      if (!data.correct_answers || data.correct_answers.trim() === '') {
-        errors.push('Correct answers are required for multiple choice questions');
-      } else {
-        const correctAnswers = data.correct_answers
-          .split(',')
-          .map((a) => parseInt(a.trim()))
-          .filter((a) => !isNaN(a));
+      // Validate at least one correct answer (after normalization, only 'true' or 'false' or '')
+      const hasCorrectAnswer = optionsData.some(
+        (opt) => opt.correct === 'true'
+      );
 
-        if (correctAnswers.length === 0) {
-          errors.push('Invalid correct answers format. Use numbers separated by commas (e.g., 1,2,3)');
-        }
-
-        // Check if correct answers are within range
-        correctAnswers.forEach((answer) => {
-          if (answer < 1 || answer > optionTexts.length) {
-            errors.push(`Correct answer ${answer} is out of range (1-${optionTexts.length})`);
-          }
-        });
+      if (!hasCorrectAnswer) {
+        errors.push('Multiple choice questions must have at least one correct answer');
       }
+
+      // Validate checkbox values (after normalization, should only be 'true', 'false', or '')
+      optionsData.forEach((opt) => {
+        if (opt.correct && !['true', 'false', ''].includes(opt.correct)) {
+          errors.push(`Invalid checkbox value for option ${opt.label}. Must be true/false or 1/0 (got: "${opt.correct}")`);
+        }
+      });
     }
 
-    // Validate boolean fields
+    // Validate boolean fields (after normalization, should only be 'true', 'false', or '')
     if (data.is_multiple_answer && !['true', 'false', ''].includes(data.is_multiple_answer)) {
-      errors.push('is_multiple_answer must be "true" or "false"');
+      errors.push(`is_multiple_answer must be "true" or "false" (got: "${data.is_multiple_answer}")`);
     }
 
     if (data.is_public && !['true', 'false', ''].includes(data.is_public)) {
-      errors.push('is_public must be "true" or "false"');
+      errors.push(`is_public must be "true" or "false" (got: "${data.is_public}")`);
     }
 
     return errors;

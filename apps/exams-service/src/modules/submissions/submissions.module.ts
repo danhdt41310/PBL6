@@ -3,6 +3,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionsService } from './submissions.service';
+import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ExamsModule } from '../exams/exams.module';
 
@@ -25,7 +26,7 @@ import { ExamsModule } from '../exams/exams.module';
     ]),
   ],
   controllers: [SubmissionsController],
-  providers: [SubmissionsService, PrismaService],
+  providers: [SubmissionsService, SubmissionsRepository, PrismaService],
   exports: [SubmissionsService],
 })
 export class SubmissionsModule {}

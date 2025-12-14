@@ -12,6 +12,9 @@ COPY packages/ ./packages/
 # Install all dependencies
 RUN npm ci
 
+# Build shared packages (only @repo/common now)
+RUN npm run build --workspace=@repo/common --if-present || true
+
 # Copy source code
 COPY apps/users-service/ ./apps/users-service/
 

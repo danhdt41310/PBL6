@@ -298,6 +298,7 @@ services:
       - ./apps/api-gateway/tsconfig.build.json:/app/apps/api-gateway/tsconfig.build.json
       - ./apps/api-gateway/nest-cli.json:/app/apps/api-gateway/nest-cli.json
       - ./apps/api-gateway/nodemon.json:/app/apps/api-gateway/nodemon.json
+      - ./apps/api-gateway/package.json:/app/apps/api-gateway/package.json
       - ./apps/api-gateway/.env:/app/apps/api-gateway/.env
       - ./packages:/app/packages
       - ./uploads:/app/uploads # Mount uploads directory to persist files
@@ -312,6 +313,20 @@ services:
       - postgres-users
     networks:
       - microservices-network
+
+  # Common Package Watcher
+  # Auto-compiles TypeScript to JavaScript when you edit packages/common/src
+  common-watcher:
+    image: node:18-slim
+    working_dir: /app
+    volumes:
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json
+      - ./turbo.json:/app/turbo.json
+    command: sh -c "cd packages/common && npm install && npm run dev"
+    networks:
+      - microservices-network
+    restart: unless-stopped
 
 volumes:
   postgres_users_data:

@@ -36,6 +36,12 @@ import {
   CreatePermissionDto,
   UserIdsDto,
 } from '../dto/user.dto';
+import { 
+  USER_PATTERNS, 
+  AUTH_PATTERNS, 
+  ROLE_PATTERNS, 
+  PERMISSION_PATTERNS 
+} from '@repo/common';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError, firstValueFrom } from 'rxjs';
 import { PaginationDto, UserSearchDto } from '../dto/common.dto';
@@ -71,7 +77,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: 'Returns hello message' })
   getHello(@Body() data: { name: string }) {
-    return this.usersClient.send('users.get_hello', { name: data.name });
+    return this.usersClient.send(USER_PATTERNS.HELLO, { name: data.name });
   }
 
   @Get('list')
@@ -139,7 +145,7 @@ export class UsersController {
     } = searchDto;
     try {
       return await this.usersClient
-        .send('users.list', {
+        .send(USER_PATTERNS.LIST, {
           page,
           limit,
           text,
@@ -207,7 +213,7 @@ export class UsersController {
     console.log('Fetching user, roles, and permissions for user ID:', userId);
     try {
       return await this.usersClient
-        .send('users.get_me', { id: userId })
+        .send(USER_PATTERNS.GET_ME, { id: userId })
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -251,7 +257,7 @@ export class UsersController {
     console.log('Fetching profile for user ID:', userId);
     try {
       return await this.usersClient
-        .send('users.get_user', { id: userId })
+        .send(USER_PATTERNS.GET_USER, { id: userId })
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -300,7 +306,7 @@ export class UsersController {
 
     try {
       return await this.usersClient
-        .send('users.update_profile', { user_id: userId, profile })
+        .send(USER_PATTERNS.UPDATE_PROFILE, { user_id: userId, profile })
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -347,7 +353,7 @@ export class UsersController {
 
     try {
       return await this.usersClient
-        .send('users.get_profile_by_email', { email })
+        .send(USER_PATTERNS.GET_BY_EMAIL, { email })
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -379,7 +385,7 @@ export class UsersController {
   async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
       return await this.usersClient
-        .send('users.get_user', { id })
+        .send(USER_PATTERNS.GET_USER, { id })
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -423,7 +429,7 @@ export class UsersController {
     const userId = req.user.sub;
     try {
       return await this.usersClient
-        .send('users.change_password', {
+        .send(AUTH_PATTERNS.CHANGE_PASSWORD, {
           user_id: userId,
           current_password: changePasswordDto.currentPassword,
           new_password: changePasswordDto.newPassword,
@@ -463,7 +469,7 @@ export class UsersController {
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({ status: 200, description: 'Reset code sent successfully' })
   forgotPassword(@Body() data: ForgotPasswordDto) {
-    return this.usersClient.send('users.forgot_password', data).pipe(
+    return this.usersClient.send(AUTH_PATTERNS.FORGOT_PASSWORD, data).pipe(
       timeout(5000),
       catchError((err) => {
         if (err instanceof TimeoutError) {
@@ -498,7 +504,7 @@ export class UsersController {
   @ApiBody({ type: VerifyCodeDto })
   @ApiResponse({ status: 200, description: 'Code verified successfully' })
   verifyCode(@Body() data: VerifyCodeDto) {
-    return this.usersClient.send('users.verify_code', data).pipe(
+    return this.usersClient.send(AUTH_PATTERNS.VERIFY_CODE, data).pipe(
       timeout(5000),
       catchError((err) => {
         if (err instanceof TimeoutError) {
@@ -540,7 +546,7 @@ export class UsersController {
   resetPassword(@Body() data: ResetPasswordDto) {
     console.log('resetPassword called in controller', data);
     return this.usersClient
-      .send('users.reset_password', data)
+      .send(AUTH_PATTERNS.RESET_PASSWORD, data)
       .pipe(
         timeout(5000),
         catchError((error) => {
@@ -574,7 +580,7 @@ export class UsersController {
   @ApiParam({ name: 'id', type: Number, description: 'User ID to block' })
   @ApiResponse({ status: 200, description: 'User blocked successfully' })
   blockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send('users.block_user', { user_id: id });
+    return this.usersClient.send(USER_PATTERNS.BLOCK_USER, { user_id: id });
   }
 
   @Post('admin/unblock/:id')
@@ -585,7 +591,7 @@ export class UsersController {
   @ApiParam({ name: 'id', type: Number, description: 'User ID to unblock' })
   @ApiResponse({ status: 200, description: 'User unblocked successfully' })
   unblockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send('users.unblock_user', { user_id: id });
+    return this.usersClient.send(USER_PATTERNS.UNBLOCK_USER, { user_id: id });
   }
 
   /**
@@ -603,7 +609,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() profile: UpdateProfileDto,
   ) {
-    return this.usersClient.send('users.update_profile', {
+    return this.usersClient.send(USER_PATTERNS.UPDATE_PROFILE, {
       user_id: id,
       profile,
     });
@@ -625,7 +631,7 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     console.log('create user', createUserDto);
-    return this.usersClient.send('users.create', createUserDto);
+    return this.usersClient.send(USER_PATTERNS.CREATE, createUserDto);
   }
 
   @Post('login')
@@ -633,7 +639,7 @@ export class UsersController {
   async login(@Body(ValidationPipe) loginDto: LoginDto) {
     try {
       return await this.usersClient
-        .send('users.login', loginDto)
+        .send(AUTH_PATTERNS.LOGIN, loginDto)
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -675,7 +681,7 @@ export class UsersController {
   ) {
     try {
       return await this.usersClient
-        .send('users.get_list_profile_by_emails', userEmailsDto)
+        .send(USER_PATTERNS.GET_LIST_BY_EMAILS, userEmailsDto)
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -698,7 +704,7 @@ export class UsersController {
     console.log('getListProfileById called with:', userIdsDto);
     try {
       return await this.usersClient
-        .send('users.get_list_profile_by_ids', userIdsDto)
+        .send(USER_PATTERNS.GET_LIST_BY_IDS, userIdsDto)
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -720,7 +726,7 @@ export class UsersController {
   async getListProfileMatchEmail(@Body() body: { emailPattern: string }) {
     try {
       return await this.usersClient
-        .send('users.get_list_profile_match_email', body)
+        .send(USER_PATTERNS.GET_LIST_MATCH_EMAIL, body)
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -744,7 +750,7 @@ export class UsersController {
   ) {
     try {
       return await this.usersClient
-        .send('users.search_by_name_or_email', body)
+        .send(USER_PATTERNS.SEARCH_BY_NAME_OR_EMAIL, body)
         .pipe(
           timeout(5000),
           catchError((err) => {
@@ -777,7 +783,7 @@ export class UsersController {
     try {
       return await firstValueFrom(
         this.usersClient
-          .send('users.assign_role_permissions', rolePermissionDto)
+          .send(ROLE_PATTERNS.ASSIGN_PERMISSIONS, rolePermissionDto)
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -810,7 +816,7 @@ export class UsersController {
   async getAllRoles() {
     try {
       const result = await firstValueFrom(
-        this.usersClient.send('users.get_all_roles', {}).pipe(
+        this.usersClient.send(ROLE_PATTERNS.GET_ALL, {}).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -842,7 +848,7 @@ export class UsersController {
   async getAllPermissions() {
     try {
       return await firstValueFrom(
-        this.usersClient.send('users.get_all_permissions', {}).pipe(
+        this.usersClient.send(PERMISSION_PATTERNS.GET_ALL, {}).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -873,7 +879,7 @@ export class UsersController {
   async createRole(@Body(ValidationPipe) createRoleDto: CreateRoleDto) {
     try {
       return await firstValueFrom(
-        this.usersClient.send('users.create_role', createRoleDto).pipe(
+        this.usersClient.send(ROLE_PATTERNS.CREATE, createRoleDto).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -907,7 +913,7 @@ export class UsersController {
     try {
       return await firstValueFrom(
         this.usersClient
-          .send('users.create_permission', createPermissionDto)
+          .send(PERMISSION_PATTERNS.CREATE, createPermissionDto)
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -943,7 +949,7 @@ export class UsersController {
     try {
       return await firstValueFrom(
         this.usersClient
-          .send('users.update_role', {
+          .send(ROLE_PATTERNS.UPDATE, {
             role_id: parseInt(roleId, 10),
             ...updateData,
           })
@@ -980,7 +986,7 @@ export class UsersController {
     try {
       return await firstValueFrom(
         this.usersClient
-          .send('users.delete_role', { role_id: parseInt(roleId, 10) })
+          .send(ROLE_PATTERNS.DELETE, { role_id: parseInt(roleId, 10) })
           .pipe(
             timeout(5000),
             catchError((err) => {

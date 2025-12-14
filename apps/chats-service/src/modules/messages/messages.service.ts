@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   CreateMessageDto,
   UpdateMessageDto,
@@ -12,16 +7,18 @@ import {
   MessageListResponseDto,
   MarkMessagesAsReadDto,
 } from './dto/message.dto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Message, Prisma } from '@prisma/chats-client';
-import { RpcException } from '@nestjs/microservices';
+import { MessageRepository } from './message.repository';
+import { ConversationRepository } from '../conversations/conversation.repository';
+import { Message } from '@prisma/chats-client';
 import { EventsService } from '../events/events.service';
+import { ResourceNotFoundException } from '../../common/exceptions';
 
 @Injectable()
 export class MessagesService {
   constructor(
-    private prisma: PrismaService,
-    private eventsService: EventsService,
+    private readonly messageRepository: MessageRepository,
+    private readonly conversationRepository: ConversationRepository,
+    private readonly eventsService: EventsService,
   ) {}
 
   /**
@@ -32,48 +29,35 @@ export class MessagesService {
    * @throws RpcException with NotFoundException if conversation doesn't exist
    */
   async createMessage(data: CreateMessageDto): Promise<MessageResponseDto> {
-    try {
-      // Verify conversation exists
-      const conversation = await this.prisma.conversation.findUnique({
-        where: { id: data.conversation_id },
-      });
+    // Verify conversation exists
+    const conversation = await this.conversationRepository.findById(
+      data.conversation_id,
+    );
 
-      if (!conversation) {
-        throw new RpcException(
-          new NotFoundException(
-            `Conversation with ID ${data.conversation_id} not found`,
-          ),
-        );
-      }
-
-      // Create message with conversation relation
-      const message = await this.prisma.message.create({
-        data: {
-          sender_id: data.sender_id,
-          conversation_id: data.conversation_id,
-          message_type: data.message_type,
-          content: data.content,
-          file_url: data.file_url,
-          file_name: data.file_name,
-          file_size: data.file_size,
-        },
-        include: {
-          conversation: true,
-        },
-      });
-
-      const messageDto = this.mapToResponseDto(message);
-
-      // Emit real-time event
-      await this.eventsService.emitMessageCreated(
-        data.conversation_id,
-        messageDto,
-      );
-
-      return messageDto;
-    } catch (error) {
-      this.handlePrismaError(error, 'create message');
+    if (!conversation) {
+      throw new ResourceNotFoundException('Conversation', data.conversation_id);
     }
+
+    // Create message with conversation relation
+    const message = await this.messageRepository.createWithConversation({
+      sender_id: data.sender_id,
+      conversation_id: data.conversation_id,
+      message_type: data.message_type,
+      content: data.content,
+      ...(data.file_url && { file_url: data.file_url }),
+      ...(data.file_name && { file_name: data.file_name }),
+      ...(data.file_size && { file_size: data.file_size }),
+    } as any);
+
+    const messageDto = this.mapToResponseDto(message);
+
+    // Emit real-time event
+    await this.eventsService.emitMessageCreated(
+      data.conversation_id,
+      messageDto,
+    );
+
+    return messageDto;
   }
 
   /**
@@ -87,52 +71,30 @@ export class MessagesService {
     conversationId: number,
     pagination: PaginationDto,
   ): Promise<MessageListResponseDto> {
-    try {
-      const { page = 1, limit = 20 } = pagination;
-      const skip = (page - 1) * limit;
+    const { page = 1, limit = 20 } = pagination;
 
-      // Verify conversation exists
-      const conversation = await this.prisma.conversation.findUnique({
-        where: { id: conversationId },
-      });
+    // Verify conversation exists
+    const conversation =
+      await this.conversationRepository.findById(conversationId);
 
-      if (!conversation) {
-        throw new RpcException(
-          new NotFoundException(
-            `Conversation with ID ${conversationId} not found`,
-          ),
-        );
-      }
-
-      // Execute queries in parallel
-      const [messages, total] = await Promise.all([
-        this.prisma.message.findMany({
-          where: { conversation_id: conversationId },
-          skip,
-          take: limit,
-          orderBy: { timestamp: 'desc' },
-          include: {
-            conversation: true,
-          },
-        }),
-        this.prisma.message.count({
-          where: { conversation_id: conversationId },
-        }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        success: true,
-        messages: messages.map((msg) => this.mapToResponseDto(msg)),
-        total,
-        page,
-        limit,
-        totalPages,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'find messages');
+    if (!conversation) {
+      throw new ResourceNotFoundException('Conversation', conversationId);
     }
+
+    // Get paginated messages
+    const result = await this.messageRepository.findByConversationIdPaginated(
+      conversationId,
+      { page, limit, orderBy: 'desc' },
+    );
+
+    return {
+      success: true,
+      messages: result.messages.map((msg) => this.mapToResponseDto(msg)),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: Math.ceil(result.total / result.limit),
+    };
   }
 
   /**
@@ -142,24 +104,21 @@ export class MessagesService {
    * @throws RpcException with NotFoundException if message doesn't exist
    */
   async findOne(id: number): Promise<MessageResponseDto> {
-    try {
-      const message = await this.prisma.message.findUnique({
-        where: { id },
-        include: {
-          conversation: true,
-        },
-      });
+    const message = await this.messageRepository.findById(id);
 
-      if (!message) {
-        throw new RpcException(
-          new NotFoundException(`Message with ID ${id} not found`),
-        );
-      }
-
-      return this.mapToResponseDto(message);
-    } catch (error) {
-      this.handlePrismaError(error, 'find message');
+    if (!message) {
+      throw new ResourceNotFoundException('Message', id);
     }
+
+    // Get conversation details separately
+    const conversation = await this.conversationRepository.findById(
+      message.conversation_id,
+    );
+
+    return this.mapToResponseDto({
+      ...message,
+      conversation,
+    });
   }
 
   /**
@@ -173,42 +132,28 @@ export class MessagesService {
     id: number,
     data: UpdateMessageDto,
   ): Promise<MessageResponseDto> {
-    try {
-      // Check if message exists
-      const existingMessage = await this.prisma.message.findUnique({
-        where: { id },
-      });
+    // Check if message exists
+    const existingMessage = await this.messageRepository.findById(id);
 
-      if (!existingMessage) {
-        throw new RpcException(
-          new NotFoundException(`Message with ID ${id} not found`),
-        );
-      }
-
-      // Update message
-      const message = await this.prisma.message.update({
-        where: { id },
-        data: {
-          message_type: data.message_type,
-          content: data.content,
-        },
-        include: {
-          conversation: true,
-        },
-      });
-
-      const messageDto = this.mapToResponseDto(message);
-
-      // Emit real-time event
-      await this.eventsService.emitMessageUpdated(
-        existingMessage.conversation_id,
-        messageDto,
-      );
-
-      return messageDto;
-    } catch (error) {
-      this.handlePrismaError(error, 'update message');
+    if (!existingMessage) {
+      throw new ResourceNotFoundException('Message', id);
     }
+
+    // Update message
+    const message = await this.messageRepository.update(id, {
+      message_type: data.message_type,
+      content: data.content,
+    });
+
+    const messageDto = this.mapToResponseDto(message);
+
+    // Emit real-time event
+    await this.eventsService.emitMessageUpdated(
+      existingMessage.conversation_id,
+      messageDto,
+    );
+
+    return messageDto;
   }
 
   /**
@@ -220,35 +165,25 @@ export class MessagesService {
   async deleteMessage(
     id: number,
   ): Promise<{ success: boolean; message: string }> {
-    try {
-      // Check if message exists
-      const existingMessage = await this.prisma.message.findUnique({
-        where: { id },
-      });
+    // Check if message exists
+    const existingMessage = await this.messageRepository.findById(id);
 
-      if (!existingMessage) {
-        throw new RpcException(
-          new NotFoundException(`Message with ID ${id} not found`),
-        );
-      }
-
-      const conversationId = existingMessage.conversation_id;
-
-      // Delete message
-      await this.prisma.message.delete({
-        where: { id },
-      });
-
-      // Emit real-time event
-      await this.eventsService.emitMessageDeleted(conversationId, id);
-
-      return {
-        success: true,
-        message: `Message with ID ${id} deleted successfully`,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'delete message');
+    if (!existingMessage) {
+      throw new ResourceNotFoundException('Message', id);
     }
+
+    const conversationId = existingMessage.conversation_id;
+
+    // Delete message
+    await this.messageRepository.delete(id);
+
+    // Emit real-time event
+    await this.eventsService.emitMessageDeleted(conversationId, id);
+
+    return {
+      success: true,
+      message: `Message with ID ${id} deleted successfully`,
+    };
   }
 
   /**
@@ -261,57 +196,38 @@ export class MessagesService {
     userId: number,
     pagination: PaginationDto,
   ): Promise<MessageListResponseDto> {
-    try {
-      const { page = 1, limit = 20 } = pagination;
-      const skip = (page - 1) * limit;
+    const { page = 1, limit = 20 } = pagination;
 
-      // Find messages where user is sender OR in conversations where user is sender/receiver
-      const [messages, total] = await Promise.all([
-        this.prisma.message.findMany({
-          where: {
-            OR: [
-              { sender_id: userId },
-              {
-                conversation: {
-                  OR: [{ sender_id: userId }, { receiver_id: userId }],
-                },
-              },
-            ],
-          },
-          skip,
-          take: limit,
-          orderBy: { timestamp: 'desc' },
-          include: {
-            conversation: true,
-          },
-        }),
-        this.prisma.message.count({
-          where: {
-            OR: [
-              { sender_id: userId },
-              {
-                conversation: {
-                  OR: [{ sender_id: userId }, { receiver_id: userId }],
-                },
-              },
-            ],
-          },
-        }),
-      ]);
+    // Get user's conversations
+    const conversations =
+      await this.conversationRepository.findByUserId(userId);
+    const conversationIds = conversations.map((c) => c.id);
 
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        success: true,
-        messages: messages.map((msg) => this.mapToResponseDto(msg)),
-        total,
-        page,
-        limit,
-        totalPages,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'find user messages');
+    // Get messages from these conversations
+    const allMessages: Message[] = [];
+    for (const convId of conversationIds) {
+      const messages =
+        await this.messageRepository.findByConversationId(convId);
+      allMessages.push(...messages);
     }
+
+    // Sort by timestamp desc
+    allMessages.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    // Paginate
+    const total = allMessages.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedMessages = allMessages.slice(startIndex, startIndex + limit);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      messages: paginatedMessages.map((msg) => this.mapToResponseDto(msg)),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   /**
@@ -322,52 +238,47 @@ export class MessagesService {
   async markMessagesAsRead(
     data: MarkMessagesAsReadDto,
   ): Promise<{ success: boolean; count: number }> {
-    try {
-      // Verify conversation exists
-      const conversation = await this.prisma.conversation.findUnique({
-        where: { id: data.conversation_id },
-      });
+    // Verify conversation exists
+    const conversation = await this.conversationRepository.findById(
+      data.conversation_id,
+    );
 
-      if (!conversation) {
-        throw new RpcException(
-          new NotFoundException(
-            `Conversation with ID ${data.conversation_id} not found`,
-          ),
-        );
-      }
+    if (!conversation) {
+      throw new ResourceNotFoundException('Conversation', data.conversation_id);
+    }
 
-      // Build where clause
-      const whereClause: Prisma.MessageWhereInput = {
-        conversation_id: data.conversation_id,
-        sender_id: { not: data.user_id }, // Only mark messages from other user as read
-        is_read: false,
-      };
+    let count = 0;
 
-      // If specific message IDs provided, add to where clause
-      if (data.message_ids && data.message_ids.length > 0) {
-        whereClause.id = { in: data.message_ids };
-      }
-
-      // Update messages
-      const result = await this.prisma.message.updateMany({
-        where: whereClause,
-        data: { is_read: true },
-      });
-
-      // Emit real-time event
-      await this.eventsService.emitMessagesRead(
+    // If specific message IDs provided
+    if (data.message_ids && data.message_ids.length > 0) {
+      await this.messageRepository.markAsRead(data.message_ids);
+      count = data.message_ids.length;
+    } else {
+      // Mark all unread messages in conversation
+      const unreadMessages = await this.messageRepository.findUnreadMessages(
         data.conversation_id,
         data.user_id,
-        result.count,
       );
 
-      return {
-        success: true,
-        count: result.count,
-      };
-    } catch (error) {
-      this.handlePrismaError(error, 'mark messages as read');
+      if (unreadMessages.length > 0) {
+        await this.messageRepository.markAsRead(
+          unreadMessages.map((m) => m.id),
+        );
+        count = unreadMessages.length;
+      }
     }
+
+    // Emit real-time event
+    await this.eventsService.emitMessagesRead(
+      data.conversation_id,
+      data.user_id,
+      count,
+    );
+
+    return {
+      success: true,
+      count,
+    };
   }
 
   /**
@@ -376,21 +287,9 @@ export class MessagesService {
    * @returns Total unread message count
    */
   async getUnreadCount(userId: number): Promise<{ count: number }> {
-    try {
-      const count = await this.prisma.message.count({
-        where: {
-          conversation: {
-            OR: [{ sender_id: userId }, { receiver_id: userId }],
-          },
-          sender_id: { not: userId }, // Only count messages from others
-          is_read: false,
-        },
-      });
+    const count = await this.messageRepository.countUnreadByUserId(userId);
 
-      return { count };
-    } catch (error) {
-      this.handlePrismaError(error, 'get unread count');
-    }
+    return { count };
   }
 
   /**
@@ -401,28 +300,28 @@ export class MessagesService {
   async getUnreadCountByConversation(
     userId: number,
   ): Promise<{ conversation_id: number; unread_count: number }[]> {
-    try {
-      const result = await this.prisma.message.groupBy({
-        by: ['conversation_id'],
-        where: {
-          conversation: {
-            OR: [{ sender_id: userId }, { receiver_id: userId }],
-          },
-          sender_id: { not: userId },
-          is_read: false,
-        },
-        _count: {
-          id: true,
-        },
-      });
+    // Get user's conversations
+    const conversations =
+      await this.conversationRepository.findByUserId(userId);
 
-      return result.map((item) => ({
-        conversation_id: item.conversation_id,
-        unread_count: item._count.id,
-      }));
-    } catch (error) {
-      this.handlePrismaError(error, 'get unread count by conversation');
+    const result: { conversation_id: number; unread_count: number }[] = [];
+
+    // Count unread messages per conversation
+    for (const conv of conversations) {
+      const unreadMessages = await this.messageRepository.findUnreadMessages(
+        conv.id,
+        userId,
+      );
+
+      if (unreadMessages.length > 0) {
+        result.push({
+          conversation_id: conv.id,
+          unread_count: unreadMessages.length,
+        });
+      }
     }
+
+    return result;
   }
 
   /**
@@ -448,55 +347,5 @@ export class MessagesService {
           }
         : undefined,
     };
-  }
-
-  /**
-   * Handle Prisma errors and map to appropriate HTTP exceptions
-   * @param error - Error object
-   * @param operation - Operation being performed
-   */
-  private handlePrismaError(error: any, operation: string): never {
-    // If it's already an RpcException, re-throw it
-    if (error instanceof RpcException) {
-      throw error;
-    }
-
-    // Handle Prisma-specific errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (error.code) {
-        case 'P2002':
-          // Unique constraint violation
-          throw new RpcException(
-            new BadRequestException(
-              `A record with this ${error.meta?.target} already exists`,
-            ),
-          );
-        case 'P2025':
-          // Record not found
-          throw new RpcException(
-            new NotFoundException(`Record not found during ${operation}`),
-          );
-        case 'P2003':
-          // Foreign key constraint violation
-          throw new RpcException(
-            new BadRequestException(
-              `Invalid reference: ${error.meta?.field_name}`,
-            ),
-          );
-        default:
-          throw new RpcException(
-            new InternalServerErrorException(
-              `Database error during ${operation}: ${error.code}`,
-            ),
-          );
-      }
-    }
-
-    // Handle other errors
-    throw new RpcException(
-      new InternalServerErrorException(
-        `Failed to ${operation}: ${error.message}`,
-      ),
-    );
   }
 }
