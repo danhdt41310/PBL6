@@ -1,6 +1,6 @@
-import { Global, Module } from "@nestjs/common";
-import { EmailModule } from "src/shared/email/email.module";
-import { PrismaModule } from "src/shared/prisma/prisma.module";
+import { Global, Module } from '@nestjs/common';
+import { EmailModule } from './email/email.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Global()
 @Module({

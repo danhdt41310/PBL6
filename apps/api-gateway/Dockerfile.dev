@@ -10,6 +10,9 @@ RUN npm install -g nodemon
 COPY package*.json ./
 COPY turbo.json ./
 COPY apps/api-gateway/package*.json ./apps/api-gateway/
+COPY apps/api-gateway/tsconfig*.json ./apps/api-gateway/
+COPY apps/api-gateway/nest-cli.json ./apps/api-gateway/
+COPY apps/api-gateway/src ./apps/api-gateway/src
 COPY packages/ ./packages/
 COPY apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY apps/api-gateway/.env ./apps/api-gateway/.env
@@ -18,12 +21,19 @@ RUN cd ./apps/api-gateway/ && npm install
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
+# Build shared packages (@repo/common)
+RUN npm run build --workspace=@repo/common --if-present || true
+
 WORKDIR /app/apps/api-gateway
 RUN npx prisma generate
+
+# Build application to create dist folder
+RUN npm run build
+
 # Go back to root
 WORKDIR /app
 
 EXPOSE 3000
 
-# Use start:dev for hot reload - source code will be mounted as volume
-CMD ["npm", "run", "start:dev", "--workspace=api-gateway"]
+# Run the built application
+CMD ["sh", "-c", "cd apps/api-gateway && node dist/main.js"]

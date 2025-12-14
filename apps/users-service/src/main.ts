@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe } from '@nestjs/common';
-import { RpcExceptionFilter } from 'src/common/filters';
+import { GlobalRpcExceptionFilter } from '@repo/common';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -17,11 +17,10 @@ async function bootstrap() {
   );
 
   app.useGlobalPipes(new ValidationPipe());
-  app.useGlobalFilters(new RpcExceptionFilter())
+  app.useGlobalFilters(new GlobalRpcExceptionFilter());
 
   await app.listen();
   
-  console.log(`Users Microservice connected to Redis`);
-  console.log(`RpcExceptionFilter applied via APP_FILTER provider`);
+  console.log('Users Microservice connected to Redis');
 }
 bootstrap();
