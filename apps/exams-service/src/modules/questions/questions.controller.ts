@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common'
 import { MessagePattern, Payload } from '@nestjs/microservices'
 import { QuestionsService } from './questions.service'
 import { QuestionsImportService } from './questions-import.service'
+import { QuestionsExportService } from './questions-export.service'
 import {
   CreateQuestionCategoryDto,
   UpdateQuestionCategoryDto,
@@ -17,6 +18,7 @@ export class QuestionsController {
   constructor(
     private readonly questionsService: QuestionsService,
     private readonly questionsImportService: QuestionsImportService,
+    private readonly questionsExportService: QuestionsExportService,
   ) {}
 
   // ============================================================
@@ -89,16 +91,16 @@ export class QuestionsController {
   // IMPORT EXCEL ENDPOINTS
   // ============================================================
   @MessagePattern('questions.import.preview')
-  async previewExcel(@Payload() data: { buffer: number[]; limit?: number }) {
-    // Convert array back to Buffer (from TCP serialization)
-    const buffer = Buffer.from(data.buffer);
+  async previewExcel(@Payload() data: { buffer: string; limit?: number }) {
+    // Convert base64 string back to Buffer
+    const buffer = Buffer.from(data.buffer, 'base64');
     return await this.questionsImportService.previewExcel(buffer, data.limit || 10);
   }
 
   @MessagePattern('questions.import.execute')
-  async importExcel(@Payload() data: { buffer: number[]; createdBy: number }) {
-    // Convert array back to Buffer (from TCP serialization)
-    const buffer = Buffer.from(data.buffer);
+  async importExcel(@Payload() data: { buffer: string; createdBy: number }) {
+    // Convert base64 string back to Buffer
+    const buffer = Buffer.from(data.buffer, 'base64');
     return await this.questionsImportService.importExcel(buffer, data.createdBy);
   }
 
@@ -108,6 +110,28 @@ export class QuestionsController {
   @MessagePattern('questions.random')
   async getRandomQuestions(@Payload() data: GetRandomQuestionsDto) {
     return await this.questionsService.getRandomQuestions(data);
+  }
+
+  // ============================================================
+  // EXPORT ENDPOINTS
+  // ============================================================
+  @MessagePattern('questions.export.excel')
+  async exportToExcel(@Payload() filterDto: QuestionFilterDto) {
+    const buffer = await this.questionsExportService.exportToExcel(filterDto);
+    // Convert Buffer to array for TCP serialization
+    return { data: Array.from(buffer) };
+  }
+
+  @MessagePattern('questions.export.text')
+  async exportToText(@Payload() filterDto: QuestionFilterDto) {
+    return await this.questionsExportService.exportToText(filterDto);
+  }
+
+  @MessagePattern('questions.export.docx')
+  async exportToDocx(@Payload() filterDto: QuestionFilterDto) {
+    const buffer = await this.questionsExportService.exportToDocx(filterDto);
+    // Convert Buffer to array for TCP serialization
+    return { data: Array.from(buffer) };
   }
 }
 

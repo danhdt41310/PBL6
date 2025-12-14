@@ -16,7 +16,10 @@ import {
   UploadedFile,
   BadRequestException,
   UnauthorizedException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common'
+import { Response } from 'express'
 import { ClientProxy } from '@nestjs/microservices'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { 
@@ -473,103 +476,6 @@ export class ExamsController {
   }
 
   // ============================================================
-  // IMPORT EXCEL
-  // ============================================================
-  @Post('questions/import/preview')
-  @SkipPermissionCheck()
-  @UseInterceptors(
-    FileInterceptor('file'),
-    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
-  )
-  @ApiOperation({ 
-    summary: 'Preview Excel import',
-    description: 'Preview questions from Excel file before importing. Returns first 10 rows by default.'
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'Excel file (.xlsx or .xls)'
-        },
-        limit: {
-          type: 'number',
-          description: 'Number of rows to preview (default: 10)'
-        }
-      },
-      required: ['file']
-    }
-  })
-  @ApiResponse({ status: 200, description: 'Preview generated successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file or format' })
-  async previewExcelImport(
-    @UploadedFile() file: Express.Multer.File,
-    @Query('limit') limit?: string,
-  ) {
-    if (!file) {
-      throw new BadRequestException('File is required')
-    }
-
-    return firstValueFrom(
-      this.examsService.send('questions.import.preview', {
-        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
-        limit: limit ? parseInt(limit) : 10,
-      })
-    )
-  }
-
-  @Post('questions/import/execute')
-  @SkipPermissionCheck()
-  @UseInterceptors(
-    FileInterceptor('file'),
-    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
-  )
-  @ApiOperation({ 
-    summary: 'Import questions from Excel',
-    description: 'Import questions from Excel file. Creator ID will be set from JWT token. Returns import results with errors if any.'
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'Excel file (.xlsx or .xls)'
-        }
-      },
-      required: ['file']
-    }
-  })
-  @ApiResponse({ status: 200, description: 'Import completed (check response for errors)' })
-  @ApiResponse({ status: 400, description: 'Invalid file or format' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Requires teacher role' })
-  async importExcel(
-    @UploadedFile() file: Express.Multer.File,
-    @Req() req: RequestWithUser,
-  ) {
-    if (!file) {
-      throw new BadRequestException('File is required')
-    }
-
-    const createdBy = req.user?.userId
-    if (!createdBy) {
-      throw new BadRequestException('User ID not found in token')
-    }
-
-    return firstValueFrom(
-      this.examsService.send('questions.import.execute', {
-        buffer: Array.from(file.buffer), // Convert Buffer to array for TCP serialization
-        createdBy,
-      })
-    )
-  }
-
-  // ============================================================
   // RANDOM QUESTIONS
   // ============================================================
   @Post('questions/random')
@@ -631,13 +537,69 @@ export class ExamsController {
   // EXAM SUBMISSION / TAKING ENDPOINTS
   // ============================================================
 
+  @Post('exams/:exam_id/verify-password')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Verify exam password',
+    description: 'Verify if the provided password is correct for an exam that requires password authentication.'
+  })
+  @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        password: { type: 'string', description: 'Password to verify' }
+      },
+      required: ['password']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Password verification result',
+    schema: {
+      example: {
+        success: true,
+        message: 'Password is correct',
+        has_password: true
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Exam not found' })
+  async verifyExamPassword(
+    @Param('exam_id', ParseIntPipe) exam_id: number,
+    @Body() body: { password: string },
+    @Req() req: RequestWithUser
+  ) {
+    const studentId = req.user?.userId;
+    if (!studentId) {
+      throw new BadRequestException('User ID not found in token');
+    }
+
+    return firstValueFrom(
+      this.examsService.send('exams.verify_password', {
+        exam_id,
+        student_id: studentId,
+        password: body.password,
+      })
+    );
+  }
+
   @Post('exams/:exam_id/start')
   @SkipPermissionCheck()
   @ApiOperation({ 
     summary: 'Start an exam',
-    description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token.'
+    description: 'Create or get existing submission for a student. Returns the first question (order = 1) and remaining time. Student ID is taken from JWT token. If exam requires password, include it in request body.'
   })
   @ApiParam({ name: 'exam_id', type: 'number', description: 'Exam ID' })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        password: { type: 'string', description: 'Exam password (if required)' }
+      }
+    },
+    required: false
+  })
   @ApiResponse({ 
     status: 200, 
     description: 'Exam started successfully or existing submission returned',
@@ -666,10 +628,12 @@ export class ExamsController {
       }
     }
   })
+  @ApiResponse({ status: 403, description: 'Forbidden - incorrect password' })
   @ApiResponse({ status: 404, description: 'Exam not found' })
   @ApiResponse({ status: 400, description: 'Bad request - exam has no questions or already submitted' })
   async startExam(
     @Param('exam_id', ParseIntPipe) exam_id: number,
+    @Body() body: { password?: string },
     @Req() req: RequestWithUser
   ) {
     const studentId = req.user?.userId;
@@ -681,6 +645,7 @@ export class ExamsController {
       this.examsService.send('submissions.start_exam', {
         exam_id,
         student_id: studentId,
+        password: body?.password,
       })
     );
   }
@@ -1185,4 +1150,297 @@ export class ExamsController {
   }
 
 
+
+  // ============================================================
+  // IMPORT/EXPORT QUESTIONS
+  // ============================================================
+  @Post('questions/import/preview')
+  @SkipPermissionCheck()
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ 
+    summary: 'Preview Excel import',
+    description: 'Upload Excel file and preview questions before importing'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of rows to preview (default: 10)'
+        }
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Preview generated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file format' })
+  async previewImport(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('limit') limit?: string
+  ) {
+    console.log('=== PREVIEW IMPORT START ===');
+    console.log('File received:', file ? {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      bufferSize: file.buffer?.length
+    } : 'NO FILE');
+    console.log('Limit parameter:', limit);
+
+    if (!file) {
+      console.log('ERROR: No file uploaded');
+      throw new BadRequestException('No file uploaded')
+    }
+
+    console.log('Converting buffer to base64...');
+    const base64Buffer = file.buffer.toString('base64');
+    console.log('Base64 string created, length:', base64Buffer.length);
+
+    console.log('Sending to exams service...');
+    const result = await firstValueFrom(
+      this.examsService.send('questions.import.preview', {
+        buffer: base64Buffer,
+        limit: limit ? parseInt(limit) : 10,
+      })
+    );
+    console.log('Result received from service');
+    console.log('=== PREVIEW IMPORT END ===');
+    return result;
+  }
+
+  @Post('questions/import')
+  @UseInterceptors(
+    FileInterceptor('file'),
+    new FileValidationInterceptor(DefaultFileUploadConfigs.EXCEL)
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ 
+    summary: 'Import questions from Excel',
+    description: 'Upload Excel file to bulk import questions. Categories will be auto-created if not exist. Requires authentication.'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Questions imported successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file format or data validation errors' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - authentication required' })
+  async importQuestions(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: RequestWithUser
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded')
+    }
+
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('User not authenticated')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.execute', {
+        buffer: file.buffer.toString('base64'),
+        createdBy: req.user.userId,
+      })
+    )
+  }
+
+  @Get('questions/import/template')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Download Excel template',
+    description: 'Download the Excel template for bulk importing questions'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Template downloaded',
+    content: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        schema: {
+          type: 'string',
+          format: 'binary'
+        }
+      }
+    }
+  })
+  async downloadTemplate(@Res() res: Response) {
+    const fs = require('fs')
+    const path = require('path')
+    
+    const templatePath = path.join(__dirname, '..', '..', '..', '..', '..', 'templates', 'excels', 'TemplateImportQuestions.xlsx')
+    
+    if (!fs.existsSync(templatePath)) {
+      throw new BadRequestException('Template file not found')
+    }
+
+    const file = fs.createReadStream(templatePath)
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="TemplateImportQuestions.xlsx"',
+    })
+    
+    file.pipe(res)
+  }
+
+  @Get('questions/export/excel')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Export questions to Excel',
+    description: 'Export filtered questions to Excel file'
+  })
+  @ApiQuery({ name: 'type', required: false, enum: ['multiple_choice', 'essay'] })
+  @ApiQuery({ name: 'difficulty', required: false, enum: ['easy', 'medium', 'hard'] })
+  @ApiQuery({ name: 'category_id', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'is_public', required: false, type: Boolean })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Excel file generated',
+    content: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        schema: {
+          type: 'string',
+          format: 'binary'
+        }
+      }
+    }
+  })
+  async exportToExcel(
+    @Query(ValidationPipe) filterDto: QuestionFilterDto,
+    @Req() req: RequestWithUser,
+    @Res() res: Response
+  ) {
+    // Add created_by filter to only export questions created by current user
+    const exportFilter = {
+      ...filterDto,
+      created_by: req.user.userId,
+    }
+    
+    const result: any = await firstValueFrom(
+      this.examsService.send('questions.export.excel', exportFilter)
+    )
+
+    const buffer = Buffer.from(result.data)
+    const filename = `questions_export_${new Date().toISOString().split('T')[0]}.xlsx`
+
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    })
+
+    res.send(buffer)
+  }
+
+  @Get('questions/export/text')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Export questions to text file',
+    description: 'Export filtered questions to plain text file'
+  })
+  @ApiQuery({ name: 'type', required: false, enum: ['multiple_choice', 'essay'] })
+  @ApiQuery({ name: 'difficulty', required: false, enum: ['easy', 'medium', 'hard'] })
+  @ApiQuery({ name: 'category_id', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'is_public', required: false, type: Boolean })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Text file generated',
+    content: {
+      'text/plain': {
+        schema: {
+          type: 'string'
+        }
+      }
+    }
+  })
+  async exportToText(
+    @Query(ValidationPipe) filterDto: QuestionFilterDto,
+    @Req() req: RequestWithUser,
+    @Res() res: Response
+  ) {
+    // Add created_by filter to only export questions created by current user
+    const exportFilter = {
+      ...filterDto,
+      created_by: req.user.userId,
+    }
+    
+    const text = await firstValueFrom(
+      this.examsService.send('questions.export.text', exportFilter)
+    )
+
+    const filename = `questions_export_${new Date().toISOString().split('T')[0]}.txt`
+
+    res.set({
+      'Content-Type': 'text/plain',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    })
+
+    res.send(text)
+  }
+
+  @Get('questions/export/docx')
+  @SkipPermissionCheck()
+  @ApiOperation({ 
+    summary: 'Export questions to Word document',
+    description: 'Export filtered questions to DOCX file'
+  })
+  @ApiQuery({ name: 'type', required: false, enum: ['multiple_choice', 'essay'] })
+  @ApiQuery({ name: 'difficulty', required: false, enum: ['easy', 'medium', 'hard'] })
+  @ApiQuery({ name: 'category_id', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'is_public', required: false, type: Boolean })
+  @ApiResponse({ 
+    status: 200,
+    description: 'Word document generated',
+    content: {
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+        schema: {
+          type: 'string',
+          format: 'binary'
+        }
+      }
+    }
+  })
+  async exportToDocx(
+    @Query(ValidationPipe) filterDto: QuestionFilterDto,
+    @Req() req: RequestWithUser,
+    @Res() res: Response
+  ) {
+    // Add created_by filter to only export questions created by current user
+    const exportFilter = {
+      ...filterDto,
+      created_by: req.user.userId,
+    }
+    
+    const result: any = await firstValueFrom(
+      this.examsService.send('questions.export.docx', exportFilter)
+    )
+
+    const buffer = Buffer.from(result.data)
+    const filename = `questions_export_${new Date().toISOString().split('T')[0]}.docx`
+
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    })
+
+    res.send(buffer)
+  }
 }

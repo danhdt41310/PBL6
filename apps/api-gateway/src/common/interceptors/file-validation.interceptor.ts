@@ -64,7 +64,23 @@ export class FileValidationInterceptor implements NestInterceptor {
     if (this.config.allowedTypes && this.config.allowedTypes.length > 0) {
       const isValidType = this.config.allowedTypes.includes(file.mimetype as FileType)
       
-      if (!isValidType) {
+      // Check file extension if mimetype is octet-stream
+      const isOctetStream = file.mimetype === 'application/octet-stream'
+      let isValidExtension = false
+      
+      if (isOctetStream && file.originalname) {
+        const ext = file.originalname.toLowerCase().split('.').pop()
+        // Check if extension matches allowed types
+        if (ext === 'xlsx' && this.config.allowedTypes.includes(FileType.XLSX)) {
+          isValidExtension = true
+        } else if (ext === 'xls' && this.config.allowedTypes.includes(FileType.XLS)) {
+          isValidExtension = true
+        } else if (ext === 'csv' && this.config.allowedTypes.includes(FileType.CSV)) {
+          isValidExtension = true
+        }
+      }
+      
+      if (!isValidType && !isValidExtension) {
         throw new BadRequestException(
           `Invalid file type. Allowed types: ${this.config.allowedTypes.join(', ')}. Received: ${file.mimetype}`
         )

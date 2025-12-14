@@ -6,6 +6,14 @@ import {
   UpdateMessageDto,
   PaginationDto,
   MarkMessagesAsReadDto,
+  CreateMessageResponseDto,
+  FindOneMessageResponseDto,
+  UpdateMessageResponseDto,
+  DeleteMessageResponseDto,
+  MessageListResponseDto,
+  MarkMessagesAsReadResponseDto,
+  UnreadCountResponseDto,
+  UnreadCountByConversationResponseDto,
 } from './dto/message.dto';
 
 @Controller('messages')
@@ -16,7 +24,7 @@ export class MessagesController {
    * Test endpoint
    */
   @MessagePattern('messages.get_hello')
-  getHello(@Payload() data: { name: string }) {
+  getHello(@Payload() data: { name: string }): string {
     return `Hello, ${data.name}! Welcome to the Chats Service - Messages.`;
   }
 
@@ -25,7 +33,9 @@ export class MessagesController {
    * Pattern: messages.create
    */
   @MessagePattern('messages.create')
-  async createMessage(@Payload() createMessageDto: CreateMessageDto) {
+  async createMessage(
+    @Payload() createMessageDto: CreateMessageDto,
+  ): Promise<CreateMessageResponseDto> {
     const message = await this.messagesService.createMessage(createMessageDto);
     return {
       success: true,
@@ -41,7 +51,7 @@ export class MessagesController {
   @MessagePattern('messages.find_by_conversation')
   async findMessages(
     @Payload() payload: { conversationId: number; pagination?: PaginationDto },
-  ) {
+  ): Promise<MessageListResponseDto> {
     const { conversationId, pagination = { page: 1, limit: 20 } } = payload;
     return await this.messagesService.findMessages(conversationId, pagination);
   }
@@ -51,7 +61,9 @@ export class MessagesController {
    * Pattern: messages.find_one
    */
   @MessagePattern('messages.find_one')
-  async findOne(@Payload() payload: { id: number }) {
+  async findOne(
+    @Payload() payload: { id: number },
+  ): Promise<FindOneMessageResponseDto> {
     console.log('🔍 Finding message with ID:', payload.id);
     const message = await this.messagesService.findOne(payload.id);
     return {
@@ -67,7 +79,7 @@ export class MessagesController {
   @MessagePattern('messages.update')
   async updateMessage(
     @Payload() payload: { id: number; data: UpdateMessageDto },
-  ) {
+  ): Promise<UpdateMessageResponseDto> {
     const message = await this.messagesService.updateMessage(
       payload.id,
       payload.data,
@@ -84,7 +96,9 @@ export class MessagesController {
    * Pattern: messages.delete
    */
   @MessagePattern('messages.delete')
-  async deleteMessage(@Payload() payload: { id: number }) {
+  async deleteMessage(
+    @Payload() payload: { id: number },
+  ): Promise<DeleteMessageResponseDto> {
     return await this.messagesService.deleteMessage(payload.id);
   }
 
@@ -95,7 +109,7 @@ export class MessagesController {
   @MessagePattern('messages.find_by_user')
   async findUserMessages(
     @Payload() payload: { userId: number; pagination?: PaginationDto },
-  ) {
+  ): Promise<MessageListResponseDto> {
     const { userId, pagination = { page: 1, limit: 20 } } = payload;
     return await this.messagesService.findUserMessages(userId, pagination);
   }
@@ -105,7 +119,9 @@ export class MessagesController {
    * Pattern: messages.mark_as_read
    */
   @MessagePattern('messages.mark_as_read')
-  async markAsRead(@Payload() data: MarkMessagesAsReadDto) {
+  async markAsRead(
+    @Payload() data: MarkMessagesAsReadDto,
+  ): Promise<MarkMessagesAsReadResponseDto> {
     return await this.messagesService.markMessagesAsRead(data);
   }
 
@@ -114,7 +130,9 @@ export class MessagesController {
    * Pattern: messages.get_unread_count
    */
   @MessagePattern('messages.get_unread_count')
-  async getUnreadCount(@Payload() payload: { userId: number }) {
+  async getUnreadCount(
+    @Payload() payload: { userId: number },
+  ): Promise<UnreadCountResponseDto> {
     return await this.messagesService.getUnreadCount(payload.userId);
   }
 
@@ -123,7 +141,9 @@ export class MessagesController {
    * Pattern: messages.get_unread_by_conversation
    */
   @MessagePattern('messages.get_unread_by_conversation')
-  async getUnreadByConversation(@Payload() payload: { userId: number }) {
+  async getUnreadByConversation(
+    @Payload() payload: { userId: number },
+  ): Promise<UnreadCountByConversationResponseDto> {
     return await this.messagesService.getUnreadCountByConversation(
       payload.userId,
     );

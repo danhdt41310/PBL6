@@ -11,31 +11,50 @@ function generateExcelTemplate() {
 
   // ============================================================
   // Main Sheet - Where teachers enter questions
+  // Structure: 8 pairs of (option_text, checkbox)
+  // A-E: Basic info
+  // F-G: Option A (text, checkbox)
+  // H-I: Option B (text, checkbox)
+  // J-K: Option C (text, checkbox)
+  // L-M: Option D (text, checkbox)
+  // N-O: Option E (text, checkbox)
+  // P-Q: Option F (text, checkbox)
+  // R-S: Option G (text, checkbox)
+  // T-U: Option H (text, checkbox)
+  // V: is_public
+  // W: options_json (auto-filled)
+  // X: status (error messages, auto-filled)
   // ============================================================
   const mainData = [
     // Row 1: Title
-    ['TEMPLATE IMPORT QUESTIONS', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+    ['Import Questions Via Excel', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
     
     // Row 2: Headers
     [
       'content', 'type', 'category_name', 'difficulty', 'is_multiple_answer',
-      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-      'correct_answers', 'is_public', 'options_json', 'status'
+      'A', 'A_correct', 'B', 'B_correct', 'C', 'C_correct', 'D', 'D_correct',
+      'E', 'E_correct', 'F', 'F_correct', 'G', 'G_correct', 'H', 'H_correct',
+      'is_public', 'options_json', 'status'
     ],
     
-    // Row 3: Notes
+    // Row 3: Notes/Descriptions
     [
-      'Nội dung câu hỏi (required)',
-      'multiple_choice/essay (required)',
-      'Tên danh mục (optional)',
-      'easy/medium/hard (optional)',
-      'true/false (optional)',
-      'Đáp án A', 'Đáp án B', 'Đáp án C', 'Đáp án D', 'Đáp án E',
-      'Đáp án F', 'Đáp án G', 'Đáp án H', 'Đáp án I', 'Đáp án J',
-      'Đáp án đúng (vd: 1,2,3) (required for multiple_choice)',
-      'true/false (optional)',
-      'Bỏ qua',
-      'Kiểm lỗi (auto)'
+      'Question content (required)',
+      'multiple_choice or essay (required)',
+      'Category name (optional, auto-create if new)',
+      'easy, medium, or hard (optional, default: medium)',
+      'TRUE or FALSE (optional, default: FALSE)',
+      'Option A text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option B text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option C text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option D text', 'TRUE or FALSE (leave empty = FALSE)',
+      'Option E text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option F text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option G text', 'TRUE or FALSE (leave empty = FALSE)', 
+      'Option H text', 'TRUE or FALSE (leave empty = FALSE)',
+      'TRUE or FALSE (optional)',
+      'Auto-filled, ignore',
+      'Error messages (auto-filled)'
     ],
     
     // Row 4: Example 1 - Multiple choice with single answer
@@ -44,11 +63,13 @@ function generateExcelTemplate() {
       'multiple_choice',
       'OOP',
       'easy',
-      'false',
-      'YES', 'NO', 'MAYBE', 'ALL', '',
-      '', '', '', '', '',
-      '2',
-      'false',
+      false,
+      'YES', false,
+      'NO', true,
+      'MAYBE', false,
+      'ALL', false,
+      '', '', '', '', '', '', '', '',
+      false,
       '',
       ''
     ],
@@ -59,11 +80,15 @@ function generateExcelTemplate() {
       'multiple_choice',
       'Programming',
       'medium',
-      'true',
-      'Python', 'HTML', 'JavaScript', 'CSS', 'Java',
-      'SQL', '', '', '', '',
-      '1,3,5',
-      'true',
+      true,
+      'Python', true,
+      'HTML', false,
+      'JavaScript', true,
+      'CSS', false,
+      'Java', true,
+      'SQL', false,
+      '', '', '', '',
+      true,
       '',
       ''
     ],
@@ -74,11 +99,10 @@ function generateExcelTemplate() {
       'essay',
       'OOP',
       'hard',
-      'false',
-      '', '', '', '', '',
-      '', '', '', '', '',
-      '',
-      'false',
+      false,
+      '', '', '', '', '', '', '', '',
+      '', '', '', '', '', '', '', '',
+      false,
       '',
       ''
     ],
@@ -88,34 +112,39 @@ function generateExcelTemplate() {
 
   // Set column widths
   mainSheet['!cols'] = [
-    { wch: 50 },  // content
-    { wch: 15 },  // type
-    { wch: 15 },  // category_name
-    { wch: 12 },  // difficulty
-    { wch: 18 },  // is_multiple_answer
-    { wch: 15 },  // A
-    { wch: 15 },  // B
-    { wch: 15 },  // C
-    { wch: 15 },  // D
-    { wch: 15 },  // E
-    { wch: 15 },  // F
-    { wch: 15 },  // G
-    { wch: 15 },  // H
-    { wch: 15 },  // I
-    { wch: 15 },  // J
-    { wch: 20 },  // correct_answers
-    { wch: 12 },  // is_public
-    { wch: 12 },  // options_json
-    { wch: 20 },  // status
+    { wch: 50 },  // A - content
+    { wch: 15 },  // B - type
+    { wch: 15 },  // C - category_name
+    { wch: 12 },  // D - difficulty
+    { wch: 18 },  // E - is_multiple_answer
+    { wch: 15 },  // F - Option A text
+    { wch: 10 },  // G - Option A checkbox
+    { wch: 15 },  // H - Option B text
+    { wch: 10 },  // I - Option B checkbox
+    { wch: 15 },  // J - Option C text
+    { wch: 10 },  // K - Option C checkbox
+    { wch: 15 },  // L - Option D text
+    { wch: 10 },  // M - Option D checkbox
+    { wch: 15 },  // N - Option E text
+    { wch: 10 },  // O - Option E checkbox
+    { wch: 15 },  // P - Option F text
+    { wch: 10 },  // Q - Option F checkbox
+    { wch: 15 },  // R - Option G text
+    { wch: 10 },  // S - Option G checkbox
+    { wch: 15 },  // T - Option H text
+    { wch: 10 },  // U - Option H checkbox
+    { wch: 12 },  // V - is_public
+    { wch: 12 },  // W - options_json
+    { wch: 30 },  // X - status
   ];
 
   // ============================================================
   // Lists Sheet - Data validation lists
   // ============================================================
   const listsData = [
-    ['TYPE', 'DIFFICULTY', 'BOOLEAN'],
-    ['multiple_choice', 'easy', 'true'],
-    ['essay', 'medium', 'false'],
+    ['type', 'difficulty', 'boolean'],
+    ['multiple_choice', 'easy', true],
+    ['essay', 'medium', false],
     ['', 'hard', ''],
   ];
 
@@ -131,7 +160,7 @@ function generateExcelTemplate() {
   XLSX.utils.book_append_sheet(workbook, listsSheet, 'Lists');
 
   // Save file
-  const outputDir = path.join(__dirname, '..', '..', '..', '..', 'templates', 'excels');
+  const outputDir = path.join(__dirname, '..', '..', '..', '..', '..', 'templates', 'excels');
   
   // Create directory if not exists
   if (!fs.existsSync(outputDir)) {
@@ -141,8 +170,13 @@ function generateExcelTemplate() {
   const outputPath = path.join(outputDir, 'TemplateImportQuestions.xlsx');
   XLSX.writeFile(workbook, outputPath);
 
-  console.log('Excel template generated successfully!');
-  console.log(`Location: ${outputPath}`);
+  console.log('✅ Excel template generated successfully!');
+  console.log(`📁 Location: ${outputPath}`);
+  console.log('\n📝 Template structure:');
+  console.log('   - Columns A-E: Basic question info');
+  console.log('   - Columns F-U: 8 pairs of (option_text, checkbox)');
+  console.log('   - Column V: is_public');
+  console.log('   - Column W-X: Auto-filled fields (options_json, status)');
 }
 
 // Run the script

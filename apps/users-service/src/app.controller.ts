@@ -2,9 +2,8 @@ import { Controller, Get } from '@nestjs/common';
 
 @Controller()
 export class AppController {
-
   @Get()
   getHello(): string {
-    return 'Hello world from meetings service!';
+    return 'Hello world from users service!';
   }
 }

@@ -24,7 +24,7 @@ export class CreateConversationDto {
  * DTO for updating a conversation (minimal - conversations rarely update)
  * (Cần import PartialType từ '@nestjs/mapped-types' nếu không dùng Swagger)
  */
-// export class UpdateConversationDto extends PartialType(CreateConversationDto) { } 
+// export class UpdateConversationDto extends PartialType(CreateConversationDto) { }
 // Để tránh lỗi import, tôi định nghĩa lại thủ công:
 export class UpdateConversationDto {
   @IsInt()
@@ -53,8 +53,10 @@ export class PaginationDto {
 // ********** Response DTOs (Sửa) ***************
 // **********************************************
 
-// Định nghĩa kiểu cho tin nhắn con bên trong DTO
-interface MessageDto {
+/**
+ * Message DTO for conversation responses
+ */
+export interface MessageDto {
   id: number;
   sender_id: number;
   conversation_id: number;
@@ -66,7 +68,7 @@ interface MessageDto {
 /**
  * Response DTO for a single conversation with messages
  */
-export class ConversationResponseDto {
+export interface ConversationResponseDto {
   id: number;
   sender_id: number;
   receiver_id: number;
@@ -82,7 +84,7 @@ export class ConversationResponseDto {
 /**
  * Response DTO for conversation list with pagination
  */
-export class ConversationListResponseDto {
+export interface ConversationListResponseDto {
   success: boolean;
   conversations: ConversationResponseDto[];
   total: number;
@@ -94,8 +96,58 @@ export class ConversationListResponseDto {
 /**
  * Response DTO for conversation actions
  */
-export class ConversationActionResponseDto {
+export interface ConversationActionResponseDto {
   success: boolean;
   message: string;
   data?: ConversationResponseDto;
+}
+
+/**
+ * Response DTO for hello endpoint
+ */
+export interface ConversationHelloResponseDto {
+  message: string;
+}
+
+/**
+ * Response DTO for create conversation
+ */
+export interface CreateConversationResponseDto {
+  success: boolean;
+  message: string;
+  data: ConversationResponseDto;
+}
+
+/**
+ * Response DTO for find one conversation
+ */
+export interface FindOneConversationResponseDto {
+  success: boolean;
+  data: ConversationResponseDto;
+}
+
+/**
+ * Response DTO for find conversation by users
+ */
+export interface FindByUsersResponseDto {
+  success: boolean;
+  data: ConversationResponseDto | null;
+}
+
+/**
+ * Response DTO for delete conversation
+ */
+export interface DeleteConversationResponseDto {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Response DTO for conversation stats
+ */
+export interface ConversationStatsResponseDto {
+  success: boolean;
+  userId: number;
+  totalConversations: number;
+  totalMessages: number;
 }

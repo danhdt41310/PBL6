@@ -21,6 +21,7 @@ export interface CreateExamDto {
   description?: string
   status?: ExamStatus
   created_by: number
+  password?: string
   questions: QuestionInExamDto[] // Array of questions with their order and points
 }
 
@@ -32,6 +33,7 @@ export interface UpdateExamDto {
   total_time?: number
   description?: string
   status?: ExamStatus
+  password?: string
   questions?: QuestionInExamDto[]
 }
 

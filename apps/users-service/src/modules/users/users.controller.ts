@@ -1,47 +1,28 @@
 import { Controller, UnprocessableEntityException } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+
 import { UsersService } from './users.service';
 import {
   UserResponseDto,
   UserListResponseDto,
   CreateUserResponseDto,
   AdminActionResponseDto,
-  LoginResponseDto,
-  ChangePasswordResponseDto,
-  RolePermissionResponseDto,
   UserListByEmailsOrIdsResponseDto,
 } from './dto/user-response.dto';
 import {
   CreateUserDto,
-  LoginDto,
   UserEmailsDto,
-  RolePermissionDto,
-  CreateRoleDto,
-  CreatePermissionDto,
   UserIdsDto,
+  UpdateProfileDto,
 } from './dto/user.dto';
 import { UserMapper } from './mapper';
-import {
-  ForgotPasswordResponseDto,
-  VerifyCodeResponseDto,
-  ResetPasswordResponseDto,
-} from './dto/auth-response.dto';
-import {
-  UpdateProfileDto,
-  UserStatus,
-  ChangePasswordDto,
-} from './dto/user.dto';
-import {
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  VerifyCodeDto,
-} from './dto/auth.dto';
+import { USER_PATTERNS, USER_STATUS, UserStatus, MICROSERVICE_CONTROLLER_PATHS } from '@repo/common'; // Import both constant and type
 
-@Controller('users')
+@Controller(MICROSERVICE_CONTROLLER_PATHS.USERS)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @MessagePattern('users.list')
+  @MessagePattern(USER_PATTERNS.LIST)
   async findAll(
     @Payload()
     data: {
@@ -54,7 +35,6 @@ export class UsersController {
       birthday: Date;
     },
   ): Promise<UserListResponseDto> {
-    console.log('Finding all users with pagination:', data);
     const filter: any = {
       text: data.text,
       role: data.role,
@@ -62,211 +42,85 @@ export class UsersController {
       gender: data.gender,
       birthday: data.birthday,
     };
-    return await this.usersService.findAll(data.page, data.limit, filter);
+    return this.usersService.findAll(data.page, data.limit, filter);
   }
 
-  @MessagePattern('users.get_user')
+  @MessagePattern(USER_PATTERNS.GET_USER)
   async findOne(
     @Payload() data: { id: number },
   ): Promise<UserResponseDto | null> {
-    console.log('Finding user with ID:', data.id);
-    return await this.usersService.findOne(data.id);
+    return this.usersService.findOne(data.id);
   }
 
-  @MessagePattern('users.get_me')
+  @MessagePattern(USER_PATTERNS.GET_ME)
   async findOneWithPermissions(@Payload() data: { id: number }): Promise<any> {
-    console.log('Finding user with permissions for ID:', data.id);
-    return await this.usersService.findUserWithPermissions(data.id);
+    return this.usersService.findUserWithPermissions(data.id);
   }
 
-  @MessagePattern('users.change_password')
-  async changePass(
-    @Payload()
-    data: {
-      user_id: number;
-      current_password: string;
-      new_password: string;
-    },
-  ): Promise<ChangePasswordResponseDto> {
-    return await this.usersService.changePass(
-      data.user_id,
-      data.current_password,
-      data.new_password,
-    );
-  }
-
-  @MessagePattern('users.forgot_password')
-  async forgotPassword(
-    @Payload() data: ForgotPasswordDto,
-  ): Promise<ForgotPasswordResponseDto> {
-    return await this.usersService.forgotPassword(data.email);
-  }
-
-  @MessagePattern('users.verify_code')
-  async verifyCode(
-    @Payload() data: VerifyCodeDto,
-  ): Promise<VerifyCodeResponseDto> {
-    return await this.usersService.verifyCode(data.email, data.code);
-  }
-
-  @MessagePattern('users.reset_password')
-  async resetPassword(
-    @Payload() data: ResetPasswordDto,
-  ): Promise<ResetPasswordResponseDto> {
-    return await this.usersService.resetPassword(
-      data.email,
-      data.code,
-      data.password,
-    );
-  }
-
-  @MessagePattern('users.block_user')
+  @MessagePattern(USER_PATTERNS.BLOCK_USER)
   async blockUser(
     @Payload() data: { user_id: number },
   ): Promise<AdminActionResponseDto> {
     throw new UnprocessableEntityException(
       'This function is temporarily disabled',
     );
-    return await this.usersService.updateUserStatus(
-      data.user_id,
-      UserStatus.BLOCKED,
-    );
+    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.BLOCKED);
   }
 
-  @MessagePattern('users.unblock_user')
+  @MessagePattern(USER_PATTERNS.UNBLOCK_USER)
   async unblockUser(
     @Payload() data: { user_id: number },
   ): Promise<AdminActionResponseDto> {
-    return await this.usersService.updateUserStatus(
-      data.user_id,
-      UserStatus.ACTIVE,
-    );
+    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.ACTIVE);
   }
 
-  @MessagePattern('users.update_profile')
+  @MessagePattern(USER_PATTERNS.UPDATE_PROFILE)
   async updateProfile(
     @Payload() data: { user_id: number; profile: UpdateProfileDto },
   ): Promise<UserResponseDto> {
-    return await this.usersService.updateProfile(data.user_id, data.profile);
+    return this.usersService.updateProfile(data.user_id, data.profile);
   }
 
-  @MessagePattern('users.create')
+  @MessagePattern(USER_PATTERNS.CREATE)
   async create(
     @Payload() createUserDto: CreateUserDto,
   ): Promise<CreateUserResponseDto> {
-    console.log('Creating new user', createUserDto);
-    return await this.usersService.create(createUserDto);
+    return this.usersService.create(createUserDto);
   }
 
-  @MessagePattern('users.login')
-  async login(@Payload() loginDto: LoginDto): Promise<LoginResponseDto> {
-    console.log('User login attempt:', loginDto.email);
-    return await this.usersService.login(loginDto);
-  }
-
-  @MessagePattern('users.get_list_profile_by_emails')
+  @MessagePattern(USER_PATTERNS.GET_LIST_BY_EMAILS)
   async getListProfileByEmails(
     @Payload() userEmailsDto: UserEmailsDto,
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('User get list profile by emails:', userEmailsDto);
-    return await this.usersService.getListProfileByEmails(userEmailsDto);
+    return this.usersService.getListProfileByEmails(userEmailsDto);
   }
 
-  @MessagePattern('users.get_list_profile_by_ids')
+  @MessagePattern(USER_PATTERNS.GET_LIST_BY_IDS)
   async getListProfileByIds(
     @Payload() userIdsDto: UserIdsDto,
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('User get list profile by ids:', userIdsDto);
-    return await this.usersService.getListProfileByIds(userIdsDto);
+    return this.usersService.getListProfileByIds(userIdsDto);
   }
 
-  @MessagePattern('users.get_profile_by_email')
+  @MessagePattern(USER_PATTERNS.GET_BY_EMAIL)
   async getProfileByEmail(@Payload() data: { email: string }): Promise<any> {
-    console.log('User get profile by email:', data.email);
-    return await this.usersService.getProfileByEmail(data.email);
+    return this.usersService.getProfileByEmail(data.email);
   }
 
-  @MessagePattern('user.get_list_profile_match_email')
+  @MessagePattern(USER_PATTERNS.GET_LIST_MATCH_EMAIL)
   async getListProfileMatchEmail(
     @Payload() data: { emailPattern: string },
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('User get list profile match email:', data);
-    return await this.usersService.getListProfileMatchEmail(data.emailPattern);
+    return this.usersService.getListProfileMatchEmail(data.emailPattern);
   }
 
-  @MessagePattern('users.search_by_name_or_email')
+  @MessagePattern(USER_PATTERNS.SEARCH_BY_NAME_OR_EMAIL)
   async searchUsersByNameOrEmail(
     @Payload() data: { searchPattern: string; excludeUserId?: number },
   ): Promise<UserListByEmailsOrIdsResponseDto> {
-    console.log('Search users by name or email:', data);
-    return await this.usersService.searchUsersByNameOrEmail(
+    return this.usersService.searchUsersByNameOrEmail(
       data.searchPattern,
       data.excludeUserId,
     );
-  }
-
-  @MessagePattern('users.assign_role_permissions')
-  async assignRolePermissions(
-    @Payload() rolePermissionDto: RolePermissionDto,
-  ): Promise<RolePermissionResponseDto> {
-    console.log('Assigning permissions to role:', rolePermissionDto);
-    return await this.usersService.assignRolePermissions(rolePermissionDto);
-  }
-
-  @MessagePattern('users.get_all_roles')
-  async getAllRoles(): Promise<any> {
-    console.log('Fetching all roles with permissions');
-    return await this.usersService.getAllRolesWithPermissions();
-  }
-
-  @MessagePattern('users.get_all_permissions')
-  async getAllPermissions(): Promise<any> {
-    console.log('Fetching all permissions');
-    return await this.usersService.getAllPermissions();
-  }
-
-  @MessagePattern('users.create_role')
-  async createRole(@Payload() createRoleDto: CreateRoleDto): Promise<any> {
-    console.log('Creating new role:', createRoleDto);
-    return await this.usersService.createRole(
-      createRoleDto.name,
-      createRoleDto.description,
-    );
-  }
-
-  @MessagePattern('users.create_permission')
-  async createPermission(
-    @Payload() createPermissionDto: CreatePermissionDto,
-  ): Promise<any> {
-    console.log('Creating new permission:', createPermissionDto);
-    return await this.usersService.createPermission(
-      createPermissionDto.key,
-      createPermissionDto.name,
-      createPermissionDto.description,
-      createPermissionDto.resource,
-      createPermissionDto.action,
-    );
-  }
-
-  @MessagePattern('users.update_role')
-  async updateRole(
-    @Payload()
-    payload: {
-      role_id: number;
-      name?: string;
-      description?: string;
-    },
-  ): Promise<any> {
-    console.log('Updating role:', payload);
-    return await this.usersService.updateRole(payload.role_id, {
-      name: payload.name,
-      description: payload.description,
-    });
-  }
-
-  @MessagePattern('users.delete_role')
-  async deleteRole(@Payload() payload: { role_id: number }): Promise<any> {
-    console.log('Deleting role:', payload.role_id);
-    return await this.usersService.deleteRole(payload.role_id);
   }
 }
