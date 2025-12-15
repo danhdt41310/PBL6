@@ -17,6 +17,7 @@ import { ClassesModule } from './classes/classes.module';
 import { MaterialsModule } from './materials/materials.module';
 import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
 import { CommonModule } from './common/common.module';
@@ -95,6 +96,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
     MaterialsModule,
     ExamsModule,
     MeetingsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [

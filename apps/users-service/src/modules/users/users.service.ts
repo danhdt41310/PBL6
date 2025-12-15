@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
-import { Prisma } from '@prisma/users-client';
+import { Prisma, AuditLogResource } from '@prisma/users-client';
 
 import { UsersRepository } from './users.repository';
 import { UserMapper } from './mapper/user.mapper';
 import { QueryBuilderUtil, SearchFilter } from '../../shared/utils/query-builder.util';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
 
 import {
   CreateUserDto,
@@ -28,12 +30,15 @@ import { UserNotFoundException } from './exceptions';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly auditLogsService: AuditLogsService,
+  ) {}
 
   /**
    * Create a new User in the system
    */
-  async create(createUserDto: CreateUserDto): Promise<CreateUserResponseDto> {
+  async create(createUserDto: CreateUserDto, actorInfo?: { userId: number; email: string; fullName: string }): Promise<CreateUserResponseDto> {
     const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
     const hashedPassword = await bcrypt.hash(password, APP_CONFIG.SALT_ROUNDS);
 
@@ -63,6 +68,28 @@ export class UsersService {
     }
 
     const userWithRoles = await this.usersRepository.findUserById(newUser.user_id);
+
+    // Log the creation
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.USER_CREATED,
+        AuditLogResource.USER,
+        actorInfo,
+        {
+          description: `Created new user: ${email}`,
+          targetId: newUser.user_id.toString(),
+          targetType: 'USER',
+          newData: {
+            user_id: newUser.user_id,
+            email: newUser.email,
+            full_name: newUser.full_name,
+            status: newUser.status,
+            role: role || APP_CONFIG.DEFAULT_ROLE,
+          },
+        },
+      );
+    }
+
     return UserMapper.toCreateUserResponseDto(userWithRoles);
   }
 
@@ -157,21 +184,47 @@ export class UsersService {
   /**
    * Update user status (block/unblock)
    */
-  async updateUserStatus(userId: number, status: UserStatus): Promise<AdminActionResponseDto> {
+  async updateUserStatus(
+    userId: number,
+    status: UserStatus,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<AdminActionResponseDto> {
     const user = await this.usersRepository.findUserByIdSimple(userId);
 
     if (!user) {
       throw new RpcException(new UserNotFoundException(userId));
     }
 
+    const oldStatus = user.status;
     const updatedUser = await this.usersRepository.updateUser(userId, {
       status: status as any, // Prisma expects enum value
       updated_at: new Date(),
     });
 
-    const message = status === USER_STATUS.ACTIVE 
-      ? USER_SUCCESS.USER_ACTIVATED 
+    const message = status === USER_STATUS.ACTIVE
+      ? USER_SUCCESS.USER_ACTIVATED
       : USER_SUCCESS.USER_BLOCKED;
+
+    // Log the status change
+    if (actorInfo) {
+      const action = status === USER_STATUS.BLOCKED
+        ? AUDIT_LOG_ACTIONS.USER_BLOCKED
+        : AUDIT_LOG_ACTIONS.USER_UNBLOCKED;
+
+      await this.auditLogsService.logAction(
+        action,
+        AuditLogResource.USER,
+        actorInfo,
+        {
+          description: `Changed user status from ${oldStatus} to ${status}`,
+          targetId: userId.toString(),
+          targetType: 'USER',
+          oldData: { status: oldStatus },
+          newData: { status: updatedUser.status },
+          changes: { status: { from: oldStatus, to: updatedUser.status } },
+        },
+      );
+    }
 
     return {
       message,
@@ -183,12 +236,26 @@ export class UsersService {
   /**
    * Update user profile
    */
-  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto): Promise<UserResponseDto> {
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<UserResponseDto> {
     const user = await this.usersRepository.findUserById(userId);
 
     if (!user) {
       throw new UserNotFoundException(userId);
     }
+
+    // Store old data for audit log
+    const oldData = {
+      phone: user.phone,
+      address: user.address,
+      date_of_birth: user.date_of_birth,
+      gender: user.gender,
+      full_name: user.full_name,
+      status: user.status,
+    };
 
     const updateData: any = { updated_at: new Date() };
 
@@ -205,6 +272,29 @@ export class UsersService {
       ...updatedUser,
       role: updatedUser.userRoles[0]?.role?.name || APP_CONFIG.DEFAULT_ROLE,
     };
+
+    // Log the profile update
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.USER_PROFILE_UPDATED,
+        AuditLogResource.USER,
+        actorInfo,
+        {
+          description: `Updated profile for user: ${user.email}`,
+          targetId: userId.toString(),
+          targetType: 'USER',
+          oldData,
+          newData: {
+            phone: updatedUser.phone,
+            address: updatedUser.address,
+            date_of_birth: updatedUser.date_of_birth,
+            gender: updatedUser.gender,
+            full_name: updatedUser.full_name,
+            status: updatedUser.status,
+          },
+        },
+      );
+    }
 
     return UserMapper.toResponseDto(userWithRole);
   }

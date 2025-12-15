@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { VerificationCodesModule } from './modules/verification-codes/verification-codes.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { PrismaService } from './shared/prisma/prisma.service';
 import { SharedModule } from './shared/shared.module';
 import { GlobalRpcExceptionFilter } from '@repo/common';
@@ -24,6 +25,7 @@ import { GlobalRpcExceptionFilter } from '@repo/common';
     RolesModule,
     PermissionsModule,
     VerificationCodesModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [
