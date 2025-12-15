@@ -12,3 +12,6 @@ export * from './meetings-service.pattern';
 
 // Users Service
 export * from './users-service.pattern';
+
+// Audit Logs
+export * from './audit-logs.pattern';
