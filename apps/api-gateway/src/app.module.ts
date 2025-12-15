@@ -7,6 +7,7 @@ import {
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { APP_GUARD } from '@nestjs/core';
+import { MulterModule } from '@nestjs/platform-express';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -16,6 +17,7 @@ import { ClassesModule } from './classes/classes.module';
 import { MaterialsModule } from './materials/materials.module';
 import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthMiddleware } from './middleware/auth.middleware';
 import { CommonModule } from './common/common.module';
@@ -31,6 +33,13 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    MulterModule.register({
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB to match
+        files: 10,
+        fieldSize: 100 * 1024 * 1024, // 100MB field size
+      },
     }),
     JwtModule.register({
       global: true,
@@ -87,6 +96,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
     MaterialsModule,
     ExamsModule,
     MeetingsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -126,7 +136,6 @@ export class AppModule implements NestModule {
         { path: '/', method: RequestMethod.GET },
         { path: 'users/hello', method: RequestMethod.GET },
         { path: 'admin/*', method: RequestMethod.ALL },
-        // for chat bot check
         { path: 'classes/of/:role/:id', method: RequestMethod.GET},
         { path: 'exams/of', method: RequestMethod.POST},
         { path: 'exams/answer-correctness', method: RequestMethod.POST},

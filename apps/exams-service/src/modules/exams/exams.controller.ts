@@ -51,4 +51,9 @@ export class ExamsController {
   async answerCorrectness(@Payload() data:{ student_answer: string, correct_answer:string}) {
     return await this.examsService.answerCorrectness(data.student_answer, data.correct_answer);
   }
+
+  @MessagePattern('exams.verify_password')
+  async verifyExamPassword(@Payload() data: { exam_id: number, student_id: number, password: string }) {
+    return await this.examsService.verifyExamPassword(data.exam_id, data.student_id, data.password);
+  }
 }

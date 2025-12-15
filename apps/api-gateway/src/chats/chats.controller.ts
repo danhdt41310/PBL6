@@ -10,9 +10,8 @@ import {
   Inject,
   ParseIntPipe,
   ValidationPipe,
-  UseGuards, // Giữ lại vì có thể cần cho AuthGuard
-  HttpException, // Cần cho việc throw HttpException
-  HttpStatus, // Cần cho việc throw HttpException
+  HttpException,
+  HttpStatus,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -25,8 +24,8 @@ import { extname, join } from 'path';
 import * as fs from 'fs';
 import { promisify } from 'util';
 import { ClientProxy } from '@nestjs/microservices';
-import { Observable, firstValueFrom, throwError, TimeoutError } from 'rxjs'; // Thêm throwError, TimeoutError
-import { timeout, catchError } from 'rxjs/operators'; // Thêm timeout, catchError
+import { Observable, firstValueFrom, throwError, TimeoutError } from 'rxjs';
+import { timeout, catchError } from 'rxjs/operators';
 import {
   ApiTags,
   ApiOperation,
@@ -45,6 +44,11 @@ import {
   PaginationQueryDto as ConversationPaginationDto,
 } from '../dto/conversation.dto';
 import { ChatsGateway } from './chats.gateway';
+import {
+  CHATS_PATTERNS,
+  USERS_PATTERNS,
+  SOCKET_EVENT_PATTERNS,
+} from './constants/microservice-patterns.constant';
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -78,8 +82,7 @@ export class ChatsController {
   })
   @ApiResponse({ status: 200, description: 'Returns hello message' })
   getHello(): Observable<string> {
-    // Observable không cần xử lý Promise/firstValueFrom
-    return this.chatsService.send('chats.get_hello', {});
+    return this.chatsService.send(CHATS_PATTERNS.GET_HELLO, {});
   }
 
   // ==================== Message Endpoints ====================
@@ -98,29 +101,29 @@ export class ChatsController {
   ) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService.send('messages.create', createMessageDto).pipe(
-          timeout(5000),
-          catchError((err) => {
-            if (err instanceof TimeoutError) {
+        this.chatsService
+          .send(CHATS_PATTERNS.MESSAGES.CREATE, createMessageDto)
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              if (err instanceof TimeoutError) {
+                return throwError(
+                  () =>
+                    new HttpException(
+                      'Request timed out',
+                      HttpStatus.REQUEST_TIMEOUT,
+                    ),
+                );
+              }
               return throwError(
                 () =>
                   new HttpException(
-                    'Request timed out',
-                    HttpStatus.REQUEST_TIMEOUT,
+                    'Failed to create message',
+                    HttpStatus.INTERNAL_SERVER_ERROR,
                   ),
               );
-            }
-            // Có thể cần thêm logic kiểm tra lỗi cụ thể từ Microservice
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to create message',
-                  HttpStatus.INTERNAL_SERVER_ERROR,
-                ),
-            );
-          }),
-        ),
+            }),
+          ),
       );
     } catch (error) {
       if (error instanceof HttpException) {
@@ -146,11 +149,9 @@ export class ChatsController {
     console.log('🔍 getMessage called with ID:', id);
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService.send('messages.find_one', { id }).pipe(
+        this.chatsService.send(CHATS_PATTERNS.MESSAGES.FIND_ONE, { id }).pipe(
           timeout(5000),
           catchError((err) => {
-            // Giả định Microservice trả về lỗi nếu không tìm thấy, nếu không, cần kiểm tra kết quả null
             return throwError(
               () =>
                 new HttpException('Message not found', HttpStatus.NOT_FOUND),
@@ -203,9 +204,8 @@ export class ChatsController {
   ) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
         this.chatsService
-          .send('messages.find_by_conversation', {
+          .send(CHATS_PATTERNS.MESSAGES.FIND_BY_CONVERSATION, {
             conversationId,
             pagination,
           })
@@ -257,13 +257,11 @@ export class ChatsController {
   ) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
         this.chatsService
-          .send('messages.update', { id, data: updateMessageDto })
+          .send(CHATS_PATTERNS.MESSAGES.UPDATE, { id, data: updateMessageDto })
           .pipe(
             timeout(5000),
             catchError((err) => {
-              // Thay vì BAD_REQUEST, có thể cần 404 nếu message không tồn tại
               return throwError(
                 () =>
                   new HttpException(
@@ -297,11 +295,9 @@ export class ChatsController {
   async deleteMessage(@Param('id', ParseIntPipe) id: number) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService.send('messages.delete', { id }).pipe(
+        this.chatsService.send(CHATS_PATTERNS.MESSAGES.DELETE, { id }).pipe(
           timeout(5000),
           catchError((err) => {
-            // Thay vì BAD_REQUEST, có thể cần 404 nếu message không tồn tại
             return throwError(
               () =>
                 new HttpException(
@@ -346,7 +342,7 @@ export class ChatsController {
     try {
       const result = await firstValueFrom(
         this.chatsService
-          .send('messages.mark_as_read', {
+          .send(CHATS_PATTERNS.MESSAGES.MARK_AS_READ, {
             conversation_id: conversationId,
             user_id: body.user_id,
             message_ids: body.message_ids,
@@ -377,7 +373,7 @@ export class ChatsController {
       // Emit socket event to notify clients about read status update
       this.chatsGateway.server
         .to(`conversation:${conversationId}`)
-        .emit('messages:read', {
+        .emit(SOCKET_EVENT_PATTERNS.MESSAGES_READ, {
           conversation_id: conversationId,
           user_id: body.user_id,
           count: result.count || 0,
@@ -411,27 +407,29 @@ export class ChatsController {
     console.log('📊 Get unread count for user:', userId);
     try {
       const result = await firstValueFrom(
-        this.chatsService.send('messages.get_unread_count', { userId }).pipe(
-          timeout(5000),
-          catchError((err) => {
-            if (err instanceof TimeoutError) {
+        this.chatsService
+          .send(CHATS_PATTERNS.MESSAGES.GET_UNREAD_COUNT, { userId })
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              if (err instanceof TimeoutError) {
+                return throwError(
+                  () =>
+                    new HttpException(
+                      'Request timed out',
+                      HttpStatus.REQUEST_TIMEOUT,
+                    ),
+                );
+              }
               return throwError(
                 () =>
                   new HttpException(
-                    'Request timed out',
-                    HttpStatus.REQUEST_TIMEOUT,
+                    'Failed to get unread count',
+                    HttpStatus.INTERNAL_SERVER_ERROR,
                   ),
               );
-            }
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to get unread count',
-                  HttpStatus.INTERNAL_SERVER_ERROR,
-                ),
-            );
-          }),
-        ),
+            }),
+          ),
       );
 
       console.log('📊 Unread count result:', result);
@@ -469,7 +467,7 @@ export class ChatsController {
     try {
       const result = await firstValueFrom(
         this.chatsService
-          .send('messages.get_unread_by_conversation', { userId })
+          .send(CHATS_PATTERNS.MESSAGES.GET_UNREAD_BY_CONVERSATION, { userId })
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -514,7 +512,6 @@ export class ChatsController {
 
   // ==================== Conversation Endpoints ====================
 
-  // Endpoint bị lồng đã được tách ra và sửa
   @Post('conversations')
   @ApiOperation({
     summary: 'Create a new conversation',
@@ -552,9 +549,8 @@ export class ChatsController {
 
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
         this.chatsService
-          .send('conversations.create', createConversationDto)
+          .send(CHATS_PATTERNS.CONVERSATIONS.CREATE, createConversationDto)
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -588,7 +584,6 @@ export class ChatsController {
     }
   }
 
-  // Endpoint bị lồng đã được tách ra và sửa
   @Get('conversations/:id')
   @ApiOperation({
     summary: 'Get a conversation by ID',
@@ -608,17 +603,14 @@ export class ChatsController {
     @Param('id', ParseIntPipe) id: number,
     @Query('includeMessages') includeMessages?: boolean,
   ) {
-    // Không cần try/catch phức tạp nếu không xử lý timeout hay lỗi đặc biệt
-    // Microservice thường trả về lỗi (hoặc null) nếu không tìm thấy
     return await firstValueFrom(
-      this.chatsService.send('conversations.find_one', {
+      this.chatsService.send(CHATS_PATTERNS.CONVERSATIONS.FIND_ONE, {
         id,
         includeMessages: includeMessages === true,
       }),
     );
   }
 
-  // Endpoint bị lồng đã được tách ra và sửa
   @Get('users/:userId/conversations')
   @ApiOperation({
     summary: 'Get all conversations for a user',
@@ -654,7 +646,10 @@ export class ChatsController {
       // Get conversations from chats service
       const conversationsResponse: any = await firstValueFrom(
         this.chatsService
-          .send('conversations.find_by_user', { userId, pagination })
+          .send(CHATS_PATTERNS.CONVERSATIONS.FIND_BY_USER, {
+            userId,
+            pagination,
+          })
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -701,7 +696,7 @@ export class ChatsController {
         try {
           const usersResponse: any = await firstValueFrom(
             this.usersService
-              .send('users.get_list_profile_by_ids', { userIds })
+              .send(USERS_PATTERNS.GET_LIST_PROFILE_BY_IDS, { userIds })
               .pipe(
                 timeout(3000),
                 catchError(() => throwError(() => [])),
@@ -761,7 +756,6 @@ export class ChatsController {
     }
   }
 
-  // Endpoint bị lồng đã được tách ra và sửa
   @Get('conversations/between/:userId1/:userId2')
   @ApiOperation({
     summary: 'Find conversation between two users',
@@ -777,9 +771,11 @@ export class ChatsController {
   ) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
         this.chatsService
-          .send('conversations.find_by_users', { userId1, userId2 })
+          .send(CHATS_PATTERNS.CONVERSATIONS.FIND_BY_USERS, {
+            userId1,
+            userId2,
+          })
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -813,7 +809,6 @@ export class ChatsController {
     }
   }
 
-  // Endpoint bị lồng đã được tách ra và sửa
   @Delete('conversations/:id')
   @ApiOperation({
     summary: 'Delete a conversation',
@@ -829,20 +824,20 @@ export class ChatsController {
   async deleteConversation(@Param('id', ParseIntPipe) id: number) {
     try {
       return await firstValueFrom(
-        // Sử dụng firstValueFrom
-        this.chatsService.send('conversations.delete', { id }).pipe(
-          timeout(5000),
-          catchError((err) => {
-            // Thay vì BAD_REQUEST, có thể cần 404 nếu conversation không tồn tại
-            return throwError(
-              () =>
-                new HttpException(
-                  'Failed to delete conversation',
-                  HttpStatus.BAD_REQUEST,
-                ),
-            );
-          }),
-        ),
+        this.chatsService
+          .send(CHATS_PATTERNS.CONVERSATIONS.DELETE, { id })
+          .pipe(
+            timeout(5000),
+            catchError((err) => {
+              return throwError(
+                () =>
+                  new HttpException(
+                    'Failed to delete conversation',
+                    HttpStatus.BAD_REQUEST,
+                  ),
+              );
+            }),
+          ),
       );
     } catch (error) {
       if (error instanceof HttpException) {
