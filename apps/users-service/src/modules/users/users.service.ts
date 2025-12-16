@@ -74,8 +74,10 @@ export class UsersService {
       await this.auditLogsService.logAction(
         AUDIT_LOG_ACTIONS.USER_CREATED,
         AuditLogResource.USER,
-        actorInfo,
         {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
           description: `Created new user: ${email}`,
           targetId: newUser.user_id.toString(),
           targetType: 'USER',
@@ -214,8 +216,10 @@ export class UsersService {
       await this.auditLogsService.logAction(
         action,
         AuditLogResource.USER,
-        actorInfo,
         {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
           description: `Changed user status from ${oldStatus} to ${status}`,
           targetId: userId.toString(),
           targetType: 'USER',
@@ -278,8 +282,10 @@ export class UsersService {
       await this.auditLogsService.logAction(
         AUDIT_LOG_ACTIONS.USER_PROFILE_UPDATED,
         AuditLogResource.USER,
-        actorInfo,
         {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
           description: `Updated profile for user: ${user.email}`,
           targetId: userId.toString(),
           targetType: 'USER',

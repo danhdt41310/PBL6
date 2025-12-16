@@ -19,6 +19,10 @@ COPY apps/users-service/nest-cli.json ./apps/users-service/
 COPY apps/users-service/src ./apps/users-service/src
 COPY packages/ ./packages/
 COPY apps/users-service/.env ./apps/users-service/.env
+COPY apps/users-service/start-dev.sh ./apps/users-service/start-dev.sh
+
+# Make start script executable
+RUN chmod +x ./apps/users-service/start-dev.sh
 
 
 # Install all dependencies (including dev dependencies)
@@ -31,13 +35,10 @@ RUN npm run build --workspace=@repo/common --if-present || true
 WORKDIR /app/apps/users-service
 RUN npx prisma generate
 
-# Build application to create dist folder
-RUN npm run build
-
 # Go back to root
 WORKDIR /app
 
 EXPOSE 3001
 
-# Use start:dev for hot reload - source code will be mounted as volume
-CMD ["sh", "-c", "cd apps/users-service && npx prisma db push && node dist/apps/users-service/src/main.js"]
+# Use start script for proper initialization and hot reload
+CMD ["/app/apps/users-service/start-dev.sh"]

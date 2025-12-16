@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuditLogResource } from '@prisma/users-client';
 import { AuditLogsRepository } from './audit-logs.repository';
 import { CreateAuditLogDto, AuditLogQueryDto, AuditLogListResponseDto } from './dto';
+import { AUDIT_LOGS_CONFIG } from './constants';
 
 @Injectable()
 export class AuditLogsService {
@@ -42,8 +43,15 @@ export class AuditLogsService {
    * Get audit logs with filters and pagination
    */
   async getLogs(query: AuditLogQueryDto): Promise<AuditLogListResponseDto> {
-    const { page = 1, limit = 20, ...filters } = query;
-    const skip = (page - 1) * limit;
+    const { 
+      page = 1, 
+      limit = AUDIT_LOGS_CONFIG.DEFAULT_PAGE_SIZE, 
+      ...filters 
+    } = query;
+    
+    // Enforce max page size
+    const effectiveLimit = Math.min(limit, AUDIT_LOGS_CONFIG.MAX_PAGE_SIZE);
+    const skip = (page - 1) * effectiveLimit;
 
     const where: any = {};
 
@@ -70,7 +78,7 @@ export class AuditLogsService {
       this.auditLogsRepository.findMany({
         where,
         skip,
-        take: limit,
+        take: effectiveLimit,
         orderBy: { created_at: 'desc' },
         include: {
           actor: {
@@ -91,8 +99,8 @@ export class AuditLogsService {
       pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: effectiveLimit,
+        totalPages: Math.ceil(total / effectiveLimit),
       },
     };
   }
@@ -113,6 +121,7 @@ export class AuditLogsService {
 
   /**
    * Export audit logs (returns data for CSV/Excel)
+   * LIMITED to prevent memory issues
    */
   async exportLogs(query: AuditLogQueryDto): Promise<any[]> {
     const { startDate, endDate, action, resource } = query;
@@ -128,6 +137,7 @@ export class AuditLogsService {
 
     return this.auditLogsRepository.findMany({
       where,
+      take: AUDIT_LOGS_CONFIG.MAX_EXPORT_ROWS, // Hard limit to prevent OOM
       orderBy: { created_at: 'desc' },
       include: {
         actor: {
@@ -143,13 +153,15 @@ export class AuditLogsService {
   }
 
   /**
-   * Helper method to create log from service context
+   * Helper method to create log from service context.
    */
   async logAction(
     action: string,
     resource: AuditLogResource,
-    actorInfo: { userId: number; email: string; fullName: string },
-    options?: {
+    options: {
+      actorId?: number;
+      actorEmail?: string;
+      actorName?: string;
       description?: string;
       targetId?: string;
       targetType?: string;
@@ -160,13 +172,17 @@ export class AuditLogsService {
       userAgent?: string;
     },
   ): Promise<void> {
+    const actorId = options.actorId;
+    const actorEmail = options.actorEmail;
+    const actorName = options.actorName;
+
     await this.createLog({
       action,
       resource,
       description: options?.description,
-      actorId: actorInfo.userId,
-      actorEmail: actorInfo.email,
-      actorName: actorInfo.fullName,
+      actorId,
+      actorEmail,
+      actorName,
       targetId: options?.targetId,
       targetType: options?.targetType,
       oldData: options?.oldData,

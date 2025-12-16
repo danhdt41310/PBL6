@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { AuditLogResource } from '@prisma/users-client';
 
 import { RolesRepository } from './roles.repository';
 import { PermissionsRepository } from '../permissions/permissions.repository';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
 import {
   CreateRoleDto,
   UpdateRoleDto,
@@ -23,6 +26,7 @@ export class RolesService {
   constructor(
     private readonly rolesRepository: RolesRepository,
     private readonly permissionsRepository: PermissionsRepository,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   /**
@@ -61,7 +65,10 @@ export class RolesService {
   /**
    * Create a new role
    */
-  async createRole(createRoleDto: CreateRoleDto): Promise<any> {
+  async createRole(
+    createRoleDto: CreateRoleDto,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<any> {
     const { name, description } = createRoleDto;
     
     const existingRole = await this.rolesRepository.findByName(name);
@@ -71,6 +78,27 @@ export class RolesService {
     }
 
     const role = await this.rolesRepository.createRole(name, description);
+
+    // Log role creation - only if actorInfo is provided
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.ROLE_CREATED,
+        AuditLogResource.ROLE,
+        {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
+          targetId: role.role_id.toString(),
+          targetType: 'ROLE',
+          newData: {
+            role_id: role.role_id,
+            name: role.name,
+            description: role.description,
+          },
+          description: `Created new role: ${role.name}`,
+        },
+      );
+    }
 
     return {
       message: ROLE_SUCCESS.CREATED_WITH_NAME(name),
@@ -87,7 +115,11 @@ export class RolesService {
   /**
    * Update a role
    */
-  async updateRole(roleId: number, updateRoleDto: UpdateRoleDto): Promise<any> {
+  async updateRole(
+    roleId: number,
+    updateRoleDto: UpdateRoleDto,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<any> {
     const role = await this.rolesRepository.findById(roleId);
 
     if (!role) {
@@ -106,6 +138,31 @@ export class RolesService {
       ...(updateRoleDto.description !== undefined && { description: updateRoleDto.description }),
     });
 
+    // Log role update - only if actorInfo is provided
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.ROLE_UPDATED,
+        AuditLogResource.ROLE,
+        {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
+          targetId: roleId.toString(),
+          targetType: 'ROLE',
+          oldData: {
+            name: role.name,
+            description: role.description,
+          },
+          newData: {
+            name: updatedRole.name,
+            description: updatedRole.description,
+          },
+          changes: updateRoleDto,
+          description: `Updated role: ${role.name}${updateRoleDto.name ? ` -> ${updateRoleDto.name}` : ''}`,
+        },
+      );
+    }
+
     return {
       message: ROLE_SUCCESS.UPDATED_WITH_NAME(updatedRole.name),
       success: true,
@@ -116,7 +173,10 @@ export class RolesService {
   /**
    * Delete a role
    */
-  async deleteRole(roleId: number): Promise<any> {
+  async deleteRole(
+    roleId: number,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<any> {
     const role = await this.rolesRepository.findByIdWithDetails(roleId);
 
     if (!role) {
@@ -133,6 +193,27 @@ export class RolesService {
 
     await this.rolesRepository.delete(roleId);
 
+    // Log role deletion - only if actorInfo is provided
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.ROLE_DELETED,
+        AuditLogResource.ROLE,
+        {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
+          targetId: roleId.toString(),
+          targetType: 'ROLE',
+          oldData: {
+            role_id: role.role_id,
+            name: role.name,
+            description: role.description,
+          },
+          description: `Deleted role: ${role.name}`,
+        },
+      );
+    }
+
     return {
       message: ROLE_SUCCESS.DELETED_WITH_NAME(role.name),
       success: true,
@@ -142,7 +223,10 @@ export class RolesService {
   /**
    * Assign permissions to a role
    */
-  async assignRolePermissions(rolePermissionDto: RolePermissionDto): Promise<RolePermissionResponseDto> {
+  async assignRolePermissions(
+    rolePermissionDto: RolePermissionDto,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<RolePermissionResponseDto> {
     const { roleName, permissionNames } = rolePermissionDto;
 
     try {
@@ -174,6 +258,28 @@ export class RolesService {
           }
 
           await this.rolesRepository.createRolePermissionTx(tx, role.role_id, permission.permission_id);
+        }
+
+        // Log permissions update - only if actorInfo is provided
+        if (actorInfo) {
+          await this.auditLogsService.logAction(
+            AUDIT_LOG_ACTIONS.PERMISSION_ASSIGNED_TO_ROLE,
+            AuditLogResource.ROLE_PERMISSION,
+            {
+              actorId: actorInfo.userId,
+              actorEmail: actorInfo.email,
+              actorName: actorInfo.fullName,
+              targetId: role.role_id.toString(),
+              targetType: 'ROLE',
+              oldData: { permissions: currentPermissionKeys },
+              newData: { permissions: permissionNames },
+              changes: {
+                added: permissionsToAdd,
+                removed: permissionsToRemove,
+              },
+              description: `Updated permissions for role "${roleName}": +${permissionsToAdd.length} -${permissionsToRemove.length}`,
+            },
+          );
         }
 
         return {
