@@ -579,8 +579,20 @@ export class UsersController {
   })
   @ApiParam({ name: 'id', type: Number, description: 'User ID to block' })
   @ApiResponse({ status: 200, description: 'User blocked successfully' })
-  blockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send(USER_PATTERNS.BLOCK_USER, { user_id: id });
+  blockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    return this.usersClient.send(USER_PATTERNS.BLOCK_USER, {
+      user_id: id,
+      actorInfo
+    });
   }
 
   @Post('admin/unblock/:id')
@@ -590,8 +602,20 @@ export class UsersController {
   })
   @ApiParam({ name: 'id', type: Number, description: 'User ID to unblock' })
   @ApiResponse({ status: 200, description: 'User unblocked successfully' })
-  unblockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send(USER_PATTERNS.UNBLOCK_USER, { user_id: id });
+  unblockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    return this.usersClient.send(USER_PATTERNS.UNBLOCK_USER, {
+      user_id: id,
+      actorInfo
+    });
   }
 
   /**
@@ -608,10 +632,18 @@ export class UsersController {
   updateProfile(
     @Param('id', ParseIntPipe) id: number,
     @Body() profile: UpdateProfileDto,
+    @Req() req: RequestWithUser,
   ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
     return this.usersClient.send(USER_PATTERNS.UPDATE_PROFILE, {
       user_id: id,
       profile,
+      actorInfo,
     });
   }
 
@@ -925,11 +957,18 @@ export class UsersController {
   @Post('admin/permissions/create')
   async createPermission(
     @Body(ValidationPipe) createPermissionDto: CreatePermissionDto,
+    @Req() req: RequestWithUser,
   ) {
     try {
+      const actorInfo = req.user ? {
+        userId: req.user.userId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+      } : undefined;
+
       return await firstValueFrom(
         this.usersClient
-          .send(PERMISSION_PATTERNS.CREATE, createPermissionDto)
+          .send(PERMISSION_PATTERNS.CREATE, { ...createPermissionDto, actorInfo })
           .pipe(
             timeout(5000),
             catchError((err) => {

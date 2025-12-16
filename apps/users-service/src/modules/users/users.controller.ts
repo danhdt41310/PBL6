@@ -59,26 +59,23 @@ export class UsersController {
 
   @MessagePattern(USER_PATTERNS.BLOCK_USER)
   async blockUser(
-    @Payload() data: { user_id: number },
+    @Payload() data: { user_id: number; actorInfo?: { userId: number; email: string; fullName: string } },
   ): Promise<AdminActionResponseDto> {
-    throw new UnprocessableEntityException(
-      'This function is temporarily disabled',
-    );
-    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.BLOCKED);
+    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.BLOCKED, data.actorInfo);
   }
 
   @MessagePattern(USER_PATTERNS.UNBLOCK_USER)
   async unblockUser(
-    @Payload() data: { user_id: number },
+    @Payload() data: { user_id: number; actorInfo?: { userId: number; email: string; fullName: string } },
   ): Promise<AdminActionResponseDto> {
-    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.ACTIVE);
+    return this.usersService.updateUserStatus(data.user_id, USER_STATUS.ACTIVE, data.actorInfo);
   }
 
   @MessagePattern(USER_PATTERNS.UPDATE_PROFILE)
   async updateProfile(
-    @Payload() data: { user_id: number; profile: UpdateProfileDto },
+    @Payload() data: { user_id: number; profile: UpdateProfileDto; actorInfo?: { userId: number; email: string; fullName: string } },
   ): Promise<UserResponseDto> {
-    return this.usersService.updateProfile(data.user_id, data.profile);
+    return this.usersService.updateProfile(data.user_id, data.profile, data.actorInfo);
   }
 
   @MessagePattern(USER_PATTERNS.CREATE)

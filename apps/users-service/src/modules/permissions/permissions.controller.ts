@@ -16,8 +16,9 @@ export class PermissionsController {
 
   @MessagePattern(PERMISSION_PATTERNS.CREATE)
   async createPermission(
-    @Payload() createPermissionDto: CreatePermissionDto,
+    @Payload() payload: CreatePermissionDto & { actorInfo?: { userId: number; email: string; fullName: string } },
   ): Promise<any> {
-    return this.permissionsService.createPermission(createPermissionDto);
+    const { actorInfo, ...createPermissionDto } = payload;
+    return this.permissionsService.createPermission(createPermissionDto, actorInfo);
   }
 }
