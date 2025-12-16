@@ -779,11 +779,18 @@ export class UsersController {
   @SkipPermissionCheck()
   async assignPermissionsToRole(
     @Body(ValidationPipe) rolePermissionDto: RolePermissionDto,
+    @Req() req: RequestWithUser,
   ) {
     try {
+      const actorInfo = req.user ? {
+        userId: req.user.userId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+      } : undefined;
+
       return await firstValueFrom(
         this.usersClient
-          .send(ROLE_PATTERNS.ASSIGN_PERMISSIONS, rolePermissionDto)
+          .send(ROLE_PATTERNS.ASSIGN_PERMISSIONS, { ...rolePermissionDto, actorInfo })
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -876,10 +883,19 @@ export class UsersController {
    * Create a new role
    */
   @Post('admin/roles/create')
-  async createRole(@Body(ValidationPipe) createRoleDto: CreateRoleDto) {
+  async createRole(
+    @Body(ValidationPipe) createRoleDto: CreateRoleDto,
+    @Req() req: RequestWithUser,
+  ) {
     try {
+      const actorInfo = req.user ? {
+        userId: req.user.userId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+      } : undefined;
+
       return await firstValueFrom(
-        this.usersClient.send(ROLE_PATTERNS.CREATE, createRoleDto).pipe(
+        this.usersClient.send(ROLE_PATTERNS.CREATE, { ...createRoleDto, actorInfo }).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -945,13 +961,21 @@ export class UsersController {
   async updateRole(
     @Param('roleId') roleId: string,
     @Body() updateData: { name?: string; description?: string },
+    @Req() req: RequestWithUser,
   ) {
     try {
+      const actorInfo = req.user ? {
+        userId: req.user.userId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+      } : undefined;
+
       return await firstValueFrom(
         this.usersClient
           .send(ROLE_PATTERNS.UPDATE, {
             role_id: parseInt(roleId, 10),
             ...updateData,
+            actorInfo,
           })
           .pipe(
             timeout(5000),
@@ -982,11 +1006,20 @@ export class UsersController {
    * Cascade deletes all rolePermission records
    */
   @Delete('admin/roles/:roleId')
-  async deleteRole(@Param('roleId') roleId: string) {
+  async deleteRole(
+    @Param('roleId') roleId: string,
+    @Req() req: RequestWithUser,
+  ) {
     try {
+      const actorInfo = req.user ? {
+        userId: req.user.userId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+      } : undefined;
+
       return await firstValueFrom(
         this.usersClient
-          .send(ROLE_PATTERNS.DELETE, { role_id: parseInt(roleId, 10) })
+          .send(ROLE_PATTERNS.DELETE, { role_id: parseInt(roleId, 10), actorInfo })
           .pipe(
             timeout(5000),
             catchError((err) => {

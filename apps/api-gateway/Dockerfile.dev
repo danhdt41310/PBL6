@@ -16,8 +16,11 @@ COPY apps/api-gateway/src ./apps/api-gateway/src
 COPY packages/ ./packages/
 COPY apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY apps/api-gateway/.env ./apps/api-gateway/.env
+COPY apps/api-gateway/start-dev.sh ./apps/api-gateway/start-dev.sh
 
-RUN cd ./apps/api-gateway/ && npm install
+# Make start script executable
+RUN chmod +x ./apps/api-gateway/start-dev.sh
+
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
@@ -27,13 +30,10 @@ RUN npm run build --workspace=@repo/common --if-present || true
 WORKDIR /app/apps/api-gateway
 RUN npx prisma generate
 
-# Build application to create dist folder
-RUN npm run build
-
 # Go back to root
 WORKDIR /app
 
 EXPOSE 3000
 
-# Run the built application
-CMD ["sh", "-c", "cd apps/api-gateway && node dist/main.js"]
+# Use start script for proper initialization and hot reload
+CMD ["/app/apps/api-gateway/start-dev.sh"]

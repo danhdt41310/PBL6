@@ -2,5 +2,8 @@
   "watch": ["src"],
   "ext": "ts",
   "ignore": ["src/**/*.spec.ts"],
-  "exec": "nest start --debug --watch"
+  "exec": "tsc && node dist/apps/users-service/src/main.js",
+  "legacyWatch": true,
+  "polling": true,
+  "pollingInterval": 1000
 }

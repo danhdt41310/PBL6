@@ -19,7 +19,7 @@ import { ExamsModule } from './exams/exams.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthMiddleware } from './middleware/auth.middleware';
+import { AuthMiddleware, AuditContextMiddleware } from './middleware';
 import { CommonModule } from './common/common.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
@@ -125,6 +125,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // Apply AuthMiddleware to all routes except public ones
     consumer
       .apply(AuthMiddleware)
       .exclude(
@@ -141,5 +142,10 @@ export class AppModule implements NestModule {
         { path: 'exams/answer-correctness', method: RequestMethod.POST}
       )
       .forRoutes('*');
+
+    // Apply AuditContextMiddleware only to audit logs routes
+    consumer
+      .apply(AuditContextMiddleware)
+      .forRoutes({ path: 'audit-logs*', method: RequestMethod.ALL });
   }
 }

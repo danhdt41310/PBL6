@@ -53,3 +53,19 @@ export const AUDIT_LOG_ERRORS = {
   FAILED_TO_CREATE_LOG: 'Failed to create audit log',
   FAILED_TO_FETCH_LOGS: 'Failed to fetch audit logs',
 } as const;
+
+/**
+ * Resource types that can be audited
+ * Matches the AuditLogResource enum in Prisma schema
+ */
+export const AUDIT_LOG_RESOURCES = {
+  USER: 'USER',
+  ROLE: 'ROLE',
+  PERMISSION: 'PERMISSION',
+  USER_ROLE: 'USER_ROLE',
+  ROLE_PERMISSION: 'ROLE_PERMISSION',
+} as const;
+
+export type AuditLogResourceType = (typeof AUDIT_LOG_RESOURCES)[keyof typeof AUDIT_LOG_RESOURCES];
+
+export * from './config';

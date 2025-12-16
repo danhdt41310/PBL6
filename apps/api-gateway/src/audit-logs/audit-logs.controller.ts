@@ -32,7 +32,6 @@ export class AuditLogsController {
   ) {}
 
   @Get()
-  @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Get all audit logs',
     description: 'Retrieve a paginated list of audit logs with optional filters (Admin only)',
@@ -80,10 +79,9 @@ export class AuditLogsController {
   }
 
   @Get('export')
-  @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Export audit logs',
-    description: 'Export audit logs with filters (Admin only)',
+    description: 'Export audit logs with filters (Admin only). Limited to 10,000 rows.',
   })
   @ApiResponse({
     status: 200,
@@ -126,7 +124,6 @@ export class AuditLogsController {
   }
 
   @Get('user/:userId')
-  @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Get user activity history',
     description: 'Get audit logs for a specific user (Admin only)',
@@ -187,7 +184,6 @@ export class AuditLogsController {
   }
 
   @Get(':id')
-  @SkipPermissionCheck()
   @ApiOperation({
     summary: 'Get audit log by ID',
     description: 'Retrieve a specific audit log by its ID (Admin only)',

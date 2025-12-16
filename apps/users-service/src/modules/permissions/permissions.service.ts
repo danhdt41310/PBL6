@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { AuditLogResource } from '@prisma/users-client';
 
 import { PermissionsRepository } from './permissions.repository';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
 import { CreatePermissionDto } from './dto';
 import { PERMISSION_SUCCESS } from './constants';
 import { PermissionAlreadyExistsException } from './exceptions';
@@ -9,6 +12,7 @@ import { PermissionAlreadyExistsException } from './exceptions';
 export class PermissionsService {
   constructor(
     private readonly permissionsRepository: PermissionsRepository,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   /**
@@ -34,7 +38,10 @@ export class PermissionsService {
   /**
    * Create a new permission
    */
-  async createPermission(createPermissionDto: CreatePermissionDto): Promise<any> {
+  async createPermission(
+    createPermissionDto: CreatePermissionDto,
+    actorInfo?: { userId: number; email: string; fullName: string },
+  ): Promise<any> {
     const { key, name, description, resource, action } = createPermissionDto;
 
     const existingPermission = await this.permissionsRepository.findByKey(key);
@@ -59,6 +66,30 @@ export class PermissionsService {
       resource: finalResource,
       action: finalAction,
     });
+
+    // Log permission creation - only if actorInfo is provided
+    if (actorInfo) {
+      await this.auditLogsService.logAction(
+        AUDIT_LOG_ACTIONS.PERMISSION_CREATED,
+        AuditLogResource.PERMISSION,
+        {
+          actorId: actorInfo.userId,
+          actorEmail: actorInfo.email,
+          actorName: actorInfo.fullName,
+          targetId: permission.permission_id.toString(),
+          targetType: 'PERMISSION',
+          newData: {
+            permission_id: permission.permission_id,
+            key: permission.key,
+            name: permission.name,
+            description: permission.description,
+            resource: permission.resource,
+            action: permission.action,
+          },
+          description: `Created new permission: ${permission.key}`,
+        },
+      );
+    }
 
     return {
       message: PERMISSION_SUCCESS.CREATED,
