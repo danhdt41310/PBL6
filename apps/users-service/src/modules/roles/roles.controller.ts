@@ -24,15 +24,15 @@ export class RolesController {
 
   @MessagePattern(ROLE_PATTERNS.UPDATE)
   async updateRole(
-    @Payload() payload: { 
-      role_id: number; 
-      name?: string; 
+    @Payload() payload: {
+      role_id: number;
+      displayText?: string;
       description?: string;
       actorInfo?: { userId: number; email: string; fullName: string };
     },
   ): Promise<any> {
-    const { role_id, name, description, actorInfo } = payload;
-    return this.rolesService.updateRole(role_id, { name, description }, actorInfo);
+    const { role_id, displayText, description, actorInfo } = payload;
+    return this.rolesService.updateRole(role_id, { displayText, description }, actorInfo);
   }
 
   @MessagePattern(ROLE_PATTERNS.DELETE)

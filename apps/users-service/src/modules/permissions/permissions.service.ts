@@ -4,7 +4,7 @@ import { AuditLogResource } from '@prisma/users-client';
 import { PermissionsRepository } from './permissions.repository';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
-import { CreatePermissionDto } from './dto';
+import { CreatePermissionDto, GetAllPermissionsResponseDto, CreatePermissionResponseDto } from './dto';
 import { PERMISSION_SUCCESS } from './constants';
 import { PermissionAlreadyExistsException } from './exceptions';
 
@@ -18,7 +18,7 @@ export class PermissionsService {
   /**
    * Get all permissions
    */
-  async getAllPermissions(): Promise<any> {
+  async getAllPermissions(): Promise<GetAllPermissionsResponseDto> {
     const permissions = await this.permissionsRepository.findAll();
 
     return {
@@ -41,7 +41,7 @@ export class PermissionsService {
   async createPermission(
     createPermissionDto: CreatePermissionDto,
     actorInfo?: { userId: number; email: string; fullName: string },
-  ): Promise<any> {
+  ): Promise<CreatePermissionResponseDto> {
     const { key, name, description, resource, action } = createPermissionDto;
 
     const existingPermission = await this.permissionsRepository.findByKey(key);

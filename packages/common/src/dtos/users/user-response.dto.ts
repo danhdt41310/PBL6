@@ -122,3 +122,63 @@ export class UserListByEmailsOrIdsResponseDto {
   @ApiProperty({ description: 'List of users', type: [UserResponseDto] })
   users: UserResponseDto[];
 }
+
+/**
+ * Role DTO for user permissions response
+ */
+export class RoleDto {
+  @ApiProperty({ description: 'Role ID' })
+  role_id: number;
+
+  @ApiProperty({ description: 'Role name' })
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Role description' })
+  description?: string;
+}
+
+/**
+ * Permission DTO for user permissions response
+ */
+export class PermissionDto {
+  @ApiProperty({ description: 'Permission ID' })
+  permission_id: number;
+
+  @ApiProperty({ description: 'Permission key' })
+  key: string;
+
+  @ApiProperty({ description: 'Permission name' })
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Permission description' })
+  description?: string;
+
+  @ApiProperty({ description: 'Resource type' })
+  resource: string;
+
+  @ApiProperty({ description: 'Action type' })
+  action: string;
+}
+
+/**
+ * User With Permissions Data DTO
+ */
+export class UserWithPermissionsDataDto extends UserResponseDto {
+  @ApiProperty({ description: 'User roles', type: [RoleDto] })
+  roles: RoleDto[];
+
+  @ApiProperty({ description: 'User permissions', type: [PermissionDto] })
+  permissions: PermissionDto[];
+}
+
+/**
+ * User With Permissions Response DTO
+ * Response for finding user with their permissions
+ */
+export class UserWithPermissionsResponseDto {
+  @ApiProperty({ description: 'Success status' })
+  success: boolean;
+
+  @ApiProperty({ description: 'User data with permissions', type: UserWithPermissionsDataDto })
+  data: UserWithPermissionsDataDto;
+}

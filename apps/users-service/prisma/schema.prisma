@@ -52,6 +52,7 @@ model User {
 model Role {
   role_id         Int              @id @default(autoincrement())
   name            String           @unique @db.VarChar(50)
+  displayText     String           @default("") @db.VarChar(100)
   description     String?          @db.Text
   created_at      DateTime         @default(now()) @db.Timestamp(6)
   updated_at      DateTime?        @updatedAt @db.Timestamp(6)

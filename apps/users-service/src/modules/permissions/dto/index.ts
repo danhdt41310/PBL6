@@ -5,4 +5,5 @@ export {
   PermissionResponseDto,
   PermissionListResponseDto,
   CreatePermissionResponseDto,
+  GetAllPermissionsResponseDto,
 } from '@repo/common';

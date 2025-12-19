@@ -47,29 +47,32 @@ class SeedData {
 
     // ==================== SEED ROLES ====================
     console.log('📋 Creating roles...');
-    
+
     const adminRole = await prisma.role.create({
-      data: { 
-        name: 'admin', 
-        description: 'Administrator role with full access' 
-      },
-    });
-    
-    const teacherRole = await prisma.role.create({
-      data: { 
-        name: 'teacher', 
-        description: 'Teacher role with teaching permissions' 
-      },
-    });
-    
-    const studentRole = await prisma.role.create({
-      data: { 
-        name: 'student', 
-        description: 'Student role with basic permissions' 
+      data: {
+        name: 'admin',
+        displayText: 'Administrator',
+        description: 'Administrator role with full access'
       },
     });
 
-    console.log(`   ✅ Created roles: admin, teacher, student`);
+    const teacherRole = await prisma.role.create({
+      data: {
+        name: 'teacher',
+        displayText: 'Teacher',
+        description: 'Teacher role with teaching permissions'
+      },
+    });
+
+    const studentRole = await prisma.role.create({
+      data: {
+        name: 'student',
+        displayText: 'Student',
+        description: 'Student role with basic permissions'
+      },
+    });
+
+    console.log(`✅ Created roles: admin, teacher, student`);
 
     // ==================== SEED PERMISSIONS ====================
     console.log('🔐 Creating permissions...');
@@ -97,7 +100,7 @@ class SeedData {
       ],
     });
 
-    console.log(`   ✅ Created ${permissions.count} permissions`);
+    console.log(`✅ Created ${permissions.count} permissions`);
 
     // Get permission IDs for role assignments
     const allPermissions = await prisma.permission.findMany();
@@ -134,7 +137,7 @@ class SeedData {
       data: [...adminPermissions, ...teacherPermissions, ...studentPermissions],
     });
 
-    console.log(`   ✅ Assigned permissions to roles`);
+    console.log(`✅ Assigned permissions to roles`);
 
     // ==================== SEED USERS ====================
     console.log('👤 Creating users...');
@@ -173,7 +176,7 @@ class SeedData {
       },
     });
 
-    console.log(`   ✅ Created users: admin, teacher, student`);
+    console.log(`✅ Created users: admin, teacher, student`);
 
     // ==================== ASSIGN ROLES TO USERS ====================
     console.log('🔗 Assigning roles to users...');
@@ -186,7 +189,7 @@ class SeedData {
       ],
     });
 
-    console.log(`   ✅ Assigned roles to users`);
+    console.log(`✅ Assigned roles to users`);
 
     // ==================== SEED VERIFICATION CODES (for testing) ====================
     console.log('🔑 Creating sample verification code...');
@@ -200,7 +203,7 @@ class SeedData {
       },
     });
 
-    console.log(`   ✅ Created sample verification code`);
+    console.log(`✅ Created sample verification code`);
 
     // ==================== SUMMARY ====================
     console.log('\n========================================');

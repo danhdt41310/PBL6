@@ -15,7 +15,6 @@ import {
   UserIdsDto,
   UpdateProfileDto,
 } from './dto/user.dto';
-import { UserMapper } from './mapper';
 import { USER_PATTERNS, USER_STATUS, UserStatus, MICROSERVICE_CONTROLLER_PATHS } from '@repo/common'; // Import both constant and type
 
 @Controller(MICROSERVICE_CONTROLLER_PATHS.USERS)

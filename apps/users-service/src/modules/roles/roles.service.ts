@@ -38,6 +38,7 @@ export class RolesService {
     const mappedRoles = roles.map((role) => ({
       role_id: role.role_id,
       name: role.name,
+      displayText: role.displayText,
       description: role.description,
       created_at: role.created_at,
       permissions: role.rolePermissions.map((rp) => ({
@@ -69,15 +70,15 @@ export class RolesService {
     createRoleDto: CreateRoleDto,
     actorInfo?: { userId: number; email: string; fullName: string },
   ): Promise<any> {
-    const { name, description } = createRoleDto;
-    
+    const { name, displayText, description } = createRoleDto;
+
     const existingRole = await this.rolesRepository.findByName(name);
 
     if (existingRole) {
       throw new RoleAlreadyExistsException(name);
     }
 
-    const role = await this.rolesRepository.createRole(name, description);
+    const role = await this.rolesRepository.createRole(name, displayText, description);
 
     // Log role creation - only if actorInfo is provided
     if (actorInfo) {
@@ -93,6 +94,7 @@ export class RolesService {
           newData: {
             role_id: role.role_id,
             name: role.name,
+            displayText: role.displayText,
             description: role.description,
           },
           description: `Created new role: ${role.name}`,
@@ -106,6 +108,7 @@ export class RolesService {
       role: {
         role_id: role.role_id,
         name: role.name,
+        displayText: role.displayText,
         description: role.description,
         created_at: role.created_at,
       },
@@ -114,6 +117,7 @@ export class RolesService {
 
   /**
    * Update a role
+   * Note: 'name' field is immutable and cannot be updated
    */
   async updateRole(
     roleId: number,
@@ -126,15 +130,8 @@ export class RolesService {
       throw new RoleNotFoundByIdException(roleId);
     }
 
-    if (updateRoleDto.name && updateRoleDto.name !== role.name) {
-      const existingRole = await this.rolesRepository.findByName(updateRoleDto.name);
-      if (existingRole) {
-        throw new RoleAlreadyExistsException(updateRoleDto.name);
-      }
-    }
-
     const updatedRole = await this.rolesRepository.update(roleId, {
-      ...(updateRoleDto.name && { name: updateRoleDto.name }),
+      ...(updateRoleDto.displayText && { displayText: updateRoleDto.displayText }),
       ...(updateRoleDto.description !== undefined && { description: updateRoleDto.description }),
     });
 
@@ -151,14 +148,16 @@ export class RolesService {
           targetType: 'ROLE',
           oldData: {
             name: role.name,
+            displayText: role.displayText,
             description: role.description,
           },
           newData: {
             name: updatedRole.name,
+            displayText: updatedRole.displayText,
             description: updatedRole.description,
           },
           changes: updateRoleDto,
-          description: `Updated role: ${role.name}${updateRoleDto.name ? ` -> ${updateRoleDto.name}` : ''}`,
+          description: `Updated role: ${role.name}${updateRoleDto.displayText ? ` (${updatedRole.displayText})` : ''}`,
         },
       );
     }
@@ -207,6 +206,7 @@ export class RolesService {
           oldData: {
             role_id: role.role_id,
             name: role.name,
+            displayText: role.displayText,
             description: role.description,
           },
           description: `Deleted role: ${role.name}`,

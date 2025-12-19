@@ -137,10 +137,6 @@ export class AuthService {
    */
   async forgotPassword(dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
     const { email } = dto;
-    
-    if (!email || !email.includes('@')) {
-      throw new RpcException(new InvalidEmailFormatException());
-    }
 
     const user = await this.usersRepository.findUserByEmailSimple(email);
     if (!user) {
@@ -189,14 +185,6 @@ export class AuthService {
    */
   async verifyCode(dto: VerifyCodeDto): Promise<VerifyCodeResponseDto> {
     const { email, code } = dto;
-    
-    if (!email || !email.includes('@')) {
-      throw new RpcException(new InvalidEmailFormatException());
-    }
-
-    if (!code || code.length !== APP_CONFIG.VERIFICATION_CODE_LENGTH || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new VerificationCodeFormatException());
-    }
 
     const user = await this.usersRepository.findUserByEmailSimple(email);
     if (!user) {
@@ -225,18 +213,6 @@ export class AuthService {
    */
   async resetPassword(dto: ResetPasswordDto): Promise<ResetPasswordResponseDto> {
     const { email, code, password } = dto;
-    
-    if (!email || !email.includes('@')) {
-      throw new RpcException(new InvalidEmailFormatException());
-    }
-
-    if (!code || code.length !== APP_CONFIG.VERIFICATION_CODE_LENGTH || !/^\d{6}$/.test(code)) {
-      throw new RpcException(new VerificationCodeFormatException());
-    }
-
-    if (!password || password.length < 6) {
-      throw new RpcException(new PasswordTooShortException());
-    }
 
     const user = await this.usersRepository.findUserByEmailSimple(email);
     if (!user) {

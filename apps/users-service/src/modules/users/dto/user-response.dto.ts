@@ -10,4 +10,7 @@ export {
   DeleteUserResponseDto,
   AdminActionResponseDto,
   UserListByEmailsOrIdsResponseDto,
+  UserWithPermissionsResponseDto,
+  RoleDto,
+  PermissionDto,
 } from '@repo/common';
