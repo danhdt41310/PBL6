@@ -8,8 +8,11 @@ export class RoleResponseDto {
   @ApiProperty({ description: 'Role ID' })
   role_id: number;
 
-  @ApiProperty({ description: 'Role name' })
+  @ApiProperty({ description: 'Role system name (immutable identifier)' })
   name: string;
+
+  @ApiProperty({ description: 'Display name for UI (user-facing)' })
+  displayText: string;
 
   @ApiPropertyOptional({ description: 'Role description' })
   description?: string;

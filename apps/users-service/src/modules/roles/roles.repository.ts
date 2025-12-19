@@ -158,15 +158,17 @@ export class RolesRepository extends BaseRepository<
 
   /**
    * Create a new role
-   * @param name - Role name
+   * @param name - Role system name (immutable identifier)
+   * @param displayText - Display name for UI (user-facing)
    * @param description - Role description
    * @returns Created role
    */
-  async createRole(name: string, description?: string): Promise<Role> {
+  async createRole(name: string, displayText: string, description?: string): Promise<Role> {
     return await this.prisma.role.create({
       data: {
         name,
-        description: description || `Role: ${name}`,
+        displayText,
+        description: description || `Role: ${displayText}`,
       },
     });
   }

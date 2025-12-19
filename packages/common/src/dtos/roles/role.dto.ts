@@ -5,17 +5,25 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * DTO for creating a new role.
  */
 export class CreateRoleDto {
-  @ApiProperty({ 
-    description: 'Role name', 
-    example: 'admin' 
+  @ApiProperty({
+    description: 'Role system name (immutable identifier)',
+    example: 'admin'
   })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiPropertyOptional({ 
-    description: 'Role description', 
-    example: 'Administrator role with full access' 
+  @ApiProperty({
+    description: 'Display name for UI (user-facing)',
+    example: 'Administrator'
+  })
+  @IsString()
+  @IsNotEmpty()
+  displayText: string;
+
+  @ApiPropertyOptional({
+    description: 'Role description',
+    example: 'Administrator role with full access'
   })
   @IsString()
   @IsOptional()
@@ -24,19 +32,20 @@ export class CreateRoleDto {
 
 /**
  * DTO for updating a role
+ * Note: 'name' field is immutable and cannot be updated
  */
 export class UpdateRoleDto {
-  @ApiPropertyOptional({ 
-    description: 'Role name', 
-    example: 'admin' 
+  @ApiPropertyOptional({
+    description: 'Display name for UI (user-facing)',
+    example: 'Administrator'
   })
   @IsString()
   @IsOptional()
-  name?: string;
+  displayText?: string;
 
-  @ApiPropertyOptional({ 
-    description: 'Role description', 
-    example: 'Administrator role with full access' 
+  @ApiPropertyOptional({
+    description: 'Role description',
+    example: 'Administrator role with full access'
   })
   @IsString()
   @IsOptional()

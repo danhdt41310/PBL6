@@ -2,31 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
 import { Prisma, AuditLogResource } from '@prisma/users-client';
-
 import { UsersRepository } from './users.repository';
 import { UserMapper } from './mapper/user.mapper';
 import { QueryBuilderUtil, SearchFilter } from '../../shared/utils/query-builder.util';
-import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
-
 import {
   CreateUserDto,
   UpdateProfileDto,
   UserEmailsDto,
   UserIdsDto,
 } from './dto/user.dto';
-
 import {
   UserResponseDto,
   UserListResponseDto,
   AdminActionResponseDto,
   CreateUserResponseDto,
   UserListByEmailsOrIdsResponseDto,
+  UserWithPermissionsResponseDto,
 } from './dto/user-response.dto';
-
-import { APP_CONFIG, USER_STATUS, UserStatus } from '@repo/common'; // Import USER_STATUS constant and UserStatus type
+import { APP_CONFIG, USER_STATUS, UserStatus } from '@repo/common';
 import { USER_SUCCESS } from './constants';
 import { UserNotFoundException } from './exceptions';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AUDIT_LOG_ACTIONS } from '../audit-logs/constants';
 
 @Injectable()
 export class UsersService {
@@ -37,9 +34,12 @@ export class UsersService {
 
   /**
    * Create a new User in the system
+   * Uses transaction to ensure user and role assignment are created atomically
    */
   async create(createUserDto: CreateUserDto, actorInfo?: { userId: number; email: string; fullName: string }): Promise<CreateUserResponseDto> {
     const { fullName, email, password, role, status, phone, dateOfBirth, gender } = createUserDto;
+
+    // Hash password outside transaction (expensive operation)
     const hashedPassword = await bcrypt.hash(password, APP_CONFIG.SALT_ROUNDS);
 
     const userData: Prisma.UserCreateInput = {
@@ -58,41 +58,66 @@ export class UsersService {
       }
     }
 
-    const newUser = await this.usersRepository.createUser(userData);
+    // Use transaction for multi-table operations
+    return await this.usersRepository.transaction(async (tx) => {
+      // Create user
+      const newUser = await tx.user.create({
+        data: userData,
+      });
 
-    if (role) {
-      const roleRecord = await this.usersRepository.findRoleByName(role);
-      if (roleRecord) {
-        await this.usersRepository.createUserRole(newUser.user_id, roleRecord.role_id);
+      // Assign role (if provided)
+      if (role) {
+        const roleRecord = await tx.role.findUnique({
+          where: { name: role },
+        });
+
+        if (roleRecord) {
+          await tx.userRole.create({
+            data: {
+              user_id: newUser.user_id,
+              role_id: roleRecord.role_id,
+            },
+          });
+        }
       }
-    }
 
-    const userWithRoles = await this.usersRepository.findUserById(newUser.user_id);
+      // Log audit trail (if actorInfo provided)
+      if (actorInfo) {
+        await tx.auditLog.create({
+          data: {
+            action: AUDIT_LOG_ACTIONS.USER_CREATED,
+            resource: AuditLogResource.USER,
+            actor_id: actorInfo.userId,
+            actor_email: actorInfo.email,
+            actor_name: actorInfo.fullName,
+            target_id: newUser.user_id.toString(),
+            target_type: 'USER',
+            description: `Created new user: ${email}`,
+            new_data: {
+              user_id: newUser.user_id,
+              email: newUser.email,
+              full_name: newUser.full_name,
+              status: newUser.status,
+              role: role || APP_CONFIG.DEFAULT_ROLE,
+            } as any,
+          },
+        });
+      }
 
-    // Log the creation
-    if (actorInfo) {
-      await this.auditLogsService.logAction(
-        AUDIT_LOG_ACTIONS.USER_CREATED,
-        AuditLogResource.USER,
-        {
-          actorId: actorInfo.userId,
-          actorEmail: actorInfo.email,
-          actorName: actorInfo.fullName,
-          description: `Created new user: ${email}`,
-          targetId: newUser.user_id.toString(),
-          targetType: 'USER',
-          newData: {
-            user_id: newUser.user_id,
-            email: newUser.email,
-            full_name: newUser.full_name,
-            status: newUser.status,
-            role: role || APP_CONFIG.DEFAULT_ROLE,
+      // Fetch complete user with roles
+      const userWithRoles = await tx.user.findUnique({
+        where: { user_id: newUser.user_id },
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
           },
         },
-      );
-    }
+      });
 
-    return UserMapper.toCreateUserResponseDto(userWithRoles);
+      return UserMapper.toCreateUserResponseDto(userWithRoles);
+    });
   }
 
   /**
@@ -118,7 +143,7 @@ export class UsersService {
   /**
    * Get user by ID
    */
-  async findOne(userId: number): Promise<any> {
+  async findOne(userId: number): Promise<UserResponseDto | null> {
     const user = await this.usersRepository.findUserById(userId);
 
     if (!user) return null;
@@ -128,16 +153,13 @@ export class UsersService {
       role: user.userRoles[0]?.role?.name || APP_CONFIG.DEFAULT_ROLE,
     };
 
-    return {
-      data: UserMapper.toResponseDto(userWithRole),
-      success: true,
-    };
+    return UserMapper.toResponseDto(userWithRole);
   }
 
   /**
    * Get user with roles and permissions
    */
-  async findUserWithPermissions(userId: number): Promise<any> {
+  async findUserWithPermissions(userId: number): Promise<UserWithPermissionsResponseDto> {
     const user = await this.usersRepository.findUserByIdWithPermissions(userId);
 
     if (!user) {
@@ -336,7 +358,7 @@ export class UsersService {
   /**
    * Get user profile by email
    */
-  async getProfileByEmail(email: string): Promise<any> {
+  async getProfileByEmail(email: string): Promise<UserResponseDto | null> {
     const user = await this.usersRepository.findUserByEmail(email);
 
     if (!user) {
@@ -348,7 +370,7 @@ export class UsersService {
       role: user.userRoles[0]?.role?.name || APP_CONFIG.DEFAULT_ROLE,
     };
 
-    return { user: UserMapper.toResponseDto(userWithRole) };
+    return UserMapper.toResponseDto(userWithRole);
   }
 
   /**

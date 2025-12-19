@@ -319,4 +319,14 @@ export class UsersRepository {
       },
     });
   }
+
+  /**
+   * Execute operations in a transaction
+   * Ensures all operations succeed or fail together
+   * @param fn - Transaction callback function
+   * @returns Transaction result
+   */
+  async transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return await this.prisma.$transaction(fn);
+  }
 }

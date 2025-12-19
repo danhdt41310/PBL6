@@ -50,6 +50,9 @@ export class CreatePermissionResponseDto {
   @ApiProperty({ description: 'Response message' })
   message: string;
 
+  @ApiProperty({ description: 'Success status' })
+  success: boolean;
+
   @ApiProperty({ description: 'Created permission information', type: PermissionResponseDto })
   permission: PermissionResponseDto;
 }
@@ -79,4 +82,19 @@ export class DeletePermissionResponseDto {
 
   @ApiProperty({ description: 'ID of deleted permission' })
   permission_id: number;
+}
+
+/**
+ * Get All Permissions Response DTO
+ * Response for fetching all permissions
+ */
+export class GetAllPermissionsResponseDto {
+  @ApiProperty({ description: 'Response message' })
+  message: string;
+
+  @ApiProperty({
+    description: 'List of all permissions',
+    type: [PermissionResponseDto]
+  })
+  permissions: PermissionResponseDto[];
 }
