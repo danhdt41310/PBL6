@@ -579,8 +579,23 @@ export class UsersController {
   })
   @ApiParam({ name: 'id', type: Number, description: 'User ID to block' })
   @ApiResponse({ status: 200, description: 'User blocked successfully' })
-  blockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send(USER_PATTERNS.BLOCK_USER, { user_id: id });
+  blockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    const auditContext = (req as any).auditContext;
+
+    return this.usersClient.send(USER_PATTERNS.BLOCK_USER, { 
+      user_id: id, 
+      actorInfo, 
+      auditContext 
+    });
   }
 
   @Post('admin/unblock/:id')
@@ -590,8 +605,23 @@ export class UsersController {
   })
   @ApiParam({ name: 'id', type: Number, description: 'User ID to unblock' })
   @ApiResponse({ status: 200, description: 'User unblocked successfully' })
-  unblockUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersClient.send(USER_PATTERNS.UNBLOCK_USER, { user_id: id });
+  unblockUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    const auditContext = (req as any).auditContext;
+
+    return this.usersClient.send(USER_PATTERNS.UNBLOCK_USER, { 
+      user_id: id, 
+      actorInfo, 
+      auditContext 
+    });
   }
 
   /**
@@ -788,9 +818,11 @@ export class UsersController {
         fullName: req.user.fullName,
       } : undefined;
 
+      const auditContext = (req as any).auditContext;
+
       return await firstValueFrom(
         this.usersClient
-          .send(ROLE_PATTERNS.ASSIGN_PERMISSIONS, { ...rolePermissionDto, actorInfo })
+          .send(ROLE_PATTERNS.ASSIGN_PERMISSIONS, { ...rolePermissionDto, actorInfo, auditContext })
           .pipe(
             timeout(5000),
             catchError((err) => {
@@ -894,8 +926,10 @@ export class UsersController {
         fullName: req.user.fullName,
       } : undefined;
 
+      const auditContext = (req as any).auditContext;
+
       return await firstValueFrom(
-        this.usersClient.send(ROLE_PATTERNS.CREATE, { ...createRoleDto, actorInfo }).pipe(
+        this.usersClient.send(ROLE_PATTERNS.CREATE, { ...createRoleDto, actorInfo, auditContext }).pipe(
           timeout(5000),
           catchError((err) => {
             return throwError(
@@ -955,12 +989,13 @@ export class UsersController {
   }
 
   /**
-   * Update a role (name and/or description)
+   * Update a role (displayText and/or description)
+   * Note: 'name' field is immutable and cannot be updated
    */
   @Put('admin/roles/:roleId')
   async updateRole(
     @Param('roleId') roleId: string,
-    @Body() updateData: { name?: string; description?: string },
+    @Body() updateData: { displayText?: string; description?: string },
     @Req() req: RequestWithUser,
   ) {
     try {
@@ -970,12 +1005,15 @@ export class UsersController {
         fullName: req.user.fullName,
       } : undefined;
 
+      const auditContext = (req as any).auditContext;
+
       return await firstValueFrom(
         this.usersClient
           .send(ROLE_PATTERNS.UPDATE, {
             role_id: parseInt(roleId, 10),
             ...updateData,
             actorInfo,
+            auditContext,
           })
           .pipe(
             timeout(5000),
@@ -1017,9 +1055,11 @@ export class UsersController {
         fullName: req.user.fullName,
       } : undefined;
 
+      const auditContext = (req as any).auditContext;
+
       return await firstValueFrom(
         this.usersClient
-          .send(ROLE_PATTERNS.DELETE, { role_id: parseInt(roleId, 10), actorInfo })
+          .send(ROLE_PATTERNS.DELETE, { role_id: parseInt(roleId, 10), actorInfo, auditContext })
           .pipe(
             timeout(5000),
             catchError((err) => {

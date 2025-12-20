@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { AuditLogResource } from '@prisma/users-client';
 import { AuditLogsRepository } from './audit-logs.repository';
+import { UsersRepository } from '../users/users.repository';
 import { CreateAuditLogDto, AuditLogQueryDto, AuditLogListResponseDto } from './dto';
 import { AUDIT_LOGS_CONFIG } from './constants';
 
 @Injectable()
 export class AuditLogsService {
-  constructor(private readonly auditLogsRepository: AuditLogsRepository) {}
+  constructor(
+    private readonly auditLogsRepository: AuditLogsRepository,
+    private readonly usersRepository: UsersRepository,
+  ) {}
 
   /**
    * Create a new audit log entry
@@ -14,12 +18,52 @@ export class AuditLogsService {
    */
   async createLog(data: CreateAuditLogDto): Promise<void> {
     try {
+      // Validate required actorId
+      if (!data.actorId) {
+        console.warn('Audit log skipped: actorId is required but not provided', {
+          action: data.action,
+          resource: data.resource,
+        });
+        return;
+      }
+
+      // Auto-fetch actor info if missing
+      let actorEmail = data.actorEmail;
+      let actorName = data.actorName;
+
+      if (!actorEmail || !actorName) {
+        try {
+          const user = await this.usersRepository.findUserByIdSimple(data.actorId);
+          if (user) {
+            actorEmail = actorEmail || user.email;
+            actorName = actorName || user.full_name || user.email;
+          }
+        } catch (error) {
+          console.warn('Failed to fetch actor info, using fallback', {
+            actorId: data.actorId,
+            error: error.message,
+          });
+          actorEmail = actorEmail || `user${data.actorId}@system`;
+          actorName = actorName || `User ${data.actorId}`;
+        }
+      }
+
+      // Final validation
+      if (!actorEmail || !actorName) {
+        console.warn('Audit log skipped: Unable to resolve actor information', {
+          action: data.action,
+          resource: data.resource,
+          actorId: data.actorId,
+        });
+        return;
+      }
+
       await this.auditLogsRepository.create({
         action: data.action,
         resource: data.resource,
         description: data.description,
-        actor_email: data.actorEmail,
-        actor_name: data.actorName,
+        actor_email: actorEmail,
+        actor_name: actorName,
         target_id: data.targetId,
         target_type: data.targetType,
         old_data: data.oldData,
@@ -31,7 +75,7 @@ export class AuditLogsService {
         request_path: data.requestPath,
         metadata: data.metadata,
         actor: {
-          connect: { user_id: data.actorId },
+          connect: { user_id: data.actorId }
         },
       });
     } catch (error) {
