@@ -212,6 +212,7 @@ export class UsersService {
     userId: number,
     status: UserStatus,
     actorInfo?: { userId: number; email: string; fullName: string },
+    auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string },
   ): Promise<AdminActionResponseDto> {
     const user = await this.usersRepository.findUserByIdSimple(userId);
 
@@ -248,6 +249,8 @@ export class UsersService {
           oldData: { status: oldStatus },
           newData: { status: updatedUser.status },
           changes: { status: { from: oldStatus, to: updatedUser.status } },
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
         },
       );
     }

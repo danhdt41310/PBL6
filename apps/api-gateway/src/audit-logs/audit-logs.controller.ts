@@ -21,7 +21,6 @@ import { AUDIT_LOG_PATTERNS } from '@repo/common';
 import { timeout, catchError } from 'rxjs/operators';
 import { throwError, TimeoutError, firstValueFrom } from 'rxjs';
 import { AuditLogQueryDto } from './dto/audit-log-query.dto';
-import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator';
 
 @ApiTags('Audit Logs')
 @ApiBearerAuth('JWT-auth')

@@ -16,10 +16,13 @@ export class RolesController {
 
   @MessagePattern(ROLE_PATTERNS.CREATE)
   async createRole(
-    @Payload() payload: CreateRoleDto & { actorInfo?: { userId: number; email: string; fullName: string } },
+    @Payload() payload: CreateRoleDto & {
+      actorInfo?: { userId: number; email: string; fullName: string };
+      auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string };
+    },
   ): Promise<any> {
-    const { actorInfo, ...createRoleDto } = payload;
-    return this.rolesService.createRole(createRoleDto, actorInfo);
+    const { actorInfo, auditContext, ...createRoleDto } = payload;
+    return this.rolesService.createRole(createRoleDto, actorInfo, auditContext);
   }
 
   @MessagePattern(ROLE_PATTERNS.UPDATE)
@@ -29,28 +32,33 @@ export class RolesController {
       displayText?: string;
       description?: string;
       actorInfo?: { userId: number; email: string; fullName: string };
+      auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string };
     },
   ): Promise<any> {
-    const { role_id, displayText, description, actorInfo } = payload;
-    return this.rolesService.updateRole(role_id, { displayText, description }, actorInfo);
+    const { role_id, displayText, description, actorInfo, auditContext } = payload;
+    return this.rolesService.updateRole(role_id, { displayText, description }, actorInfo, auditContext);
   }
 
   @MessagePattern(ROLE_PATTERNS.DELETE)
   async deleteRole(
-    @Payload() payload: { 
+    @Payload() payload: {
       role_id: number;
       actorInfo?: { userId: number; email: string; fullName: string };
+      auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string };
     },
   ): Promise<any> {
-    const { role_id, actorInfo } = payload;
-    return this.rolesService.deleteRole(role_id, actorInfo);
+    const { role_id, actorInfo, auditContext } = payload;
+    return this.rolesService.deleteRole(role_id, actorInfo, auditContext);
   }
 
   @MessagePattern(ROLE_PATTERNS.ASSIGN_PERMISSIONS)
   async assignRolePermissions(
-    @Payload() payload: RolePermissionDto & { actorInfo?: { userId: number; email: string; fullName: string } },
+    @Payload() payload: RolePermissionDto & {
+      actorInfo?: { userId: number; email: string; fullName: string };
+      auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string };
+    },
   ): Promise<RolePermissionResponseDto> {
-    const { actorInfo, ...rolePermissionDto } = payload;
-    return this.rolesService.assignRolePermissions(rolePermissionDto, actorInfo);
+    const { actorInfo, auditContext, ...rolePermissionDto } = payload;
+    return this.rolesService.assignRolePermissions(rolePermissionDto, actorInfo, auditContext);
   }
 }

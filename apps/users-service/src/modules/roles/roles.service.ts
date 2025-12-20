@@ -69,6 +69,7 @@ export class RolesService {
   async createRole(
     createRoleDto: CreateRoleDto,
     actorInfo?: { userId: number; email: string; fullName: string },
+    auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string },
   ): Promise<any> {
     const { name, displayText, description } = createRoleDto;
 
@@ -98,6 +99,8 @@ export class RolesService {
             description: role.description,
           },
           description: `Created new role: ${role.name}`,
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
         },
       );
     }
@@ -123,6 +126,7 @@ export class RolesService {
     roleId: number,
     updateRoleDto: UpdateRoleDto,
     actorInfo?: { userId: number; email: string; fullName: string },
+    auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string },
   ): Promise<any> {
     const role = await this.rolesRepository.findById(roleId);
 
@@ -158,6 +162,8 @@ export class RolesService {
           },
           changes: updateRoleDto,
           description: `Updated role: ${role.name}${updateRoleDto.displayText ? ` (${updatedRole.displayText})` : ''}`,
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
         },
       );
     }
@@ -175,6 +181,7 @@ export class RolesService {
   async deleteRole(
     roleId: number,
     actorInfo?: { userId: number; email: string; fullName: string },
+    auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string },
   ): Promise<any> {
     const role = await this.rolesRepository.findByIdWithDetails(roleId);
 
@@ -210,6 +217,8 @@ export class RolesService {
             description: role.description,
           },
           description: `Deleted role: ${role.name}`,
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
         },
       );
     }
@@ -226,6 +235,7 @@ export class RolesService {
   async assignRolePermissions(
     rolePermissionDto: RolePermissionDto,
     actorInfo?: { userId: number; email: string; fullName: string },
+    auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string },
   ): Promise<RolePermissionResponseDto> {
     const { roleName, permissionNames } = rolePermissionDto;
 
@@ -278,6 +288,8 @@ export class RolesService {
                 removed: permissionsToRemove,
               },
               description: `Updated permissions for role "${roleName}": +${permissionsToAdd.length} -${permissionsToRemove.length}`,
+              ipAddress: auditContext?.ipAddress,
+              userAgent: auditContext?.userAgent,
             },
           );
         }

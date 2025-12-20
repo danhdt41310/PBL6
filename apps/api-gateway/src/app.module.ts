@@ -143,9 +143,14 @@ export class AppModule implements NestModule {
       )
       .forRoutes('*');
 
-    // Apply AuditContextMiddleware only to audit logs routes
+    // Apply AuditContextMiddleware to routes that need audit logging
     consumer
       .apply(AuditContextMiddleware)
-      .forRoutes({ path: 'audit-logs*', method: RequestMethod.ALL });
+      .forRoutes(
+        { path: 'audit-logs*', method: RequestMethod.ALL },
+        { path: 'users/admin/*', method: RequestMethod.ALL },
+        { path: 'users/roles*', method: RequestMethod.ALL },
+        { path: 'users/permissions*', method: RequestMethod.ALL },
+      );
   }
 }
