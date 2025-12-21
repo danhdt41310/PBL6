@@ -18,8 +18,9 @@ COPY apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY apps/api-gateway/.env ./apps/api-gateway/.env
 COPY apps/api-gateway/start-dev.sh ./apps/api-gateway/start-dev.sh
 
-# Make start script executable
-RUN chmod +x ./apps/api-gateway/start-dev.sh
+# Make start script executable and fix line endings
+RUN chmod +x ./apps/api-gateway/start-dev.sh && \
+    sed -i 's/\r$//' ./apps/api-gateway/start-dev.sh
 
 # Install all dependencies (including dev dependencies)
 RUN npm install

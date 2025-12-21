@@ -7,6 +7,7 @@ import {
   ImportQuestionResult,
   ImportQuestionError,
   PreviewExcelResult,
+  ImportQuestionItemDto,
 } from './dto/import-excel.dto';
 
 @Injectable()
@@ -61,6 +62,190 @@ export class QuestionsImportService {
       }
       throw new BadRequestException(`Failed to preview Excel: ${error.message}`);
     }
+  }
+
+  /**
+   * Import questions from JSON array (parsed from FE)
+   * This method receives already-parsed questions from the frontend
+   */
+  async importFromArray(questionsData: ImportQuestionItemDto[], createdBy: number): Promise<ImportQuestionResult> {
+    const errors: ImportQuestionError[] = [];
+    let imported = 0;
+    let failed = 0;
+
+    try {
+      // Convert DTO to internal format
+      const parsedRows = questionsData.map((item, index) => ({
+        rowNumber: index + 1,
+        data: this.convertDtoToExcelRow(item),
+      }));
+
+      // Import within transaction
+      await this.transactionService.runTransaction(async (tx) => {
+        // Pre-fetch or create all categories at once
+        const categoryNames = [...new Set(
+          parsedRows
+            .map(item => item.data.category_name?.trim())
+            .filter(name => name && name !== '')
+        )];
+
+        const categoryMap = new Map<string, number>();
+        
+        // Batch upsert categories
+        for (const categoryName of categoryNames) {
+          const category = await tx.questionCategory.upsert({
+            where: { 
+              name_created_by: {
+                name: categoryName,
+                created_by: createdBy,
+              }
+            },
+            update: {},
+            create: { 
+              name: categoryName,
+              created_by: createdBy,
+            },
+          });
+          categoryMap.set(categoryName, category.category_id);
+        }
+
+        for (const { rowNumber, data } of parsedRows) {
+          try {
+            // Validate row
+            const validationErrors = this.validateRow(data);
+            if (validationErrors.length > 0) {
+              errors.push({
+                row: rowNumber,
+                content: data.content,
+                errors: validationErrors,
+              });
+              failed++;
+              continue;
+            }
+
+            // Get category ID from pre-fetched map
+            let categoryId: number | null = null;
+            if (data.category_name && data.category_name.trim() !== '') {
+              categoryId = categoryMap.get(data.category_name.trim()) || null;
+            }
+
+            // Build options JSON from 8 pairs of (text, checkbox)
+            let options = null;
+            if (data.type === 'multiple_choice') {
+              // Get all 8 option pairs (text + checkbox)
+              const optionsData = [
+                { text: data.F, correct: data.G }, // Option A
+                { text: data.H, correct: data.I }, // Option B
+                { text: data.J, correct: data.K }, // Option C
+                { text: data.L, correct: data.M }, // Option D
+                { text: data.N, correct: data.O }, // Option E
+                { text: data.P, correct: data.Q }, // Option F
+                { text: data.R, correct: data.S }, // Option G
+                { text: data.T, correct: data.U }, // Option H
+              ].filter((opt) => opt.text && opt.text.trim() !== '');
+
+              if (optionsData.length === 0) {
+                errors.push({
+                  row: rowNumber,
+                  content: data.content,
+                  errors: ['Multiple choice question must have at least one option'],
+                });
+                failed++;
+                continue;
+              }
+
+              // Build options with prefix (= for correct, ~ for incorrect)
+              options = optionsData.map((opt, index) => {
+                const isCorrect = opt.correct === 'true' || opt.correct === 'TRUE' || opt.correct === '1';
+                const prefix = isCorrect ? '=' : '~';
+                return {
+                  id: index + 1,
+                  text: `${prefix}${opt.text.trim()}`,
+                };
+              });
+
+              // Validate at least one correct answer
+              const hasCorrectAnswer = options.some(opt => opt.text.startsWith('='));
+              if (!hasCorrectAnswer) {
+                errors.push({
+                  row: rowNumber,
+                  content: data.content,
+                  errors: ['Multiple choice question must have at least one correct answer'],
+                });
+                failed++;
+                continue;
+              }
+            }
+
+            // Create question
+            await tx.question.create({
+              data: {
+                content: data.content.trim(),
+                type: data.type as any,
+                difficulty: (data.difficulty || 'medium') as any,
+                is_multiple_answer: data.is_multiple_answer === 'true',
+                options: options,
+                category_id: categoryId,
+                created_by: createdBy,
+                is_public: data.is_public === 'true',
+              },
+            });
+
+            imported++;
+          } catch (error) {
+            errors.push({
+              row: rowNumber,
+              content: data.content,
+              errors: [`Failed to import: ${error.message}`],
+            });
+            failed++;
+          }
+        }
+      });
+
+      return {
+        success: failed === 0,
+        total: parsedRows.length,
+        imported,
+        failed,
+        errors,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to import questions: ${error.message}`);
+    }
+  }
+
+  /**
+   * Convert DTO to internal ExcelQuestionRow format
+   */
+  private convertDtoToExcelRow(dto: ImportQuestionItemDto): ExcelQuestionRow {
+    return {
+      content: dto.content || '',
+      type: dto.type || '',
+      category_name: dto.category_name || '',
+      difficulty: dto.difficulty || '',
+      is_multiple_answer: dto.is_multiple_answer || '',
+      F: dto.F || '',
+      G: dto.G || '',
+      H: dto.H || '',
+      I: dto.I || '',
+      J: dto.J || '',
+      K: dto.K || '',
+      L: dto.L || '',
+      M: dto.M || '',
+      N: dto.N || '',
+      O: dto.O || '',
+      P: dto.P || '',
+      Q: dto.Q || '',
+      R: dto.R || '',
+      S: dto.S || '',
+      T: dto.T || '',
+      U: dto.U || '',
+      is_public: dto.is_public || '',
+    };
   }
 
   /**
