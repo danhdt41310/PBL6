@@ -47,6 +47,7 @@ import {
   UpdateRemainingTimeDto,
   AnswerCorrectnessDto,
 } from '../dto/exam.dto'
+import { ImportQuestionsArrayDto } from '../dto/question-import.dto'
 import { SkipPermissionCheck } from '../common/decorators/skip-permission-check.decorator'
 import { FileValidationInterceptor } from '../common/interceptors/file-validation.interceptor'
 import { DefaultFileUploadConfigs } from '../common/types/file.types'
@@ -1255,6 +1256,34 @@ export class ExamsController {
     return firstValueFrom(
       this.examsService.send('questions.import.execute', {
         buffer: file.buffer.toString('base64'),
+        createdBy: req.user.userId,
+      })
+    )
+  }
+
+  /**
+   * Import questions from JSON array (parsed from FE)
+   */
+  @Post('questions/import/json')
+  @ApiOperation({
+    summary: 'Import questions from JSON array',
+    description: 'Import questions from a JSON array parsed from Excel on the frontend. Categories will be auto-created if not exist.'
+  })
+  @ApiBody({ type: ImportQuestionsArrayDto })
+  @ApiResponse({ status: 201, description: 'Questions imported successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid data or validation errors' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - authentication required' })
+  async importQuestionsFromArray(
+    @Body(ValidationPipe) importDto: ImportQuestionsArrayDto,
+    @Req() req: RequestWithUser
+  ) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('User not authenticated')
+    }
+
+    return firstValueFrom(
+      this.examsService.send('questions.import.fromArray', {
+        questions: importDto.questions,
         createdBy: req.user.userId,
       })
     )

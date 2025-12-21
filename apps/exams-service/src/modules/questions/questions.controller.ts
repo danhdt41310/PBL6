@@ -11,6 +11,7 @@ import {
   UpdateQuestionDto,
   QuestionCategoryFilterDto,
   GetRandomQuestionsDto,
+  ImportQuestionsArrayDto,
 } from 'src/modules/questions/dto'
 
 @Controller('questions')
@@ -102,6 +103,14 @@ export class QuestionsController {
     // Convert base64 string back to Buffer
     const buffer = Buffer.from(data.buffer, 'base64');
     return await this.questionsImportService.importExcel(buffer, data.createdBy);
+  }
+
+  /**
+   * Import questions from JSON array (parsed from FE)
+   */
+  @MessagePattern('questions.import.fromArray')
+  async importFromArray(@Payload() data: ImportQuestionsArrayDto & { createdBy: number }) {
+    return await this.questionsImportService.importFromArray(data.questions, data.createdBy);
   }
 
   // ============================================================

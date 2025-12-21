@@ -1,4 +1,5 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsNotEmpty, IsInt, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 /**
  * Import Excel Response DTO
@@ -15,6 +16,117 @@ export interface ImportQuestionError {
   row: number;
   content: string;
   errors: string[];
+}
+
+/**
+ * Single Question Import DTO (from FE parsed data)
+ */
+export class ImportQuestionItemDto {
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @IsString()
+  @IsOptional()
+  category_name?: string;
+
+  @IsString()
+  @IsOptional()
+  difficulty?: string;
+
+  @IsString()
+  @IsOptional()
+  is_multiple_answer?: string;
+
+  // Option A
+  @IsString()
+  @IsOptional()
+  F?: string;
+
+  @IsString()
+  @IsOptional()
+  G?: string;
+
+  // Option B
+  @IsString()
+  @IsOptional()
+  H?: string;
+
+  @IsString()
+  @IsOptional()
+  I?: string;
+
+  // Option C
+  @IsString()
+  @IsOptional()
+  J?: string;
+
+  @IsString()
+  @IsOptional()
+  K?: string;
+
+  // Option D
+  @IsString()
+  @IsOptional()
+  L?: string;
+
+  @IsString()
+  @IsOptional()
+  M?: string;
+
+  // Option E
+  @IsString()
+  @IsOptional()
+  N?: string;
+
+  @IsString()
+  @IsOptional()
+  O?: string;
+
+  // Option F
+  @IsString()
+  @IsOptional()
+  P?: string;
+
+  @IsString()
+  @IsOptional()
+  Q?: string;
+
+  // Option G
+  @IsString()
+  @IsOptional()
+  R?: string;
+
+  @IsString()
+  @IsOptional()
+  S?: string;
+
+  // Option H
+  @IsString()
+  @IsOptional()
+  T?: string;
+
+  @IsString()
+  @IsOptional()
+  U?: string;
+
+  @IsString()
+  @IsOptional()
+  is_public?: string;
+}
+
+/**
+ * Import Questions Array DTO (from FE)
+ */
+export class ImportQuestionsArrayDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ImportQuestionItemDto)
+  questions: ImportQuestionItemDto[];
 }
 
 /**

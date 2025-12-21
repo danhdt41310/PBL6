@@ -21,8 +21,9 @@ COPY packages/ ./packages/
 COPY apps/users-service/.env ./apps/users-service/.env
 COPY apps/users-service/start-dev.sh ./apps/users-service/start-dev.sh
 
-# Make start script executable
-RUN chmod +x ./apps/users-service/start-dev.sh
+# Make start script executable and fix line endings
+RUN chmod +x ./apps/users-service/start-dev.sh && \
+    sed -i 's/\r$//' ./apps/users-service/start-dev.sh
 
 
 # Install all dependencies (including dev dependencies)

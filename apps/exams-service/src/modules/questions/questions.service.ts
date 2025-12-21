@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { QuestionsRepository } from './questions.repository'
-import { PrismaClient } from '@prisma/exams-client'
 import { 
   CreateQuestionDto, 
   UpdateQuestionDto, 
@@ -33,7 +32,6 @@ export class QuestionsService {
   // ============================================================
   async createCategory(createCategoryDto: CreateQuestionCategoryDto) {
     try {
-      console.log('Creating category with name:', createCategoryDto)
       const category = await this.questionsRepository.createCategory(createCategoryDto);
       return category
     } catch (error) {
@@ -45,7 +43,6 @@ export class QuestionsService {
   }
 
   async findAllCategories(filterDto?: QuestionCategoryFilterDto) {
-    console.log('[Service findAllCategories] Called with:', filterDto)
     try {
       const where: any = {}
 
