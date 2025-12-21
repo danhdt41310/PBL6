@@ -638,10 +638,21 @@ export class UsersController {
   updateProfile(
     @Param('id', ParseIntPipe) id: number,
     @Body() profile: UpdateProfileDto,
+    @Req() req: RequestWithUser,
   ) {
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    const auditContext = (req as any).auditContext;
+
     return this.usersClient.send(USER_PATTERNS.UPDATE_PROFILE, {
       user_id: id,
       profile,
+      actorInfo,
+      auditContext,
     });
   }
 
@@ -659,9 +670,22 @@ export class UsersController {
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({ status: 201, description: 'User created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
+  async create(
+    @Body(ValidationPipe) createUserDto: CreateUserDto,
+    @Req() req: RequestWithUser,
+  ) {
     console.log('create user', createUserDto);
-    return this.usersClient.send(USER_PATTERNS.CREATE, createUserDto);
+    
+    const actorInfo = req.user ? {
+      userId: req.user.userId,
+      email: req.user.email,
+      fullName: req.user.fullName,
+    } : undefined;
+
+    return this.usersClient.send(USER_PATTERNS.CREATE, {
+      ...createUserDto,
+      actorInfo,
+    });
   }
 
   @Post('login')

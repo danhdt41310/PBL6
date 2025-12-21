@@ -90,16 +90,22 @@ export class UsersController {
 
   @MessagePattern(USER_PATTERNS.UPDATE_PROFILE)
   async updateProfile(
-    @Payload() data: { user_id: number; profile: UpdateProfileDto },
+    @Payload() data: { 
+      user_id: number; 
+      profile: UpdateProfileDto;
+      actorInfo?: { userId: number; email: string; fullName: string };
+      auditContext?: { ipAddress?: string; userAgent?: string; requestMethod?: string; requestPath?: string };
+    },
   ): Promise<UserResponseDto> {
-    return this.usersService.updateProfile(data.user_id, data.profile);
+    return this.usersService.updateProfile(data.user_id, data.profile, data.actorInfo);
   }
 
   @MessagePattern(USER_PATTERNS.CREATE)
   async create(
-    @Payload() createUserDto: CreateUserDto,
+    @Payload() data: CreateUserDto & { actorInfo?: { userId: number; email: string; fullName: string } },
   ): Promise<CreateUserResponseDto> {
-    return this.usersService.create(createUserDto);
+    const { actorInfo, ...createUserDto } = data;
+    return this.usersService.create(createUserDto, actorInfo);
   }
 
   @MessagePattern(USER_PATTERNS.GET_LIST_BY_EMAILS)
