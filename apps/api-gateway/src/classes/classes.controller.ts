@@ -861,6 +861,8 @@ export class ClassesController {
     }
   }
 
+  
+  @SkipPermissionCheck()
   @Get(':id/get-all-materials')
   @ApiOperation({
     summary: 'Get all materials',
