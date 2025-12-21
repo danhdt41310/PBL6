@@ -139,7 +139,8 @@ export class AppModule implements NestModule {
         { path: 'admin/*', method: RequestMethod.ALL },
         { path: 'classes/of/:role/:id', method: RequestMethod.GET},
         { path: 'exams/of', method: RequestMethod.POST},
-        { path: 'exams/answer-correctness', method: RequestMethod.POST}
+        { path: 'exams/answer-correctness', method: RequestMethod.POST},
+        { path: 'classes/:id/get-all-materials', method: RequestMethod.GET}
       )
       .forRoutes('*');
 
