@@ -343,17 +343,16 @@ export class QuestionInExamDto {
   @ApiProperty({ 
     description: 'Points awarded for this question',
     example: 10,
-    minimum: 1
+    minimum: 0.01
   })
   @IsNotEmpty({ message: 'Points are required' })
   @IsNumber(
     { allowNaN: false, maxDecimalPlaces: 2 },
     { message: 'Points must be a valid number (up to 2 decimal places)' }
   )
-  @Min(1, { message: 'Points must be at least 1' })
+  @Min(0.01, { message: 'Points must be greater than 0' })
   points: number
 }
-
 export class CreateExamDto {
   @ApiProperty({ 
     description: 'Class ID this exam belongs to',
@@ -447,7 +446,6 @@ export class CreateExamDto {
   @Type(() => QuestionInExamDto)
   questions: QuestionInExamDto[]
 }
-
 export class UpdateExamDto {
   @ApiPropertyOptional({ 
     description: 'Class ID this exam belongs to',
